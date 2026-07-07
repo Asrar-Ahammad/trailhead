@@ -71,11 +71,13 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
         // Return cached asset immediately, but optionally refresh cache in background
-        fetch(request).then((freshResponse) => {
-          if (freshResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, freshResponse));
-          }
-        }).catch(() => {/* Ignore background refresh failures offline */});
+        event.waitUntil(
+          fetch(request).then((freshResponse) => {
+            if (freshResponse.status === 200) {
+              return caches.open(CACHE_NAME).then((cache) => cache.put(request, freshResponse));
+            }
+          }).catch(() => {/* Ignore background refresh failures offline */})
+        );
         
         return cachedResponse;
       }

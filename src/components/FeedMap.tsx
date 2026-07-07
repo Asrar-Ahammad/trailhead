@@ -19,9 +19,13 @@ export default function FeedMap({ runId }: FeedMapProps) {
       try {
         const res = await fetch(`/api/runs/${runId}/points`);
         if (res.ok) {
+          interface PointResponseItem {
+            lat: number;
+            lng: number;
+          }
           const data = await res.json();
           if (!cancelled && Array.isArray(data)) {
-            setPoints(data.map((p: any) => ({ lat: p.lat, lng: p.lng })));
+            setPoints(data.map((p: PointResponseItem) => ({ lat: p.lat, lng: p.lng })));
           }
         }
       } catch (e) {

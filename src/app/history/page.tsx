@@ -160,7 +160,7 @@ export default function HistoryPage() {
     async function loadRuns() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/runs?page=${page}&limit=10`);
+        const res = await fetch(`/api/runs?page=${page}&limit=10&sortField=${sortField}&sortOrder=${sortOrder}`);
         if (res.ok) {
           const data = await res.json();
           setRuns(data.runs);
@@ -174,11 +174,12 @@ export default function HistoryPage() {
       }
     }
     loadRuns();
-  }, [page]);
+  }, [page, sortField, sortOrder]);
 
   // Load detailed coordinates when a run is selected
   const handleSelectRun = async (run: Run) => {
     setSelectedRun(run);
+    setSelectedRunPoints([]);
     setLoadingDetails(true);
     try {
       const res = await fetch(`/api/runs/${run.id}`);
@@ -199,18 +200,7 @@ export default function HistoryPage() {
     setSortOrder(isAsc ? 'desc' : 'asc');
   };
 
-  const sortedRuns = [...runs].sort((a, b) => {
-    let valA = a[sortField] || 0;
-    let valB = b[sortField] || 0;
-
-    if (sortField === 'startTime') {
-      valA = new Date(a.startTime).getTime();
-      valB = new Date(b.startTime).getTime();
-    }
-
-    if (valA === valB) return 0;
-    return sortOrder === 'asc' ? (valA < valB ? -1 : 1) : (valA > valB ? -1 : 1);
-  });
+  const sortedRuns = runs;
 
   const splits = calculateSplits(selectedRunPoints);
 

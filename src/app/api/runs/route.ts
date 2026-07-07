@@ -52,6 +52,14 @@ export async function POST(req: Request) {
     const startTime = new Date(parsed.startTime);
     const endTime = new Date(parsed.endTime);
 
+    if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+      return NextResponse.json({ error: 'Invalid start or end time format' }, { status: 400 });
+    }
+
+    if (endTime < startTime) {
+      return NextResponse.json({ error: 'End time cannot be earlier than start time' }, { status: 400 });
+    }
+
     const run = await dbServer.run.create({
       data: {
         id: runId,
@@ -61,7 +69,7 @@ export async function POST(req: Request) {
         distanceM: parsed.distanceM,
         durationS: parsed.durationS,
         avgPaceSPerKm: parsed.avgPaceSPerKm,
-        elevationGainM: parsed.elevationGainM || null,
+        elevationGainM: parsed.elevationGainM !== undefined && parsed.elevationGainM !== null ? parsed.elevationGainM : null,
         title: parsed.title || null,
       },
     });
@@ -87,12 +95,30 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get('limit') || '10')));
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+
+    let pageNum = parseInt(pageParam || '1');
+    let limitNum = parseInt(limitParam || '10');
+
+    if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+    if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
+
+    const page = pageNum;
+    const limit = Math.min(100, limitNum);
     const skip = (page - 1) * limit;
 
+    const sortField = searchParams.get('sortField') || 'startTime';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+
+    const validSortFields = ['startTime', 'distanceM', 'avgPaceSPerKm'];
+    const validSortOrders = ['asc', 'desc'];
+
+    const activeSortField = validSortFields.includes(sortField) ? sortField : 'startTime';
+    const activeSortOrder = validSortOrders.includes(sortOrder) ? sortOrder : 'desc';
+
     const [runs, total] = await Promise.all([
-      getCachedRuns(userId, limit, skip),
+      getCachedRuns(userId, limit, skip, activeSortField, activeSortOrder),
       getCachedRunCount(userId),
     ]);
 

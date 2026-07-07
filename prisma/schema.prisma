@@ -9,10 +9,12 @@ generator client {
 }
 
 model User {
-  id        String   @id // Clerk user id
-  email     String   @unique
-  createdAt DateTime @default(now())
-  runs      Run[]
+  id              String           @id // Clerk user id
+  email           String           @unique
+  createdAt       DateTime         @default(now())
+  runs            Run[]
+  personalRecords PersonalRecord[]
+  streak          Streak?
 }
 
 model Run {
@@ -41,21 +43,28 @@ model RunPoint {
   timestamp DateTime
   accuracy  Float?
   sequence  Int      // order within run
+
+  @@unique([runId, sequence])
+  @@index([runId])
 }
 
 model PersonalRecord {
   id         String   @id @default(cuid())
   userId     String
+  user       User     @relation(fields: [userId], references: [id])
   category   String   // "100m","1k","5k","10k","half","marathon","longest_run","longest_duration","max_elevation"
   runId      String
   value      Float    // time in seconds for distance categories, meters/seconds for others
   achievedAt DateTime
   rank       Int      // 1, 2, or 3
+
+  @@unique([userId, category, rank])
 }
 
 model Streak {
   id            String   @id @default(cuid())
   userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
   currentCount  Int
   longestCount  Int
   lastRunDate   DateTime

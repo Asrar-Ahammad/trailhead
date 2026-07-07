@@ -42,8 +42,7 @@ export default function StatsPage() {
         const res = await fetch('/api/runs?limit=100'); // Fetch up to 100 recent runs for trends
         if (res.ok) {
           const data = await res.json();
-          // Sort chronologically for chart display
-          const chronological = [...data.runs].reverse();
+          const chronological = [...(data.runs || [])].reverse();
           setRuns(chronological);
         }
       } catch (err) {

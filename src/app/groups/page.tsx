@@ -11,20 +11,9 @@ import {
   Path,
 } from '@phosphor-icons/react';
 
+import { categoryConfig } from '@/lib/categoryConfig';
+
 const springConfig = { type: 'spring' as const, stiffness: 400, damping: 17 };
-
-function formatPace(paceSecPerKm: number): string {
-  if (!paceSecPerKm || paceSecPerKm <= 0 || paceSecPerKm > 3600) return '-:--';
-  const mins = Math.floor(paceSecPerKm / 60);
-  const secs = Math.floor(paceSecPerKm % 60);
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function formatDuration(durationS: number): string {
-  const mins = Math.floor(durationS / 60);
-  const secs = Math.floor(durationS % 60);
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
 
 interface Record {
   id: string;
@@ -33,13 +22,6 @@ interface Record {
   rank: number;
   achievedAt: string;
 }
-
-const categoryConfig: { [key: string]: { label: string; icon: any; unit: string; format: (v: number) => string } } = {
-  fastest_100m: { label: 'Fastest 100m', icon: Lightning, unit: '', format: (v) => formatDuration(v) },
-  fastest_1k: { label: 'Fastest 1K', icon: Timer, unit: '', format: (v) => formatDuration(v) },
-  fastest_5k: { label: 'Fastest 5K', icon: Path, unit: '', format: (v) => formatDuration(v) },
-  fastest_10k: { label: 'Fastest 10K', icon: Path, unit: '', format: (v) => formatDuration(v) },
-};
 
 const rankColors = ['text-amber-400', 'text-zinc-300', 'text-amber-600'];
 const rankBgs = ['bg-amber-400/10 border-amber-400/20', 'bg-zinc-300/10 border-zinc-300/20', 'bg-amber-600/10 border-amber-600/20'];

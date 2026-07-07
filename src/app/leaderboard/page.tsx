@@ -173,7 +173,7 @@ export default function LeaderboardPage() {
                             </div>
 
                             <Link 
-                              href={`/history`}
+                              href={`/runs/${entry.runId}`}
                               className="text-[10px] font-bold text-primary hover:underline"
                             >
                               View Run

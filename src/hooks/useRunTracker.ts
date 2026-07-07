@@ -47,9 +47,29 @@ export function useRunTracker(
   // Stats
   const [distanceM, setDistanceM] = useState<number>(0);
   const [durationS, setDurationS] = useState<number>(0);
+interface WakeLockSentinel {
+  release(): Promise<void>;
+}
+interface WakeLock {
+  request(type: 'screen'): Promise<WakeLockSentinel>;
+}
+interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
+  wakeLock?: WakeLock;
+}
+
   const [currentPace, setCurrentPace] = useState<number>(0); // seconds per km
   const [rawPoints, setRawPoints] = useState<RunPointDraft[]>([]);
   const [smoothedPoints, setSmoothedPoints] = useState<{ lat: number; lng: number; timestamp: number }[]>([]);
+
+  const distanceMRef = useRef<number>(0);
+  useEffect(() => {
+    distanceMRef.current = distanceM;
+  }, [distanceM]);
+
+  const rawPointsRef = useRef<RunPointDraft[]>([]);
+  useEffect(() => {
+    rawPointsRef.current = rawPoints;
+  }, [rawPoints]);
   
   // Recovery notification state
   const [isRecovering, setIsRecovering] = useState<boolean>(false);
@@ -71,8 +91,9 @@ export function useRunTracker(
 
   // Refs for tracking
   const watchIdRef = useRef<number | null>(null);
-  const wakeLockRef = useRef<any>(null); // WakeLockSentinel
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const runStartTimeRef = useRef<number | null>(null);
   const elapsedBeforePauseRef = useRef<number>(0);
   const tickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -81,12 +102,11 @@ export function useRunTracker(
   const pendingPointsRef = useRef<RunPointDraft[]>([]);
   const nextSequenceRef = useRef<number>(0);
 
-  // Wake Lock helpers
   const requestWakeLock = useCallback(async () => {
     if (typeof window === 'undefined' || !('wakeLock' in navigator)) return;
     if (document.visibilityState !== 'visible') return;
     try {
-      wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      wakeLockRef.current = await (navigator as NavigatorWithWakeLock).wakeLock!.request('screen');
     } catch (err) {
       console.warn('Wake Lock request failed:', err);
     }
@@ -226,55 +246,6 @@ export function useRunTracker(
     setSmoothedPoints(smoothed);
   }, []);
 
-  // Rolling pace calculation (10-second window)
-  const updateRollingPace = useCallback((points: RunPointDraft[]) => {
-    if (points.length < 2) {
-      setCurrentPace(0);
-      return;
-    }
-    const now = Date.now();
-    const windowStart = now - 10000; // last 10 seconds
-    const windowPoints = points.filter(p => p.timestamp >= windowStart);
-
-    if (windowPoints.length < 2) {
-      // Fallback: use last 2 points overall if not enough points in last 10s
-      const lastPoints = points.slice(-2);
-      const dist = haversineDistance(
-        lastPoints[0].lat,
-        lastPoints[0].lng,
-        lastPoints[1].lat,
-        lastPoints[1].lng
-      );
-      const timeDiff = (lastPoints[1].timestamp - lastPoints[0].timestamp) / 1000;
-      if (dist > 0.1 && timeDiff > 0) {
-        const pace = timeDiff / (dist / 1000); // s/km
-        setCurrentPace(isFinite(pace) ? pace : 0);
-      } else {
-        setCurrentPace(0);
-      }
-      return;
-    }
-
-    // Compute total distance covered in the 10s window
-    let windowDist = 0;
-    for (let i = 1; i < windowPoints.length; i++) {
-      windowDist += haversineDistance(
-        windowPoints[i-1].lat,
-        windowPoints[i-1].lng,
-        windowPoints[i].lat,
-        windowPoints[i].lng
-      );
-    }
-    const windowTime = (windowPoints[windowPoints.length - 1].timestamp - windowPoints[0].timestamp) / 1000;
-
-    if (windowDist > 0.5 && windowTime > 0) {
-      const pace = windowTime / (windowDist / 1000);
-      setCurrentPace(isFinite(pace) ? pace : 0);
-    } else {
-      setCurrentPace(0);
-    }
-  }, []);
-
   // Geolocation watch callback handler
   const handleNewPosition = useCallback((position: GeolocationPosition) => {
     const { latitude: lat, longitude: lng, accuracy, speed } = position.coords;
@@ -287,76 +258,113 @@ export function useRunTracker(
     // Reject points where computed speed looks like a GPS jump (> 12 m/s)
     if (speed !== null && speed > 12) return;
 
-    setRawPoints((prev) => {
-      let deltaD = 0;
-      if (prev.length > 0) {
-        const lastPt = prev[prev.length - 1];
-        deltaD = haversineDistance(lastPt.lat, lastPt.lng, lat, lng);
+    const prevPoints = rawPointsRef.current;
+    let deltaD = 0;
+    if (prevPoints.length > 0) {
+      const lastPt = prevPoints[prevPoints.length - 1];
+      deltaD = haversineDistance(lastPt.lat, lastPt.lng, lat, lng);
+      
+      const timeDelta = (timestamp - lastPt.timestamp) / 1000;
+      if (timeDelta > 0) {
+        const computedSpeed = deltaD / timeDelta;
+        if (computedSpeed > 12) return; // Reject jump
+      }
+    }
+
+    const newPoint: RunPointDraft = {
+      id: generateId(),
+      runId: currentRunId || '',
+      lat,
+      lng,
+      elevation: position.coords.altitude,
+      timestamp,
+      accuracy,
+      speed,
+      sequence: nextSequenceRef.current++,
+    };
+
+    // Incremental smoothed point calculation (O(1) sliding window of 5)
+    const windowSize = 5;
+    const lastRawPoints = [...prevPoints.slice(-(windowSize - 1)), newPoint];
+    const latAvg = lastRawPoints.reduce((sum, pt) => sum + pt.lat, 0) / lastRawPoints.length;
+    const lngAvg = lastRawPoints.reduce((sum, pt) => sum + pt.lng, 0) / lastRawPoints.length;
+    const newSmoothedPt = {
+      lat: latAvg,
+      lng: lngAvg,
+      timestamp: newPoint.timestamp,
+    };
+
+    // Incremental pace calculation (O(1) sliding window of 10s)
+    const tenSecsAgo = Date.now() - 10000;
+    const lastRawPointsWithNew = [...prevPoints, newPoint];
+    const windowPoints = lastRawPointsWithNew.filter(p => p.timestamp >= tenSecsAgo);
+    let pace = 0;
+    if (windowPoints.length < 2) {
+      const last2 = lastRawPointsWithNew.slice(-2);
+      if (last2.length === 2) {
+        const dist = haversineDistance(last2[0].lat, last2[0].lng, last2[1].lat, last2[1].lng);
+        const timeDiff = (last2[1].timestamp - last2[0].timestamp) / 1000;
+        if (dist > 0.1 && timeDiff > 0) {
+          const p = timeDiff / (dist / 1000);
+          pace = isFinite(p) ? p : 0;
+        }
+      }
+    } else {
+      let windowDist = 0;
+      for (let i = 1; i < windowPoints.length; i++) {
+        windowDist += haversineDistance(
+          windowPoints[i-1].lat,
+          windowPoints[i-1].lng,
+          windowPoints[i].lat,
+          windowPoints[i].lng
+        );
+      }
+      const windowTime = (windowPoints[windowPoints.length - 1].timestamp - windowPoints[0].timestamp) / 1000;
+      if (windowDist > 0.5 && windowTime > 0) {
+        const p = windowTime / (windowDist / 1000);
+        pace = isFinite(p) ? p : 0;
+      }
+    }
+
+    // Pure state updates
+    setRawPoints(prev => [...prev, newPoint]);
+    setSmoothedPoints(prev => [...prev, newSmoothedPt]);
+    setCurrentPace(pace);
+    setDistanceM(d => d + deltaD);
+
+    // Async side effects (persistence and announcements) outside state updaters
+    const newD = distanceMRef.current + deltaD;
+    const currentKm = Math.floor(newD / 1000);
+    if (currentKm > lastKilometerCrossedRef.current) {
+      const kmNumber = currentKm;
+      const currentDuration = durationSRef.current;
+      const completedSplitDuration = currentDuration - elapsedAtLastKmRef.current;
+      
+      elapsedAtLastKmRef.current = currentDuration;
+      lastKilometerCrossedRef.current = currentKm;
+
+      if (voiceFeedbackEnabledRef.current && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const mins = Math.floor(completedSplitDuration / 60);
+        const secs = Math.floor(completedSplitDuration % 60);
+        const overallPaceMin = Math.floor((currentDuration / (newD / 1000)) / 60);
+        const overallPaceSec = Math.floor((currentDuration / (newD / 1000)) % 60);
         
-        // Additional protection: calculate speed from last coordinate time delta
-        const timeDelta = (timestamp - lastPt.timestamp) / 1000;
-        if (timeDelta > 0) {
-          const computedSpeed = deltaD / timeDelta;
-          if (computedSpeed > 12) {
-            // Reject jump
-            return prev;
-          }
-        }
+        const message = `Kilometer ${kmNumber} completed in ${mins} minute${mins !== 1 ? 's' : ''} and ${secs} second${secs !== 1 ? 's' : ''}. Current pace is ${overallPaceMin} minute${overallPaceMin !== 1 ? 's' : ''} and ${overallPaceSec} second${overallPaceSec !== 1 ? 's' : ''} per kilometer.`;
+        
+        const utterance = new SpeechSynthesisUtterance(message);
+        window.speechSynthesis.speak(utterance);
       }
+    }
 
-      const newPoint: RunPointDraft = {
-        id: generateId(),
-        runId: currentRunId || '',
-        lat,
-        lng,
-        elevation: position.coords.altitude,
-        timestamp,
-        accuracy,
-        speed,
-        sequence: nextSequenceRef.current++,
-      };
-
-      const updated = [...prev, newPoint];
-      setDistanceM((d) => {
-        const newD = d + deltaD;
-        const currentKm = Math.floor(newD / 1000);
-        if (currentKm > lastKilometerCrossedRef.current) {
-          const kmNumber = currentKm;
-          const currentDuration = durationSRef.current;
-          const completedSplitDuration = currentDuration - elapsedAtLastKmRef.current;
-          
-          elapsedAtLastKmRef.current = currentDuration;
-          lastKilometerCrossedRef.current = currentKm;
-
-          // Announce via Web Speech API
-          if (voiceFeedbackEnabledRef.current && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            const mins = Math.floor(completedSplitDuration / 60);
-            const secs = Math.floor(completedSplitDuration % 60);
-            const overallPaceMin = Math.floor((currentDuration / (newD / 1000)) / 60);
-            const overallPaceSec = Math.floor((currentDuration / (newD / 1000)) % 60);
-            
-            const message = `Kilometer ${kmNumber} completed in ${mins} minute${mins !== 1 ? 's' : ''} and ${secs} second${secs !== 1 ? 's' : ''}. Current pace is ${overallPaceMin} minute${overallPaceMin !== 1 ? 's' : ''} and ${overallPaceSec} second${overallPaceSec !== 1 ? 's' : ''} per kilometer.`;
-            
-            const utterance = new SpeechSynthesisUtterance(message);
-            window.speechSynthesis.speak(utterance);
-          }
-        }
-        return newD;
+    pendingPointsRef.current.push(newPoint);
+    if (pendingPointsRef.current.length >= 5) {
+      const toSave = [...pendingPointsRef.current];
+      pendingPointsRef.current = [];
+      addRunPoints(toSave).catch((err) => {
+        console.error('Failed to persist points to IndexedDB:', err);
       });
-      updateRollingPace(updated);
-      computeSmoothedPoints(updated);
-
-      // Add to batch queue
-      pendingPointsRef.current.push(newPoint);
-      if (pendingPointsRef.current.length >= 5) {
-        const toSave = [...pendingPointsRef.current];
-        pendingPointsRef.current = [];
-        addRunPoints(toSave);
-      }
-
-      return updated;
-    });
-  }, [currentRunId, updateRollingPace, computeSmoothedPoints]);
+    }
+  }, [currentRunId]);
 
   // Start active run tracking
   const startRun = useCallback(async () => {
@@ -371,6 +379,7 @@ export function useRunTracker(
     setCurrentPace(0);
     elapsedBeforePauseRef.current = 0;
     startTimeRef.current = Date.now();
+    runStartTimeRef.current = startTimeRef.current;
     nextSequenceRef.current = 0;
     pendingPointsRef.current = [];
     lastKilometerCrossedRef.current = 0;
@@ -378,7 +387,7 @@ export function useRunTracker(
 
     setRunState('running');
     await requestWakeLock();
-    await saveCurrentDraft(newId, startTimeRef.current, 'running', 0, 0);
+    await saveCurrentDraft(newId, runStartTimeRef.current, 'running', 0, 0);
 
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -409,7 +418,7 @@ export function useRunTracker(
     if (currentRunId) {
       await saveCurrentDraft(
         currentRunId,
-        Date.now(), // dummy start to satisfy types, won't corrupt duration
+        runStartTimeRef.current || Date.now(),
         'paused',
         distanceM,
         durationS
@@ -453,7 +462,7 @@ export function useRunTracker(
 
     // Save final status as completed
     if (currentRunId) {
-      const finalStart = startTimeRef.current || Date.now();
+      const finalStart = runStartTimeRef.current || startTimeRef.current || Date.now();
       await saveCurrentDraft(currentRunId, finalStart, 'stopped', distanceM, durationS);
     }
 
@@ -499,6 +508,7 @@ export function useRunTracker(
           setCurrentRunId(activeDraft.id);
           setDistanceM(activeDraft.distanceM);
           setDurationS(activeDraft.durationS);
+          runStartTimeRef.current = activeDraft.startTime;
           elapsedBeforePauseRef.current = activeDraft.durationS;
           lastKilometerCrossedRef.current = Math.floor(activeDraft.distanceM / 1000);
           elapsedAtLastKmRef.current = activeDraft.durationS;
@@ -532,14 +542,16 @@ export function useRunTracker(
     }
 
     recoverDraft();
+  }, [handleNewPosition, computeSmoothedPoints, requestWakeLock, onCorruptionDetected]);
 
-    // Clean up watches on unmount
+  // Clean up watches on unmount
+  useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [handleNewPosition, computeSmoothedPoints, requestWakeLock, onCorruptionDetected]);
+  }, []);
 
   return {
     runState,

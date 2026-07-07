@@ -80,14 +80,14 @@ export default function RunDetailsPage({ params }: { params: Promise<{ id: strin
       try {
         const [runRes, pointsRes] = await Promise.all([
           fetch(`/api/runs/${id}`),
-          fetch(`/api/runs/${id}/points`)
+          fetch(`/api/runs/${id}`)
         ]);
         
         if (runRes.ok && pointsRes.ok) {
           const runData = await runRes.json();
           const pointsData = await pointsRes.json();
           setRun(runData);
-          setPoints(pointsData);
+          setPoints(pointsData.points || []);
         } else {
           router.push('/');
         }

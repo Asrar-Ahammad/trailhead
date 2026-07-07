@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { dbServer } from '@/lib/db-server';
+import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
-import { checkForRecords } from '@/lib/prEngine';
+import { checkForRecords, NewRecordNotification } from '@/lib/prEngine';
 import { updateStreak } from '@/lib/streakEngine';
 
 const pointSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   elevation: z.number().nullable().optional(),
-  timestamp: z.string().or(z.number()),
+  timestamp: z.union([z.string(), z.number()]).refine((val) => {
+    const d = new Date(val);
+    return !isNaN(d.getTime());
+  }, { message: "Invalid timestamp format" }),
   accuracy: z.number().nullable().optional(),
   sequence: z.number().int().nonnegative(),
 });
@@ -48,26 +52,25 @@ export async function POST(
       return NextResponse.json({ error: 'Payload too large. Maximum 500 points allowed per call.' }, { status: 400 });
     }
 
-    // Insert points in transaction
+    // Insert points using createMany to prevent duplicates
     const pointsData = parsedPoints.map((p) => ({
       runId,
       lat: p.lat,
       lng: p.lng,
-      elevation: p.elevation || null,
+      elevation: p.elevation !== undefined && p.elevation !== null ? p.elevation : null,
       timestamp: new Date(p.timestamp),
-      accuracy: p.accuracy || null,
+      accuracy: p.accuracy !== undefined && p.accuracy !== null ? p.accuracy : null,
       sequence: p.sequence,
     }));
 
-    await dbServer.$transaction(
-      pointsData.map((pt) =>
-        dbServer.runPoint.create({
-          data: pt,
-        })
-      )
-    );
+    await dbServer.runPoint.createMany({
+      data: pointsData,
+      skipDuplicates: true,
+    });
 
-    let prsAchieved: any[] = [];
+    revalidateTag(`run-detail-${runId}`, 'max');
+
+    let prsAchieved: NewRecordNotification[] = [];
     if (done) {
       // 1. Run Personal Record calculations
       prsAchieved = await checkForRecords(runId);
@@ -100,6 +103,14 @@ export async function GET(
     }
 
     const { id: runId } = await params;
+
+    const run = await dbServer.run.findUnique({
+      where: { id: runId },
+    });
+
+    if (!run || run.userId !== userId) {
+      return NextResponse.json({ error: 'Run not found' }, { status: 404 });
+    }
 
     const points = await dbServer.runPoint.findMany({
       where: { runId },

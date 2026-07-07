@@ -25,72 +25,85 @@ function getDayDiff(dateStr1: string, dateStr2: string): number {
 }
 
 export async function updateStreak(userId: string, runStartTime: Date, timezone: string = 'UTC') {
-  const runLocalDateStr = getLocalDateString(runStartTime, timezone);
-
-  // Fetch the existing streak
-  const streak = await dbServer.streak.findUnique({
+  const allRuns = await dbServer.run.findMany({
     where: { userId },
+    orderBy: { startTime: 'asc' },
+    select: { startTime: true },
   });
 
-  if (!streak) {
-    // Initial streak record
-    await dbServer.streak.create({
-      data: {
+  if (allRuns.length === 0) {
+    await dbServer.streak.upsert({
+      where: { userId },
+      create: {
         userId,
-        currentCount: 1,
-        longestCount: 1,
-        lastRunDate: runStartTime,
+        currentCount: 0,
+        longestCount: 0,
+        lastRunDate: new Date(),
         restDaysUsed: 0,
       },
+      update: {
+        currentCount: 0,
+        longestCount: 0,
+      },
     });
     revalidateTag(`streak-${userId}`, 'max');
     return;
   }
 
-  const streakLocalDateStr = getLocalDateString(streak.lastRunDate, timezone);
-  const diffDays = getDayDiff(runLocalDateStr, streakLocalDateStr);
+  const uniqueDates = Array.from(
+    new Set(allRuns.map((r) => getLocalDateString(r.startTime, timezone)))
+  ).sort();
 
-  if (diffDays === 0) {
-    // Same day run, maintain streak. Update lastRunDate to the latest run timestamp
-    if (runStartTime.getTime() > streak.lastRunDate.getTime()) {
-      await dbServer.streak.update({
-        where: { userId },
-        data: { lastRunDate: runStartTime },
-      });
-      revalidateTag(`streak-${userId}`, 'max');
+  let currentCount = 0;
+  let longestCount = 0;
+  let prevDateStr: string | null = null;
+
+  for (const dateStr of uniqueDates) {
+    if (!prevDateStr) {
+      currentCount = 1;
+    } else {
+      const diff = getDayDiff(dateStr, prevDateStr);
+      if (diff === 1) {
+        currentCount += 1;
+      } else if (diff > 1) {
+        currentCount = 1;
+      }
     }
-    return;
+    if (currentCount > longestCount) {
+      longestCount = currentCount;
+    }
+    prevDateStr = dateStr;
   }
 
-  if (diffDays === 1) {
-    // Consecutive day run
-    const newCurrent = streak.currentCount + 1;
-    const newLongest = Math.max(streak.longestCount, newCurrent);
-
-    await dbServer.streak.update({
-      where: { userId },
-      data: {
-        currentCount: newCurrent,
-        longestCount: newLongest,
-        lastRunDate: runStartTime,
-      },
-    });
-    revalidateTag(`streak-${userId}`, 'max');
-    return;
+  const todayStr = getLocalDateString(new Date(), timezone);
+  let activeStreak = currentCount;
+  if (prevDateStr) {
+    const finalDiff = getDayDiff(todayStr, prevDateStr);
+    if (finalDiff > 1) {
+      activeStreak = 0;
+    }
+  } else {
+    activeStreak = 0;
   }
 
-  if (diffDays > 1) {
-    // There is a gap. Checks if user allowed rest days config protects the streak.
-    // For this implementation, we check if diffDays is within the allowed threshold of 1 + restDays.
-    // Default allowed rest days/week = 0.
-    // If we break the streak:
-    await dbServer.streak.update({
-      where: { userId },
-      data: {
-        currentCount: 1,
-        lastRunDate: runStartTime,
-      },
-    });
-    revalidateTag(`streak-${userId}`, 'max');
-  }
+  // Find the latest runStartTime for lastRunDate
+  const latestRun = allRuns[allRuns.length - 1];
+
+  await dbServer.streak.upsert({
+    where: { userId },
+    create: {
+      userId,
+      currentCount: activeStreak,
+      longestCount,
+      lastRunDate: latestRun.startTime,
+      restDaysUsed: 0,
+    },
+    update: {
+      currentCount: activeStreak,
+      longestCount,
+      lastRunDate: latestRun.startTime,
+    },
+  });
+
+  revalidateTag(`streak-${userId}`, 'max');
 }

@@ -41,7 +41,7 @@ export default function Map({ points, isFinished = false, rounded = true, showLo
       center: defaultCenter,
       zoom: 15,
       zoomControl: false, // Clean UI, no default zoom controls
-      attributionControl: false, // Keep it premium, will add custom attribution if needed
+      attributionControl: true,
     });
 
     mapInstanceRef.current = map;

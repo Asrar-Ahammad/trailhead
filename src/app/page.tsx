@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
@@ -71,20 +71,7 @@ export default function Home() {
     }
   }, []);
 
-  // Subscribe to sync to auto-refresh
-  useEffect(() => {
-    let lastSyncing = false;
-    const unsub = subscribeToSyncStatus((status) => {
-      if (lastSyncing && !status.isSyncing && status.pendingCount === 0) {
-        loadRuns();
-      }
-      lastSyncing = status.isSyncing;
-    });
-    triggerSync();
-    return unsub;
-  }, []);
-
-  const loadRuns = async () => {
+  const loadRuns = useCallback(async () => {
     try {
       const res = await fetch('/api/runs?limit=20');
       if (res.ok) {
@@ -96,11 +83,24 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Subscribe to sync to auto-refresh
+  useEffect(() => {
+    let lastSyncing = false;
+    const unsub = subscribeToSyncStatus((status) => {
+      if (lastSyncing && !status.isSyncing && status.pendingCount === 0) {
+        loadRuns();
+      }
+      lastSyncing = status.isSyncing;
+    });
+    triggerSync();
+    return unsub;
+  }, [loadRuns]);
 
   useEffect(() => {
     loadRuns();
-  }, []);
+  }, [loadRuns]);
 
   const userName = user?.fullName || user?.firstName || 'Runner';
 
@@ -178,8 +178,17 @@ export default function Home() {
                     visible: { opacity: 1, y: 0 },
                   }}
                   transition={springConfig}
-                  className="border-b border-border cursor-pointer active:bg-secondary/50 transition-colors"
+                  className="border-b border-border cursor-pointer active:bg-secondary/50 focus-visible:bg-secondary/50 outline-none transition-colors"
                   onClick={() => router.push(`/runs/${run.id}`)}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`View details for ${title || 'run'} on ${dateStr}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      router.push(`/runs/${run.id}`);
+                    }
+                  }}
                 >
                   {/* Athlete Header */}
                   <div className="flex items-start justify-between px-4 pt-4 pb-2">

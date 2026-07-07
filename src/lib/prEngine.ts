@@ -81,7 +81,7 @@ export async function checkForRecords(runId: string): Promise<NewRecordNotificat
 
     if (totalDistance >= minTolerance && totalDistance <= maxTolerance) {
       // Evaluate direct total duration as the record time
-      const notification = await processRecordCandidate(userId, runId, category, totalDuration, true);
+      const notification = await processRecordCandidate(userId, runId, category, totalDuration, true, run.startTime);
       if (notification) newRecords.push(notification);
     }
   }
@@ -109,7 +109,7 @@ export async function checkForRecords(runId: string): Promise<NewRecordNotificat
     }
 
     if (minTimeForSegment !== Infinity) {
-      const notification = await processRecordCandidate(userId, runId, `${category}_segment`, minTimeForSegment, true);
+      const notification = await processRecordCandidate(userId, runId, `${category}_segment`, minTimeForSegment, true, run.startTime);
       if (notification) newRecords.push(notification);
     }
   }
@@ -118,16 +118,16 @@ export async function checkForRecords(runId: string): Promise<NewRecordNotificat
   // C. Other direct record categories (higher is better)
   // ========================================================
   // Longest Run
-  const distNotification = await processRecordCandidate(userId, runId, 'longest_run', totalDistance, false);
+  const distNotification = await processRecordCandidate(userId, runId, 'longest_run', totalDistance, false, run.startTime);
   if (distNotification) newRecords.push(distNotification);
 
   // Longest Duration
-  const durNotification = await processRecordCandidate(userId, runId, 'longest_duration', totalDuration, false);
+  const durNotification = await processRecordCandidate(userId, runId, 'longest_duration', totalDuration, false, run.startTime);
   if (durNotification) newRecords.push(durNotification);
 
   // Highest Elevation Gain
   if (run.elevationGainM && run.elevationGainM > 0) {
-    const elevNotification = await processRecordCandidate(userId, runId, 'max_elevation', run.elevationGainM, false);
+    const elevNotification = await processRecordCandidate(userId, runId, 'max_elevation', run.elevationGainM, false, run.startTime);
     if (elevNotification) newRecords.push(elevNotification);
   }
 
@@ -140,7 +140,8 @@ async function processRecordCandidate(
   runId: string,
   category: string,
   value: number,
-  lowerIsBetter: boolean
+  lowerIsBetter: boolean,
+  achievedAt: Date
 ): Promise<NewRecordNotification | null> {
   // Fetch existing records for this category
   const existing = await dbServer.personalRecord.findMany({
@@ -148,21 +149,24 @@ async function processRecordCandidate(
     orderBy: { rank: 'asc' },
   });
 
+  // Filter out any existing entries for the same runId to prevent duplicates
+  const existingFiltered = existing.filter(r => r.runId !== runId);
+
   const isBetter = (valA: number, valB: number) => {
     return lowerIsBetter ? valA < valB : valA > valB;
   };
 
   // If there are fewer than 3 records, or candidate value is better than the worst rank
   const qualifies = 
-    existing.length < 3 || 
-    isBetter(value, existing[existing.length - 1].value);
+    existingFiltered.length < 3 || 
+    isBetter(value, existingFiltered[existingFiltered.length - 1].value);
 
   if (!qualifies) return null;
 
   // Insert temporary record and re-sort
   const allRecords = [
-    ...existing.map(r => ({ id: r.id, runId: r.runId, value: r.value, achievedAt: r.achievedAt })),
-    { id: 'temp', runId, value, achievedAt: new Date() }
+    ...existingFiltered.map(r => ({ id: r.id, runId: r.runId, value: r.value, achievedAt: r.achievedAt })),
+    { id: 'temp', runId, value, achievedAt }
   ];
 
   // Sort: lower duration / higher distance/elevation

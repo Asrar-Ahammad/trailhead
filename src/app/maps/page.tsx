@@ -18,7 +18,7 @@ export default function MapsPage() {
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
         <Compass size={48} className="mb-4 opacity-50" />
         <h2 className="text-xl font-semibold text-foreground mb-2">Coming Soon</h2>
-        <p className="text-sm">We're working on an interactive map explorer for your routes.</p>
+        <p className="text-sm">We&apos;re working on an interactive map explorer for your routes.</p>
       </div>
     </div>
   );

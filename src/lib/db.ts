@@ -75,7 +75,7 @@ function getDB() {
 
 // Simple checksum generator to verify draft integrity
 export function calculateChecksum(run: Omit<RunDraft, 'checksum'>): string {
-  const dataString = `${run.id}:${run.startTime}:${run.distanceM.toFixed(2)}:${run.durationS}:${run.status}:${run.version}`;
+  const dataString = `${run.id}:${run.startTime}:${run.endTime || ''}:${run.distanceM.toFixed(2)}:${run.durationS}:${run.status}:${run.version}`;
   let hash = 0;
   for (let i = 0; i < dataString.length; i++) {
     const char = dataString.charCodeAt(i);
@@ -143,7 +143,7 @@ export async function addRunPoints(points: RunPointDraft[]): Promise<void> {
   const tx = db.transaction('runPoints', 'readwrite');
   const store = tx.objectStore('runPoints');
   for (const point of points) {
-    await store.put(point);
+    store.put(point);
   }
   await tx.done;
 }

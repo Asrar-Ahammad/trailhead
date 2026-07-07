@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
@@ -76,17 +77,22 @@ export default function YouPage() {
     const loadData = async () => {
       try {
         const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
-        const [runsRes, summaryRes, streakRes] = await Promise.all([
+        const results = await Promise.allSettled([
           fetch('/api/runs?limit=50'),
           fetch(`/api/summary/weekly?tz=${encodeURIComponent(tz)}`),
           fetch('/api/streak'),
         ]);
-        if (runsRes.ok) {
-          const data = await runsRes.json();
+        const [runsResult, summaryResult, streakResult] = results;
+        if (runsResult.status === 'fulfilled' && runsResult.value.ok) {
+          const data = await runsResult.value.json();
           setRuns(data.runs || []);
         }
-        if (summaryRes.ok) setWeeklySummary(await summaryRes.json());
-        if (streakRes.ok) setStreakInfo(await streakRes.json());
+        if (summaryResult.status === 'fulfilled' && summaryResult.value.ok) {
+          setWeeklySummary(await summaryResult.value.json());
+        }
+        if (streakResult.status === 'fulfilled' && streakResult.value.ok) {
+          setStreakInfo(await streakResult.value.json());
+        }
       } catch (e) {
         console.error('Failed to load data:', e);
       } finally {
@@ -444,7 +450,7 @@ export default function YouPage() {
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden">
                                 {user?.imageUrl ? (
-                                  <img src={user.imageUrl} alt="" className="w-full h-full object-cover" />
+                                  <Image src={user.imageUrl} alt={`${userName}'s profile photo`} width={36} height={36} className="w-full h-full object-cover" />
                                 ) : (
                                   <span className="text-xs font-bold text-muted-foreground">
                                     {userName.charAt(0).toUpperCase()}

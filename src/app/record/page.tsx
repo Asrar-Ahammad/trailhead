@@ -42,14 +42,13 @@ function formatDuration(durationS: number): string {
 
 export default function RecordPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [voiceFeedbackEnabled, setVoiceFeedbackEnabled] = useState(true);
-
-  useEffect(() => {
+  const [voiceFeedbackEnabled, setVoiceFeedbackEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('voice_feedback_enabled');
-      if (saved !== null) setVoiceFeedbackEnabled(saved === 'true');
+      return saved !== null ? saved === 'true' : true;
     }
-  }, []);
+    return true;
+  });
 
   const handleToggleVoice = () => {
     const next = !voiceFeedbackEnabled;
@@ -58,6 +57,26 @@ export default function RecordPage() {
       localStorage.setItem('voice_feedback_enabled', String(next));
     }
   };
+
+  const [initialLocation, setInitialLocation] = useState<{ lat: number; lng: number; timestamp: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setInitialLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            timestamp: position.timestamp,
+          });
+        },
+        (error) => {
+          console.warn('Error fetching initial location:', error);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    }
+  }, []);
 
   const {
     runState,
@@ -102,7 +121,7 @@ export default function RecordPage() {
       {/* Map fills the top section */}
       <div className="relative flex-1 min-h-0 bg-background">
         <div className="absolute inset-0">
-          <Map points={isActive ? smoothedPoints : []} isFinished={runState === 'stopped'} rounded={false} showLocateButton />
+          <Map points={isActive ? smoothedPoints : (initialLocation ? [initialLocation] : [])} isFinished={runState === 'stopped'} rounded={false} showLocateButton />
         </div>
 
         {/* Floating GPS Status Badge */}
@@ -124,6 +143,7 @@ export default function RecordPage() {
         <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
           <button
             onClick={handleToggleVoice}
+            aria-label="Toggle voice feedback"
             className="w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center justify-center"
           >
             {voiceFeedbackEnabled ? (
@@ -131,9 +151,6 @@ export default function RecordPage() {
             ) : (
               <SpeakerSlash size={18} className="text-muted-foreground" />
             )}
-          </button>
-          <button className="w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border flex items-center justify-center">
-            <ArrowsOut size={18} className="text-foreground" />
           </button>
         </div>
 

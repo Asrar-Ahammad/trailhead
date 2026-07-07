@@ -13,19 +13,34 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const tz = searchParams.get('tz') || 'UTC';
 
-    const now = new Date();
-    // Start of current week (Monday)
-    const currentDay = now.getDay();
-    const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1; // 0 is Sunday
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - distanceToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
+    const getAbsoluteDateInTimezone = (dateStr: string, timezone: string): Date => {
+      const utcDate = new Date(dateStr + 'Z');
+      try {
+        const tzDate = new Date(utcDate.toLocaleString('en-US', { timeZone: timezone }));
+        const diff = utcDate.getTime() - tzDate.getTime();
+        return new Date(utcDate.getTime() + diff);
+      } catch (e) {
+        return utcDate;
+      }
+    };
+
+    const localNowStr = getLocalDateString(new Date(), tz);
+    const [year, month, day] = localNowStr.split('-').map(Number);
+    const localNow = new Date(Date.UTC(year, month - 1, day));
+
+    const currentDay = localNow.getUTCDay();
+    const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
+
+    const localStartOfWeek = new Date(localNow);
+    localStartOfWeek.setUTCDate(localNow.getUTCDate() - distanceToMonday);
+
+    const startOfWeekStr = `${localStartOfWeek.getUTCFullYear()}-${String(localStartOfWeek.getUTCMonth() + 1).padStart(2, '0')}-${String(localStartOfWeek.getUTCDate()).padStart(2, '0')}T00:00:00`;
+    const startOfWeek = getAbsoluteDateInTimezone(startOfWeekStr, tz);
 
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
 
-    // Prior week range
     const startOfPriorWeek = new Date(startOfWeek);
     startOfPriorWeek.setDate(startOfWeek.getDate() - 7);
     const endOfPriorWeek = new Date(startOfPriorWeek);
@@ -93,8 +108,8 @@ export async function GET(req: Request) {
     });
 
     // Format week range header
-    const startStr = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const endStr = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startStr = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz });
+    const endStr = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: tz });
     const dateRange = `${startStr} - ${endStr}`;
 
     return NextResponse.json({
