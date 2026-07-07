@@ -1,26 +1,132 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light Theme — rarely used, dark is default */
+  --background: #fbfbfb;
+  --foreground: #121212;
+  --card: #ffffff;
+  --card-foreground: #121212;
+  --popover: #ffffff;
+  --popover-foreground: #121212;
+  
+  --primary: #fc4c02;
+  --primary-foreground: #ffffff;
+  
+  --secondary: #f0f0f0;
+  --secondary-foreground: #121212;
+  
+  --muted: #f5f5f5;
+  --muted-foreground: #666666;
+  
+  --accent: #fc4c02;
+  --accent-foreground: #ffffff;
+  
+  --border: #e0e0e0;
+  --input: #e0e0e0;
+  --ring: #fc4c02;
+  
+  --radius: 0.75rem;
+
+  --nav-bg: #ffffff;
+  --nav-border: #e5e5e5;
+  --surface-elevated: #f8f8f8;
+}
+
+.dark {
+  /* Strava Dark — matte black */
+  --background: #0f0f0f;
+  --foreground: #f0f0f0;
+  --card: #1a1a1a;
+  --card-foreground: #f0f0f0;
+  --popover: #1a1a1a;
+  --popover-foreground: #f0f0f0;
+  
+  --primary: #fc4c02;
+  --primary-foreground: #ffffff;
+  
+  --secondary: #242424;
+  --secondary-foreground: #f0f0f0;
+  
+  --muted: #1e1e1e;
+  --muted-foreground: #8a8a8a;
+  
+  --accent: #fc4c02;
+  --accent-foreground: #ffffff;
+  
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #fc4c02;
+
+  --nav-bg: #0f0f0f;
+  --nav-border: #2a2a2a;
+  --surface-elevated: #1a1a1a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-nav-bg: var(--nav-bg);
+  --color-nav-border: var(--nav-border);
+  --color-surface-elevated: var(--surface-elevated);
+  
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
+}
+
+/* Tabular figures for running stats to prevent jitter */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Safe area padding for PWA bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Leaflet custom overrides for dark maps */
+.leaflet-container {
+  background: var(--background) !important;
+}
+
+/* Hide scrollbar but allow scrolling */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* GPS status pulse animation */
+@keyframes gps-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-gps-pulse {
+  animation: gps-pulse 2s ease-in-out infinite;
 }
