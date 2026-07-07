@@ -1,0 +1,63 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id // Clerk user id
+  email     String   @unique
+  createdAt DateTime @default(now())
+  runs      Run[]
+}
+
+model Run {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id])
+  startTime     DateTime
+  endTime       DateTime
+  distanceM     Float      // meters
+  durationS     Int        // seconds, excludes paused time
+  avgPaceSPerKm Float
+  elevationGainM Float?
+  title         String?
+  aiSummary     String?
+  syncedAt      DateTime   @default(now())
+  points        RunPoint[]
+}
+
+model RunPoint {
+  id        String   @id @default(cuid())
+  runId     String
+  run       Run      @relation(fields: [runId], references: [id])
+  lat       Float
+  lng       Float
+  elevation Float?
+  timestamp DateTime
+  accuracy  Float?
+  sequence  Int      // order within run
+}
+
+model PersonalRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  category   String   // "100m","1k","5k","10k","half","marathon","longest_run","longest_duration","max_elevation"
+  runId      String
+  value      Float    // time in seconds for distance categories, meters/seconds for others
+  achievedAt DateTime
+  rank       Int      // 1, 2, or 3
+}
+
+model Streak {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  currentCount  Int
+  longestCount  Int
+  lastRunDate   DateTime
+  restDaysUsed  Int      @default(0) // resets weekly
+}
