@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import PwaRegister from "@/components/PwaRegister";
 import BottomNav from "@/components/BottomNav";
+import PageTransition from "@/components/PageTransition";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -48,8 +49,10 @@ export default function RootLayout({
         <body className="h-[100dvh] bg-background text-foreground transition-colors duration-200" suppressHydrationWarning>
           <ThemeProvider>
             <PwaRegister />
-            <div className="h-[100dvh] flex flex-col max-w-lg mx-auto w-full relative pb-14">
-              {children}
+            <div className="h-[100dvh] flex flex-col max-w-lg mx-auto w-full relative pb-20">
+              <PageTransition>
+                {children}
+              </PageTransition>
             </div>
             <BottomNav />
           </ThemeProvider>

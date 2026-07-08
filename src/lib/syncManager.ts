@@ -92,8 +92,10 @@ async function syncSingleRun(job: SyncJob): Promise<boolean> {
       return true;
     }
 
+    const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+
     // 1. Sync Run Metadata
-    const response = await fetch('/api/runs', {
+    const response = await fetch(`/api/runs?tz=${encodeURIComponent(tz)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -124,7 +126,6 @@ async function syncSingleRun(job: SyncJob): Promise<boolean> {
     // 2. Sync Points sequentially in batches
     const rawPoints = await getRunPoints(runId);
     const batchSize = 250; // Use conservative batch size (max 500)
-    const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
 
     for (let i = 0; i < rawPoints.length; i += batchSize) {
       const batch = rawPoints.slice(i, i + batchSize);

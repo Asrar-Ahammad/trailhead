@@ -115,6 +115,29 @@ export default function Map({ points, isFinished = false, rounded = true, showLo
       startMarkerRef.current = null;
     }
 
+    // Update user current position marker (blue pulsing dot) if tracking is active
+    if (!isFinished && latLngs.length > 0) {
+      const currentPoint = latLngs[latLngs.length - 1];
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng(currentPoint);
+      } else {
+        const userIcon = L.divIcon({
+          className: 'user-location-marker',
+          html: `<div style="
+            width: 16px; height: 16px; border-radius: 50%;
+            background: #4285f4; border: 3px solid white;
+            box-shadow: 0 0 0 4px rgba(66,133,244,0.25), 0 0 8px rgba(0,0,0,0.3);
+          "></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        });
+        userMarkerRef.current = L.marker(currentPoint, { icon: userIcon }).addTo(map);
+      }
+    } else if (isFinished && userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
+
     // Update end marker (red dot) if finished/stopped
     if (isFinished && latLngs.length > 1) {
       const endPoint = latLngs[latLngs.length - 1];

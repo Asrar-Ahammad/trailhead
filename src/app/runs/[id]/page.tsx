@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { CaretLeft, BookmarkSimple, DotsThree, Info } from '@phosphor-icons/react';
 import dynamic from 'next/dynamic';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import PaceChart from '@/components/PaceChart';
+import ElevationChart from '@/components/ElevationChart';
 
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
@@ -266,33 +267,8 @@ export default function RunDetailsPage({ params }: { params: Promise<{ id: strin
       )}
 
       {analytics && analytics.paceChartData.length > 0 && (
-        <div className="mt-8">
-          <div className="px-4 flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Pace</h2>
-            <Info size={20} className="text-muted-foreground" />
-          </div>
-          <div className="w-full h-48 px-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics.paceChartData}>
-                <defs>
-                  <linearGradient id="colorPace" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4F89D8" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#4F89D8" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="dist" tick={{ fontSize: 10, fill: '#888' }} tickLine={false} axisLine={false} minTickGap={30} tickFormatter={(v) => `${v} km`} />
-                <YAxis reversed domain={['dataMax', 'dataMin']} tickFormatter={formatYAxisPace} tick={{ fontSize: 10, fill: '#888' }} tickLine={false} axisLine={false} orientation="left" width={45} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }}
-                  labelStyle={{ color: '#888', marginBottom: '4px' }}
-                  formatter={(value: any) => [formatPace(value as number), 'Pace']}
-                  labelFormatter={(v) => `${v} km`}
-                />
-                <ReferenceLine y={run.avgPaceSPerKm} stroke="#fff" strokeDasharray="3 3" opacity={0.3} />
-                <Area type="monotone" dataKey="pace" stroke="#4F89D8" fillOpacity={1} fill="url(#colorPace)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        <>
+          <PaceChart paceChartData={analytics.paceChartData} avgPaceSPerKm={run.avgPaceSPerKm} />
           
           <div className="px-4 flex flex-col gap-4 mt-6 text-sm font-semibold">
             <div className="flex justify-between items-center border-b border-white/5 pb-3">
@@ -308,41 +284,12 @@ export default function RunDetailsPage({ params }: { params: Promise<{ id: strin
               <span>{formatPace(analytics.fastestSplit)} /km</span>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {analytics && analytics.elevChartData.length > 0 && (
-        <div className="mt-8 border-t border-white/5 pt-6">
-          <div className="px-4 flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Elevation</h2>
-            <div className="flex items-center gap-3">
-              <div className="bg-[#2a2a2a] px-3 py-1 rounded-md text-xs font-bold text-white shadow-md flex items-center gap-1">
-                {Math.round(analytics.elevChartData[analytics.elevChartData.length - 1]?.elev || 0)}m
-              </div>
-              <Info size={20} className="text-muted-foreground" />
-            </div>
-          </div>
-          <div className="w-full h-40 px-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analytics.elevChartData}>
-                <defs>
-                  <linearGradient id="colorElev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8A8A8A" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#8A8A8A" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="dist" tick={{ fontSize: 10, fill: '#888' }} tickLine={false} axisLine={false} minTickGap={30} tickFormatter={(v) => `${v} km`} />
-                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10, fill: '#888' }} tickLine={false} axisLine={false} orientation="left" width={40} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }}
-                  labelStyle={{ color: '#888', marginBottom: '4px' }}
-                  formatter={(value: any) => [`${Math.round(value as number)} m`, 'Elevation']}
-                  labelFormatter={(v) => `${v} km`}
-                />
-                <Area type="monotone" dataKey="elev" stroke="#8A8A8A" fillOpacity={1} fill="url(#colorElev)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        <>
+          <ElevationChart elevChartData={analytics.elevChartData} />
           
           <div className="px-4 flex flex-col gap-4 mt-6 text-sm font-semibold">
             <div className="flex justify-between items-center border-b border-white/5 pb-3">
@@ -354,7 +301,7 @@ export default function RunDetailsPage({ params }: { params: Promise<{ id: strin
               <span>{Math.round(analytics.maxElev)} m</span>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

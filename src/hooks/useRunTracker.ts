@@ -61,6 +61,11 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
   const [rawPoints, setRawPoints] = useState<RunPointDraft[]>([]);
   const [smoothedPoints, setSmoothedPoints] = useState<{ lat: number; lng: number; timestamp: number }[]>([]);
 
+  const currentRunIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentRunIdRef.current = currentRunId;
+  }, [currentRunId]);
+
   const distanceMRef = useRef<number>(0);
   useEffect(() => {
     distanceMRef.current = distanceM;
@@ -273,7 +278,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
 
     const newPoint: RunPointDraft = {
       id: generateId(),
-      runId: currentRunId || '',
+      runId: currentRunIdRef.current || '',
       lat,
       lng,
       elevation: position.coords.altitude,
@@ -372,6 +377,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
 
     const newId = generateId();
     setCurrentRunId(newId);
+    currentRunIdRef.current = newId;
     setDistanceM(0);
     setDurationS(0);
     setRawPoints([]);
@@ -473,6 +479,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
   const resetTracker = useCallback(() => {
     setRunState('idle');
     setCurrentRunId(null);
+    currentRunIdRef.current = null;
     setDistanceM(0);
     setDurationS(0);
     setRawPoints([]);
@@ -506,6 +513,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
 
           // Restore state
           setCurrentRunId(activeDraft.id);
+          currentRunIdRef.current = activeDraft.id;
           setDistanceM(activeDraft.distanceM);
           setDurationS(activeDraft.durationS);
           runStartTimeRef.current = activeDraft.startTime;

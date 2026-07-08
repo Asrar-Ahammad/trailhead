@@ -38,8 +38,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
-  // Skip non-GET requests and API calls
-  if (request.method !== 'GET' || request.url.includes('/api/')) {
+  // Skip non-GET requests, non-HTTP/HTTPS schemes, and API calls
+  if (request.method !== 'GET' || !request.url.startsWith('http') || request.url.includes('/api/')) {
     return;
   }
 

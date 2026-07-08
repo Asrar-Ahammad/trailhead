@@ -4,6 +4,7 @@ import { dbServer } from '@/lib/db-server';
 import { z } from 'zod';
 import { getCachedRuns, getCachedRunCount } from '@/lib/cache';
 import { revalidateTag } from 'next/cache';
+import { updateStreak } from '@/lib/streakEngine';
 
 const createRunSchema = z.object({
   clientRunId: z.string().optional(),
@@ -73,6 +74,10 @@ export async function POST(req: Request) {
         title: parsed.title || null,
       },
     });
+
+    const { searchParams } = new URL(req.url);
+    const tz = searchParams.get('tz') || 'UTC';
+    await updateStreak(userId, startTime, tz);
 
     // Invalidate cached runs
     revalidateTag(`runs-${userId}`, 'max');
