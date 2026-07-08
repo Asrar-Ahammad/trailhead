@@ -61,6 +61,13 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
   const [rawPoints, setRawPoints] = useState<RunPointDraft[]>([]);
   const [smoothedPoints, setSmoothedPoints] = useState<{ lat: number; lng: number; timestamp: number }[]>([]);
 
+  const currentRunIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    currentRunIdRef.current = currentRunId;
+  }, [currentRunId]);
+
+  const activityTypeRef = useRef<'run' | 'walk'>('run');
+
   const distanceMRef = useRef<number>(0);
   useEffect(() => {
     distanceMRef.current = distanceM;
@@ -209,6 +216,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
       durationS: dur,
       status: statusMap[state] || 'active',
       version: 1,
+      activityType: activityTypeRef.current,
     });
   }, []);
 
@@ -273,7 +281,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
 
     const newPoint: RunPointDraft = {
       id: generateId(),
-      runId: currentRunId || '',
+      runId: currentRunIdRef.current || '',
       lat,
       lng,
       elevation: position.coords.altitude,
@@ -364,14 +372,17 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
         console.error('Failed to persist points to IndexedDB:', err);
       });
     }
-  }, [currentRunId]);
+  }, []);
 
   // Start active run tracking
-  const startRun = useCallback(async () => {
+  const startRun = useCallback(async (activityType: 'run' | 'walk' = 'run') => {
     if (runState !== 'idle') return;
+
+    activityTypeRef.current = activityType;
 
     const newId = generateId();
     setCurrentRunId(newId);
+    currentRunIdRef.current = newId;
     setDistanceM(0);
     setDurationS(0);
     setRawPoints([]);
@@ -473,6 +484,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
   const resetTracker = useCallback(() => {
     setRunState('idle');
     setCurrentRunId(null);
+    currentRunIdRef.current = null;
     setDistanceM(0);
     setDurationS(0);
     setRawPoints([]);
@@ -506,6 +518,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
 
           // Restore state
           setCurrentRunId(activeDraft.id);
+          currentRunIdRef.current = activeDraft.id;
           setDistanceM(activeDraft.distanceM);
           setDurationS(activeDraft.durationS);
           runStartTimeRef.current = activeDraft.startTime;

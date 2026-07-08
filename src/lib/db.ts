@@ -9,6 +9,7 @@ export interface RunDraft {
   status: 'active' | 'paused' | 'completed';
   version: number;
   checksum: string;
+  activityType?: 'run' | 'walk' | null;
 }
 
 export interface RunPointDraft {
@@ -75,7 +76,7 @@ function getDB() {
 
 // Simple checksum generator to verify draft integrity
 export function calculateChecksum(run: Omit<RunDraft, 'checksum'>): string {
-  const dataString = `${run.id}:${run.startTime}:${run.endTime || ''}:${run.distanceM.toFixed(2)}:${run.durationS}:${run.status}:${run.version}`;
+  const dataString = `${run.id}:${run.startTime}:${run.endTime || ''}:${run.distanceM.toFixed(2)}:${run.durationS}:${run.status}:${run.version}:${run.activityType || ''}`;
   let hash = 0;
   for (let i = 0; i < dataString.length; i++) {
     const char = dataString.charCodeAt(i);

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { useUser, UserButton } from '@clerk/nextjs';
-import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import {
   MagnifyingGlass,
@@ -15,7 +15,37 @@ import {
   DotsThree,
   Flame,
   ShareNetwork,
+  Trophy,
+  Medal,
+  CaretRight,
+  PersonSimpleRun,
 } from '@phosphor-icons/react';
+
+import { getClientCache, setClientCache } from '@/lib/clientCache';
+
+const CATEGORY_METADATA: Record<string, { title: string; unit: string; isDuration: boolean }> = {
+  '100m': { title: '100m Run', unit: 's', isDuration: true },
+  '1k': { title: '1k Run', unit: 's', isDuration: true },
+  '5k': { title: '5k Run', unit: 's', isDuration: true },
+  '10k': { title: '10k Run', unit: 's', isDuration: true },
+  'half': { title: 'Half Marathon', unit: 's', isDuration: true },
+  'marathon': { title: 'Marathon', unit: 's', isDuration: true },
+  'longest_run': { title: 'Longest Run', unit: 'KM', isDuration: false },
+  'longest_duration': { title: 'Longest Duration', unit: 's', isDuration: true },
+  'max_elevation': { title: 'Max Elevation Gain', unit: 'M', isDuration: false },
+};
+
+function formatRecordValue(value: number, isDuration: boolean, unit: string): string {
+  if (isDuration) {
+    const hrs = Math.floor(value / 3600);
+    const mins = Math.floor((value % 3600) / 60);
+    const secs = Math.floor(value % 60);
+    if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+  if (unit === 'KM') return `${(value / 1000).toFixed(2)} KM`;
+  return `${value.toFixed(0)} ${unit}`;
+}
 
 const FeedMap = dynamic(() => import('@/components/FeedMap'), { ssr: false });
 
@@ -36,7 +66,7 @@ function formatDuration(durationS: number): string {
   return `${mins}m ${String(secs).padStart(2, '0')}s`;
 }
 
-type Tab = 'Progress' | 'Workouts' | 'Activities';
+type Tab = 'Progress' | 'Activities' | 'Records';
 
 interface Run {
   id: string;
@@ -64,6 +94,15 @@ interface StreakInfo {
   lastRunDate: string | null;
 }
 
+interface RecordEntry {
+  id: string;
+  category: string;
+  runId: string;
+  value: number;
+  achievedAt: string;
+  rank: number;
+}
+
 export default function YouPage() {
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState<Tab>('Progress');
@@ -71,9 +110,25 @@ export default function YouPage() {
   const [loading, setLoading] = useState(true);
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary | null>(null);
   const [streakInfo, setStreakInfo] = useState<StreakInfo | null>(null);
+  const [records, setRecords] = useState<RecordEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState<{ year: number; month: number; day: number } | null>(null);
 
   useEffect(() => {
+    const cachedRuns = getClientCache<Run[]>('you_runs');
+    const cachedSummary = getClientCache<WeeklySummary>('you_summary');
+    const cachedStreak = getClientCache<StreakInfo>('you_streak');
+    const cachedRecords = getClientCache<RecordEntry[]>('you_records');
+
+    if (cachedRuns && cachedSummary && cachedStreak && cachedRecords) {
+      setRuns(cachedRuns);
+      setWeeklySummary(cachedSummary);
+      setStreakInfo(cachedStreak);
+      setRecords(cachedRecords);
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         const tz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
@@ -81,17 +136,29 @@ export default function YouPage() {
           fetch('/api/runs?limit=50'),
           fetch(`/api/summary/weekly?tz=${encodeURIComponent(tz)}`),
           fetch('/api/streak'),
+          fetch('/api/records'),
         ]);
-        const [runsResult, summaryResult, streakResult] = results;
+        const [runsResult, summaryResult, streakResult, recordsResult] = results;
         if (runsResult.status === 'fulfilled' && runsResult.value.ok) {
           const data = await runsResult.value.json();
-          setRuns(data.runs || []);
+          const runsData = data.runs || [];
+          setRuns(runsData);
+          setClientCache('you_runs', runsData);
         }
         if (summaryResult.status === 'fulfilled' && summaryResult.value.ok) {
-          setWeeklySummary(await summaryResult.value.json());
+          const summaryData = await summaryResult.value.json();
+          setWeeklySummary(summaryData);
+          setClientCache('you_summary', summaryData);
         }
         if (streakResult.status === 'fulfilled' && streakResult.value.ok) {
-          setStreakInfo(await streakResult.value.json());
+          const streakData = await streakResult.value.json();
+          setStreakInfo(streakData);
+          setClientCache('you_streak', streakData);
+        }
+        if (recordsResult.status === 'fulfilled' && recordsResult.value.ok) {
+          const recordsData = await recordsResult.value.json();
+          setRecords(recordsData);
+          setClientCache('you_records', recordsData);
         }
       } catch (e) {
         console.error('Failed to load data:', e);
@@ -185,14 +252,23 @@ export default function YouPage() {
 
   // Filter activities for search
   const filteredRuns = useMemo(() => {
-    if (!searchQuery.trim()) return runs;
+    let list = runs;
+    if (selectedDate) {
+      list = list.filter(r => {
+        const d = new Date(r.startTime);
+        return d.getFullYear() === selectedDate.year &&
+               d.getMonth() === selectedDate.month &&
+               d.getDate() === selectedDate.day;
+      });
+    }
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
-    return runs.filter(r => {
+    return list.filter(r => {
       const title = r.title || '';
       const date = new Date(r.startTime).toLocaleDateString();
       return title.toLowerCase().includes(q) || date.includes(q);
     });
-  }, [runs, searchQuery]);
+  }, [runs, searchQuery, selectedDate]);
 
   // Count streak activities this month
   const streakActivities = runs.filter(r => {
@@ -200,7 +276,7 @@ export default function YouPage() {
     return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   }).length;
 
-  const tabs: Tab[] = ['Progress', 'Workouts', 'Activities'];
+  const tabs: Tab[] = ['Progress', 'Activities', 'Records'];
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground select-none">
@@ -211,11 +287,10 @@ export default function YouPage() {
           <UserButton
             appearance={{
               elements: {
-                userButtonAvatarBox: "w-7 h-7 border border-border"
+                userButtonAvatarBox: "w-7 h-7"
               }
             }}
           />
-          <MagnifyingGlass size={22} className="text-muted-foreground" />
           <Gear size={22} className="text-muted-foreground" />
         </div>
       </header>
@@ -232,11 +307,7 @@ export default function YouPage() {
           >
             {tab}
             {activeTab === tab && (
-              <motion.div
-                layoutId="you-tab-indicator"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
             )}
           </button>
         ))}
@@ -253,15 +324,7 @@ export default function YouPage() {
           <>
             {/* PROGRESS TAB */}
             {activeTab === 'Progress' && (
-              <div className="flex flex-col">
-                {/* Activity type pill */}
-                <div className="px-4 pt-4 pb-2">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-secondary border border-border rounded-full text-xs font-semibold text-foreground">
-                    <Heartbeat size={14} className="text-primary" />
-                    Run
-                  </div>
-                </div>
-
+              <div className="flex flex-col pt-6 pb-24">
                 {/* This Week Summary */}
                 <div className="px-4 pb-4">
                   <h3 className="text-base font-bold text-foreground mb-2">This week</h3>
@@ -305,11 +368,9 @@ export default function YouPage() {
                         return (
                           <div key={i} className="flex-1 flex flex-col items-center gap-1">
                             <div className="w-full relative" style={{ height: '100px' }}>
-                              <motion.div
-                                initial={{ height: 0 }}
-                                animate={{ height: `${heightPct}%` }}
-                                transition={{ delay: i * 0.03, ...springConfig }}
-                                className="absolute bottom-0 w-full bg-primary rounded-t-sm"
+                              <div
+                                style={{ height: `${heightPct}%` }}
+                                className="absolute bottom-0 w-full bg-primary rounded-t-sm transition-all duration-300"
                               />
                             </div>
                           </div>
@@ -333,10 +394,6 @@ export default function YouPage() {
                 <div className="px-4 py-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-base font-bold text-foreground">{monthName}</h3>
-                    <button className="flex items-center gap-1 text-muted-foreground text-xs font-medium bg-secondary/50 px-3 py-1 rounded-full border border-border/50">
-                      <ShareNetwork size={12} />
-                      Share
-                    </button>
                   </div>
 
                   {/* Streak Info */}
@@ -359,7 +416,17 @@ export default function YouPage() {
                       <span key={i} className="text-[10px] font-semibold text-muted-foreground mb-1">{d}</span>
                     ))}
                     {calendarDays.map((day, i) => (
-                      <div key={i} className="flex items-center justify-center h-9">
+                      <button
+                        key={i}
+                        onClick={() => {
+                          if (day.inMonth) {
+                            setSelectedDate({ year: currentYear, month: currentMonth, day: day.date });
+                            setActiveTab('Activities');
+                          }
+                        }}
+                        disabled={!day.inMonth}
+                        className="flex items-center justify-center h-9 w-full focus:outline-none cursor-pointer"
+                      >
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
                             !day.inMonth
@@ -367,33 +434,94 @@ export default function YouPage() {
                               : day.isToday
                               ? 'border-2 border-primary text-primary font-bold'
                               : day.hasRun
-                              ? 'bg-primary text-white'
-                              : 'text-foreground'
+                              ? 'bg-primary text-white hover:bg-primary/90'
+                              : 'text-foreground hover:bg-secondary'
                           }`}
                         >
                           {day.date}
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* WORKOUTS TAB */}
-            {activeTab === 'Workouts' && (
-              <div className="flex flex-col items-center justify-center py-32 text-center px-8">
-                <Heartbeat size={48} className="text-muted-foreground mb-4" />
-                <p className="font-semibold text-foreground mb-1">No workout plans yet</p>
-                <p className="text-xs text-muted-foreground max-w-xs">
-                  Structured training plans and intervals will appear here in a future update.
-                </p>
+            {/* RECORDS TAB */}
+            {activeTab === 'Records' && (
+              <div className="flex flex-col gap-3 px-4 pt-4 pb-24 animate-page-enter">
+                {records.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <Trophy size={48} className="text-muted-foreground mb-4" />
+                    <p className="font-semibold text-foreground mb-1">No personal records yet</p>
+                    <p className="text-xs text-muted-foreground max-w-xs leading-normal">
+                      Complete a run with distance tracking to set your first personal best.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {records.map((rec) => {
+                      const meta = CATEGORY_METADATA[rec.category] || { title: rec.category, unit: '', isDuration: false };
+                      return (
+                        <div
+                          key={rec.id}
+                          className="bg-[#1a1a1a]/40 border border-white/[0.04] rounded-2xl p-4 flex items-center justify-between transition-colors hover:bg-white/[0.02]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                              <Medal size={20} weight="fill" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                                {meta.title}
+                              </span>
+                              <span className="text-sm font-black text-foreground mt-0.5">
+                                {formatRecordValue(rec.value, meta.isDuration, meta.unit)}
+                              </span>
+                            </div>
+                          </div>
+                          {rec.runId && (
+                            <Link
+                              href={`/runs/${rec.runId}`}
+                              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs font-semibold"
+                            >
+                              <span>View Run</span>
+                              <CaretRight size={14} weight="bold" />
+                            </Link>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
             {/* ACTIVITIES TAB */}
             {activeTab === 'Activities' && (
-              <div className="flex flex-col">
+              <div className="flex flex-col pb-24">
+                {/* Calendar Date filter active */}
+                {selectedDate && (
+                  <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Showing activities on{' '}
+                      <span className="font-bold text-foreground">
+                        {new Date(selectedDate.year, selectedDate.month, selectedDate.day).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="text-xs text-primary font-bold hover:underline"
+                    >
+                      Clear Filter
+                    </button>
+                  </div>
+                )}
+
                 {/* Search */}
                 <div className="px-4 pt-3 pb-2">
                   <div className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-3 py-2">
@@ -414,12 +542,7 @@ export default function YouPage() {
                     <p className="font-semibold text-foreground mb-1">No activities found</p>
                   </div>
                 ) : (
-                  <motion.div
-                    initial="hidden"
-                    animate="visible"
-                    variants={{ visible: { transition: { staggerChildren: 0.04 } } }}
-                    className="flex flex-col"
-                  >
+                  <div className="flex flex-col animate-page-enter">
                     {filteredRuns.map((run) => {
                       const date = new Date(run.startTime);
                       const dateStr = date.toLocaleDateString('en-US', {
@@ -436,64 +559,62 @@ export default function YouPage() {
                       const title = run.title || (date.getHours() < 12 ? 'Morning Run' : date.getHours() < 17 ? 'Afternoon Run' : 'Evening Run');
 
                       return (
-                        <motion.article
+                        <Link
                           key={run.id}
-                          variants={{
-                            hidden: { opacity: 0, y: 15 },
-                            visible: { opacity: 1, y: 0 },
-                          }}
-                          transition={springConfig}
-                          className="border-b border-border"
+                          href={`/runs/${run.id}`}
+                          className="border-b border-border block hover:bg-white/[0.01] active:bg-white/[0.02] transition-colors cursor-pointer"
                         >
-                          {/* Athlete line */}
-                          <div className="flex items-start justify-between px-4 pt-3 pb-1.5">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden">
-                                {user?.imageUrl ? (
-                                  <Image src={user.imageUrl} alt={`${userName}'s profile photo`} width={36} height={36} className="w-full h-full object-cover" />
-                                ) : (
-                                  <span className="text-xs font-bold text-muted-foreground">
-                                    {userName.charAt(0).toUpperCase()}
+                          <article>
+                            {/* Athlete line */}
+                            <div className="flex items-start justify-between px-4 pt-3 pb-1.5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden">
+                                  {user?.imageUrl ? (
+                                    <img src={user.imageUrl} alt={`${userName}'s profile photo`} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-xs font-bold text-muted-foreground">
+                                      {userName.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-foreground uppercase tracking-wide">{userName}</span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {dateStr} at {timeStr} &middot; Trailhead
                                   </span>
-                                )}
+                                </div>
                               </div>
-                              <div className="flex flex-col">
-                                <span className="text-xs font-bold text-foreground uppercase tracking-wide">{userName}</span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {dateStr} at {timeStr} &middot; Trailhead
-                                </span>
+                              <button className="p-1 text-muted-foreground"><DotsThree size={18} weight="bold" /></button>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="px-4 pb-2">
+                              <h3 className="text-sm font-bold text-foreground mb-1.5">{title}</h3>
+                              <div className="flex gap-5 text-xs">
+                                <div>
+                                  <span className="text-[9px] text-muted-foreground uppercase block">Distance</span>
+                                  <span className="font-black text-foreground tabular-nums">{(run.distanceM / 1000).toFixed(2)} km</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-muted-foreground uppercase block">Pace</span>
+                                  <span className="font-black text-foreground tabular-nums">{formatPace(run.avgPaceSPerKm)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[9px] text-muted-foreground uppercase block">Time</span>
+                                  <span className="font-black text-foreground tabular-nums">{formatDuration(run.durationS)}</span>
+                                </div>
                               </div>
                             </div>
-                            <button className="p-1 text-muted-foreground"><DotsThree size={18} weight="bold" /></button>
-                          </div>
 
-                          {/* Stats */}
-                          <div className="px-4 pb-2">
-                            <h3 className="text-sm font-bold text-foreground mb-1.5">{title}</h3>
-                            <div className="flex gap-5 text-xs">
-                              <div>
-                                <span className="text-[9px] text-muted-foreground uppercase block">Distance</span>
-                                <span className="font-black text-foreground tabular-nums">{(run.distanceM / 1000).toFixed(2)} km</span>
-                              </div>
-                              <div>
-                                <span className="text-[9px] text-muted-foreground uppercase block">Pace</span>
-                                <span className="font-black text-foreground tabular-nums">{formatPace(run.avgPaceSPerKm)}</span>
-                              </div>
-                              <div>
-                                <span className="text-[9px] text-muted-foreground uppercase block">Time</span>
-                                <span className="font-black text-foreground tabular-nums">{formatDuration(run.durationS)}</span>
-                              </div>
+                            {/* Map Preview */}
+                            <div className="w-full aspect-[16/10] bg-secondary">
+                              <FeedMap runId={run.id} />
                             </div>
-                          </div>
-
-                          {/* Map Preview */}
-                          <div className="w-full aspect-[16/10] bg-secondary">
-                            <FeedMap runId={run.id} />
-                          </div>
-                        </motion.article>
+                          </article>
+                        </Link>
                       );
                     })}
-                  </motion.div>
+                  </div>
                 )}
               </div>
             )}

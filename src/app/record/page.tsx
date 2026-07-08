@@ -8,15 +8,18 @@ import {
   Pause,
   Square,
   MapPin,
+  PersonSimpleRun,
   Heartbeat,
   Warning,
   ArrowsOut,
   SpeakerHigh,
   SpeakerSlash,
+  PersonSimpleWalk,
 } from '@phosphor-icons/react';
 import { useRunTracker } from '@/hooks/useRunTracker';
 import { addSyncJob } from '@/lib/db';
 import { triggerSync } from '@/lib/syncManager';
+import { clearClientCache } from '@/lib/clientCache';
 
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
@@ -42,6 +45,30 @@ function formatDuration(durationS: number): string {
 
 export default function RecordPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [activityType, setActivityType] = useState<'run' | 'walk'>('run');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.activity-type-container')) {
+        setDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [dropdownOpen]);
+
   const [voiceFeedbackEnabled, setVoiceFeedbackEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('voice_feedback_enabled');
@@ -99,6 +126,7 @@ export default function RecordPage() {
 
   const handleStopRun = async () => {
     await stopRun();
+    clearClientCache();
     if (currentRunId) {
       await addSyncJob({
         runId: currentRunId,
@@ -202,7 +230,7 @@ export default function RecordPage() {
       </div>
 
       {/* Control Area */}
-      <div className="bg-card border-t border-border px-6 py-3 flex flex-col items-center gap-3">
+      <div className="bg-card border-t border-border px-6 pt-3 pb-10 flex flex-col items-center gap-3">
         {/* GPS Points counter when active */}
         {isActive && (
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-1">
@@ -213,21 +241,55 @@ export default function RecordPage() {
 
         <div className="flex items-center justify-center gap-6">
           {/* Run Type Indicator (left) */}
-          <div className="w-16 h-16 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 flex flex-col items-center justify-center relative activity-type-container">
             {runState === 'idle' && (
-              <div className="flex flex-col items-center gap-1">
-                <div className="w-12 h-12 rounded-full bg-amber-800 flex items-center justify-center">
-                  <Heartbeat size={24} className="text-amber-200" />
-                </div>
-                <span className="text-[9px] text-muted-foreground font-semibold">Run</span>
-              </div>
+              <>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex flex-col items-center gap-1 focus:outline-none"
+                >
+                  <div className="w-12 h-12 rounded-full bg-amber-800/80 hover:bg-amber-800 transition-colors flex items-center justify-center border border-amber-600/30">
+                    {activityType === 'run' ? (
+                      <PersonSimpleRun size={24} className="text-amber-200" />
+                    ) : (
+                      <PersonSimpleWalk size={24} className="text-amber-200" />
+                    )}
+                  </div>
+                  <span className="text-[9px] text-muted-foreground font-semibold capitalize">{activityType}</span>
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-popover border border-border shadow-xl rounded-xl py-1.5 min-w-[90px] z-50 flex flex-col">
+                    <button
+                      onClick={() => {
+                        setActivityType('run');
+                        setDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted text-left w-full ${activityType === 'run' ? 'text-primary font-bold' : 'text-foreground'}`}
+                    >
+                      <PersonSimpleRun size={16} />
+                      <span>Run</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActivityType('walk');
+                        setDropdownOpen(false);
+                      }}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs hover:bg-muted text-left w-full ${activityType === 'walk' ? 'text-primary font-bold' : 'text-foreground'}`}
+                    >
+                      <PersonSimpleWalk size={16} />
+                      <span>Walk</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
           {/* Main Action Button (center) */}
           {runState === 'idle' && (
             <motion.button
-              onClick={startRun}
+              onClick={() => startRun(activityType)}
               whileTap={{ scale: 0.95 }}
               transition={springConfig}
               className="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30"
@@ -280,7 +342,7 @@ export default function RecordPage() {
               className="px-6 py-3 rounded-full bg-primary text-white text-sm font-bold flex items-center gap-2"
               aria-label="Start new run"
             >
-              <Heartbeat size={16} />
+              <PersonSimpleRun size={16} />
               <span>New Run</span>
             </motion.button>
           )}

@@ -29,6 +29,7 @@ model Run {
   elevationGainM Float?
   title         String?
   aiSummary     String?
+  activityType  String?    @default("run")
   syncedAt      DateTime   @default(now())
   points        RunPoint[]
 }
