@@ -6,6 +6,7 @@ import { CaretLeft, BookmarkSimple, DotsThree, Info } from '@phosphor-icons/reac
 import dynamic from 'next/dynamic';
 import PaceChart from '@/components/PaceChart';
 import ElevationChart from '@/components/ElevationChart';
+import { formatPace } from '@/lib/format';
 
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
@@ -46,25 +47,12 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-function formatPace(paceSecPerKm: number): string {
-  if (!paceSecPerKm || paceSecPerKm <= 0 || paceSecPerKm > 3600) return '-:--';
-  const mins = Math.floor(paceSecPerKm / 60);
-  const secs = Math.floor(paceSecPerKm % 60);
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
 function formatDuration(durationS: number): string {
   const hrs = Math.floor(durationS / 3600);
   const mins = Math.floor((durationS % 3600) / 60);
   const secs = Math.floor(durationS % 60);
   if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function formatYAxisPace(val: number) {
-  const m = Math.floor(val / 60);
-  const s = Math.floor(val % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export default function RunDetailsPage({ params }: { params: Promise<{ id: string }> }) {

@@ -22,9 +22,23 @@ export default function BottomNav() {
     return null;
   }
 
+  const activeIndex = pathname === '/' ? 0 : pathname?.startsWith('/record') ? 1 : pathname?.startsWith('/you') ? 2 : -1;
+
   return (
     <nav className="fixed bottom-5 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm z-50">
-      <div className="bg-[#121212]/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-2xl flex items-center justify-around h-16 px-2">
+      <div className="bg-[#121212]/95 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-2xl flex items-center justify-around h-16 px-2 relative">
+        {/* Animated Active Dot */}
+        {activeIndex !== -1 && (
+          <div
+            className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-primary transition-all duration-300 ease-out pointer-events-none"
+            style={{
+              left: activeIndex === 0 ? '18%' : activeIndex === 2 ? '82%' : '50%',
+              transform: `translateX(-50%) scale(${activeIndex === 1 ? 0 : 1})`,
+              opacity: activeIndex === 1 ? 0 : 1,
+            }}
+          />
+        )}
+
         {tabs.map((tab) => {
           const isActive =
             tab.href === '/'
@@ -74,9 +88,6 @@ export default function BottomNav() {
               <span className="text-[9px] font-bold tracking-wide leading-none">
                 {tab.label}
               </span>
-              {isActive && (
-                <div className="absolute bottom-1 w-1 h-1 rounded-full bg-primary" />
-              )}
             </Link>
           );
         })}

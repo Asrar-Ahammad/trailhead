@@ -70,37 +70,14 @@ export default function Home() {
     }
   }, []);
 
-  const loadRuns = useCallback(async (forceRefresh = false) => {
-    if (!forceRefresh) {
-      const cached = getClientCache('home_runs');
-      if (cached) {
-        setRuns(cached);
-        setLoading(false);
-        return;
-      }
-    }
-    try {
-      const res = await fetch('/api/runs?limit=20');
-      if (res.ok) {
-        const data = await res.json();
-        const runsData = data.runs || [];
-        setRuns(runsData);
-        setClientCache('home_runs', runsData);
-      }
-    } catch (e) {
-      console.error('Failed to load runs:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   // Subscribe to sync to auto-refresh
   const [streak, setStreak] = useState<{ currentCount: number } | null>(null);
 
   const loadData = useCallback(async (forceRefresh = false) => {
     if (!forceRefresh) {
-      const cachedRuns = getClientCache('home_runs');
-      const cachedStreak = getClientCache('home_streak');
+      const cachedRuns = getClientCache<Run[]>('home_runs');
+      const cachedStreak = getClientCache<{ currentCount: number }>('home_streak');
       if (cachedRuns && cachedStreak) {
         setRuns(cachedRuns);
         setStreak(cachedStreak);
@@ -154,6 +131,12 @@ export default function Home() {
   }, [loadData]);
 
   const userName = user?.fullName || user?.firstName || 'Runner';
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
   const mostRecentRun = runs[0];
 
   // Aggregated Stats
@@ -175,8 +158,8 @@ export default function Home() {
       <header className="px-6 pt-8 pb-4 flex items-center justify-between">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Welcome back</span>
-          <h1 className="text-2xl font-black tracking-tight text-foreground mt-0.5">
-            Hello, {userName}!
+          <h1 className="text-lg sm:text-2xl font-black tracking-tight text-foreground mt-0.5 leading-tight">
+            {greeting}, {userName}!
           </h1>
         </div>
         <Link

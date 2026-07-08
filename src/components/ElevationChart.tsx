@@ -33,7 +33,7 @@ export default function ElevationChart({ elevChartData }: ElevationChartProps) {
             <Tooltip 
               contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }}
               labelStyle={{ color: '#888', marginBottom: '4px' }}
-              formatter={(value: any) => [`${Math.round(value as number)} m`, 'Elevation']}
+              formatter={(value?: string | number | readonly (string | number)[]) => [`${Math.round(Number(value || 0))} m`, 'Elevation']}
               labelFormatter={(v) => `${v} km`}
             />
             <Area type="monotone" dataKey="elev" stroke="#8A8A8A" fillOpacity={1} fill="url(#colorElev)" />

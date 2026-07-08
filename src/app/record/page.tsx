@@ -47,6 +47,28 @@ export default function RecordPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activityType, setActivityType] = useState<'run' | 'walk'>('run');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.activity-type-container')) {
+        setDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('click', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [dropdownOpen]);
+
   const [voiceFeedbackEnabled, setVoiceFeedbackEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('voice_feedback_enabled');
@@ -219,7 +241,7 @@ export default function RecordPage() {
 
         <div className="flex items-center justify-center gap-6">
           {/* Run Type Indicator (left) */}
-          <div className="w-16 h-16 flex flex-col items-center justify-center relative">
+          <div className="w-16 h-16 flex flex-col items-center justify-center relative activity-type-container">
             {runState === 'idle' && (
               <>
                 <button
@@ -267,7 +289,7 @@ export default function RecordPage() {
           {/* Main Action Button (center) */}
           {runState === 'idle' && (
             <motion.button
-              onClick={startRun}
+              onClick={() => startRun(activityType)}
               whileTap={{ scale: 0.95 }}
               transition={springConfig}
               className="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30"

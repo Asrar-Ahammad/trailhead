@@ -66,6 +66,8 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
     currentRunIdRef.current = currentRunId;
   }, [currentRunId]);
 
+  const activityTypeRef = useRef<'run' | 'walk'>('run');
+
   const distanceMRef = useRef<number>(0);
   useEffect(() => {
     distanceMRef.current = distanceM;
@@ -214,6 +216,7 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
       durationS: dur,
       status: statusMap[state] || 'active',
       version: 1,
+      activityType: activityTypeRef.current,
     });
   }, []);
 
@@ -369,11 +372,13 @@ interface NavigatorWithWakeLock extends Omit<Navigator, 'wakeLock'> {
         console.error('Failed to persist points to IndexedDB:', err);
       });
     }
-  }, [currentRunId]);
+  }, []);
 
   // Start active run tracking
-  const startRun = useCallback(async () => {
+  const startRun = useCallback(async (activityType: 'run' | 'walk' = 'run') => {
     if (runState !== 'idle') return;
+
+    activityTypeRef.current = activityType;
 
     const newId = generateId();
     setCurrentRunId(newId);

@@ -115,10 +115,10 @@ export default function YouPage() {
   const [selectedDate, setSelectedDate] = useState<{ year: number; month: number; day: number } | null>(null);
 
   useEffect(() => {
-    const cachedRuns = getClientCache('you_runs');
-    const cachedSummary = getClientCache('you_summary');
-    const cachedStreak = getClientCache('you_streak');
-    const cachedRecords = getClientCache('you_records');
+    const cachedRuns = getClientCache<Run[]>('you_runs');
+    const cachedSummary = getClientCache<WeeklySummary>('you_summary');
+    const cachedStreak = getClientCache<StreakInfo>('you_streak');
+    const cachedRecords = getClientCache<RecordEntry[]>('you_records');
 
     if (cachedRuns && cachedSummary && cachedStreak && cachedRecords) {
       setRuns(cachedRuns);

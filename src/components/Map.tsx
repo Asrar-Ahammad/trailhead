@@ -11,6 +11,19 @@ interface MapProps {
   showLocateButton?: boolean;
 }
 
+const createUserLocationIcon = () => {
+  return L.divIcon({
+    className: 'user-location-marker',
+    html: `<div style="
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #4285f4; border: 3px solid white;
+      box-shadow: 0 0 0 4px rgba(66,133,244,0.25), 0 0 8px rgba(0,0,0,0.3);
+    "></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+};
+
 export default function Map({ points, isFinished = false, rounded = true, showLocateButton = false }: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -121,17 +134,7 @@ export default function Map({ points, isFinished = false, rounded = true, showLo
       if (userMarkerRef.current) {
         userMarkerRef.current.setLatLng(currentPoint);
       } else {
-        const userIcon = L.divIcon({
-          className: 'user-location-marker',
-          html: `<div style="
-            width: 16px; height: 16px; border-radius: 50%;
-            background: #4285f4; border: 3px solid white;
-            box-shadow: 0 0 0 4px rgba(66,133,244,0.25), 0 0 8px rgba(0,0,0,0.3);
-          "></div>`,
-          iconSize: [16, 16],
-          iconAnchor: [8, 8],
-        });
-        userMarkerRef.current = L.marker(currentPoint, { icon: userIcon }).addTo(map);
+        userMarkerRef.current = L.marker(currentPoint, { icon: createUserLocationIcon() }).addTo(map);
       }
     } else if (isFinished && userMarkerRef.current) {
       userMarkerRef.current.remove();
@@ -184,17 +187,7 @@ export default function Map({ points, isFinished = false, rounded = true, showLo
         if (userMarkerRef.current) {
           userMarkerRef.current.setLatLng(latlng);
         } else {
-          const userIcon = L.divIcon({
-            className: 'user-location-marker',
-            html: `<div style="
-              width: 16px; height: 16px; border-radius: 50%;
-              background: #4285f4; border: 3px solid white;
-              box-shadow: 0 0 0 4px rgba(66,133,244,0.25), 0 0 8px rgba(0,0,0,0.3);
-            "></div>`,
-            iconSize: [16, 16],
-            iconAnchor: [8, 8],
-          });
-          userMarkerRef.current = L.marker(latlng, { icon: userIcon }).addTo(map);
+          userMarkerRef.current = L.marker(latlng, { icon: createUserLocationIcon() }).addTo(map);
         }
 
         map.flyTo(latlng, 16, { animate: true, duration: 0.8 });

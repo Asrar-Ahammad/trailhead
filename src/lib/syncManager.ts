@@ -105,6 +105,7 @@ async function syncSingleRun(job: SyncJob): Promise<boolean> {
         distanceM: runDraft.distanceM,
         durationS: runDraft.durationS,
         avgPaceSPerKm: runDraft.durationS / ((runDraft.distanceM || 1) / 1000), // average pace s/km
+        activityType: runDraft.activityType || 'run',
       }),
     });
 

@@ -15,6 +15,7 @@ const createRunSchema = z.object({
   avgPaceSPerKm: z.number().nonnegative(),
   elevationGainM: z.number().nullable().optional(),
   title: z.string().nullable().optional(),
+  activityType: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -72,15 +73,20 @@ export async function POST(req: Request) {
         avgPaceSPerKm: parsed.avgPaceSPerKm,
         elevationGainM: parsed.elevationGainM !== undefined && parsed.elevationGainM !== null ? parsed.elevationGainM : null,
         title: parsed.title || null,
+        activityType: parsed.activityType || 'run',
       },
     });
 
-    const { searchParams } = new URL(req.url);
-    const tz = searchParams.get('tz') || 'UTC';
-    await updateStreak(userId, startTime, tz);
-
     // Invalidate cached runs
     revalidateTag(`runs-${userId}`, 'max');
+
+    const { searchParams } = new URL(req.url);
+    const tz = searchParams.get('tz') || 'UTC';
+    try {
+      await updateStreak(userId, startTime, tz);
+    } catch (streakErr) {
+      console.error('Failed to update streak (non-fatal):', streakErr);
+    }
 
     return NextResponse.json(run);
   } catch (err) {

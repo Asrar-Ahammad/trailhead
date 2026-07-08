@@ -2,23 +2,11 @@
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Info } from '@phosphor-icons/react';
+import { formatPace, formatYAxisPace } from '@/lib/format';
 
 interface PaceChartProps {
   paceChartData: { dist: string; pace: number }[];
   avgPaceSPerKm: number;
-}
-
-function formatPace(paceSecPerKm: number): string {
-  if (!paceSecPerKm || paceSecPerKm <= 0 || paceSecPerKm > 3600) return '-:--';
-  const mins = Math.floor(paceSecPerKm / 60);
-  const secs = Math.floor(paceSecPerKm % 60);
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
-function formatYAxisPace(val: number) {
-  const m = Math.floor(val / 60);
-  const s = Math.floor(val % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export default function PaceChart({ paceChartData, avgPaceSPerKm }: PaceChartProps) {
