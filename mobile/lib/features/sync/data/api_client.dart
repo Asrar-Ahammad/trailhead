@@ -8,7 +8,7 @@ class ApiClient {
   final Dio _dio;
   
   // Use machine's local IP since testing on a physical device
-  static const String baseUrl = 'http://10.14.223.172:3000/api';
+  static const String baseUrl = 'https://trailhead-seven.vercel.app/api';
 
   ApiClient() : _dio = Dio(BaseOptions(baseUrl: baseUrl)) {
     _dio.interceptors.add(
