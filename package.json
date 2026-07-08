@@ -10,7 +10,6 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.5.13",
     "@phosphor-icons/react": "^2.1.10",
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
