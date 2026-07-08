@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { dbServer } from '@/lib/db-server';
 import { revalidateTag } from 'next/cache';
 import { z } from 'zod';
 import { checkForRecords, NewRecordNotification } from '@/lib/prEngine';
 import { updateStreak } from '@/lib/streakEngine';
+import { getUserIdFromRequest } from '@/lib/auth';
 
 const pointSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -21,11 +21,11 @@ const pointSchema = z.object({
 const batchPointsSchema = z.array(pointSchema);
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = getUserIdFromRequest(req);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -93,11 +93,11 @@ export async function POST(
 }
 
 export async function GET(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
+    const userId = getUserIdFromRequest(req);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

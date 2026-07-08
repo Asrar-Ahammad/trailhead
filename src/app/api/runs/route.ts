@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { dbServer } from '@/lib/db-server';
 import { z } from 'zod';
 import { getCachedRuns, getCachedRunCount } from '@/lib/cache';
 import { revalidateTag } from 'next/cache';
 import { updateStreak } from '@/lib/streakEngine';
+import { getUserIdFromRequest } from '@/lib/auth';
 
 const createRunSchema = z.object({
   clientRunId: z.string().optional(),
@@ -18,28 +18,15 @@ const createRunSchema = z.object({
   activityType: z.string().optional(),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = getUserIdFromRequest(req);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
     const parsed = createRunSchema.parse(body);
-
-    // Ensure user exists in our local DB
-    const userExists = await dbServer.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!userExists) {
-      const clerkUser = await currentUser();
-      const email = clerkUser?.emailAddresses[0]?.emailAddress || `${userId}@placeholder.com`;
-      await dbServer.user.create({
-        data: { id: userId, email },
-      });
-    }
 
     const runId = parsed.clientRunId;
     if (runId) {
@@ -98,9 +85,9 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = getUserIdFromRequest(req);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
