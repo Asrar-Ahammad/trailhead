@@ -8,6 +8,9 @@ import '../application/location_service_task.dart';
 import '../../audio/application/sound_service.dart';
 import 'permission_gate_screen.dart';
 import 'post_run_summary_screen.dart';
+import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:latlong2/latlong.dart';
 import 'widgets/live_run_map.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -51,9 +54,11 @@ class ActiveRunScreen extends ConsumerWidget {
             // Live map — 40% of available height
             Expanded(
               flex: 4,
-              child: trackerState.status != 'idle'
-                  ? const LiveRunMap()
-                  : _IdleMapPlaceholder(colors: colors),
+              child: LiveRunMap(
+                initialLocation: trackerState.initialPosition != null 
+                    ? LatLng(trackerState.initialPosition!.latitude, trackerState.initialPosition!.longitude)
+                    : null,
+              ),
             ),
 
             // Stats panel
@@ -183,34 +188,7 @@ class _StatusBar extends StatelessWidget {
   }
 }
 
-class _IdleMapPlaceholder extends StatelessWidget {
-  const _IdleMapPlaceholder({required this.colors});
 
-  final AppColors colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: colors.surface,
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            PhosphorIcons.mapTrifold(PhosphorIconsStyle.regular),
-            color: colors.textDisabled,
-            size: 48,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Map shows once tracking starts',
-            style: AppTextStyles.bodyMedium(color: colors.textDisabled),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _StatPanel extends StatelessWidget {
   const _StatPanel({required this.trackerState, required this.colors});
@@ -264,14 +242,15 @@ class _StatPanel extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      RunFormatUtils.formatPace(
-                        trackerState.distanceM,
-                        trackerState.durationS,
+                      trackerState.currentSplitPaceSPerKm != null
+                          ? '${(trackerState.currentSplitPaceSPerKm! / 60).floor()}:${(trackerState.currentSplitPaceSPerKm! % 60).toString().padLeft(2, '0')}'
+                          : RunFormatUtils.formatPace(trackerState.distanceM, trackerState.durationS),
+                      style: AppTextStyles.displayStat(
+                        color: _getPaceColor(trackerState, colors),
                       ),
-                      style: AppTextStyles.displayStat(color: colors.textPrimary),
                     ),
                     Text(
-                      'PACE /KM',
+                      trackerState.currentSplitPaceSPerKm != null ? 'SPLIT PACE' : 'AVG PACE /KM',
                       style: AppTextStyles.labelCaps(color: colors.textSecondary),
                     ),
                   ],
@@ -282,6 +261,17 @@ class _StatPanel extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Color _getPaceColor(RunTrackerState trackerState, AppColors colors) {
+    if (trackerState.targetPaceSPerKm == null || trackerState.currentSplitPaceSPerKm == null) {
+      return colors.textPrimary;
+    }
+    if (trackerState.currentSplitPaceSPerKm! <= trackerState.targetPaceSPerKm!) {
+      return colors.accent; // Green/Accent - Ahead or on pace
+    } else {
+      return colors.error; // Red/Coral - Behind pace
+    }
   }
 }
 
@@ -297,106 +287,183 @@ class _RunControls extends StatelessWidget {
   final VoidCallback onStop;
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Consumer(
       builder: (ctx, ref, _) {
         final notifier = ref.read(runTrackerProvider.notifier);
+        final status = trackerState.status;
+        final isIdle = status == 'idle';
 
-        if (trackerState.status == 'idle') {
-          return Center(
-            child: PressableScale(
-              onTap: () {
-                ref.read(soundServiceProvider).playRunStart();
-                notifier.startRun();
-              },
-              child: _CircleButton(
-                size: 72,
-                color: colors.accent,
-                child: Icon(
-                  PhosphorIcons.play(PhosphorIconsStyle.fill),
-                  color: Colors.white,
-                  size: 32,
-                ),
-              ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: isIdle
+                  ? Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                      child: _TargetPaceSelector(
+                        trackerState: trackerState,
+                        colors: colors,
+                        notifier: notifier,
+                        ref: ref,
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity, height: 0),
             ),
-          );
-        }
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final double width = constraints.maxWidth;
+                const double spacing = 16.0;
+                final double halfWidth = (width - spacing) / 2;
+                final isPaused = status == 'paused';
 
-        if (trackerState.status == 'running') {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              PressableScale(
-                onTap: () {
-                  ref.read(soundServiceProvider).playPauseResume();
-                  notifier.pauseRun();
-                },
-                child: _CircleButton(
-                  size: 72,
-                  color: colors.surface,
-                  borderColor: colors.border,
-                  child: Icon(
-                    PhosphorIcons.pause(PhosphorIconsStyle.fill),
-                    color: colors.textPrimary,
-                    size: 28,
+                return SizedBox(
+                  height: 64,
+                  child: Stack(
+                    children: [
+                      // Left Button (Start / Pause / Resume)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        right: isIdle ? 0 : halfWidth + spacing,
+                        child: PressableScale(
+                          onTap: () {
+                            if (isIdle) {
+                              ref.read(soundServiceProvider).playRunStart();
+                              notifier.startRun();
+                            } else if (isPaused) {
+                              ref.read(soundServiceProvider).playPauseResume();
+                              notifier.resumeRun();
+                            } else {
+                              ref.read(soundServiceProvider).playPauseResume();
+                              notifier.pauseRun();
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            decoration: BoxDecoration(
+                              color: isIdle || isPaused ? colors.accent : colors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isIdle || isPaused ? colors.accent : colors.border,
+                                width: 2,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                isIdle ? 'START RUN' : (isPaused ? 'RESUME' : 'PAUSE'),
+                                style: AppTextStyles.bodyLargeBold(
+                                  color: isIdle || isPaused ? Colors.white : colors.textPrimary,
+                                ).copyWith(letterSpacing: 1.2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      // Right Button (Stop)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        left: isIdle ? width : halfWidth + spacing,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: isIdle ? 0.0 : 1.0,
+                          child: IgnorePointer(
+                            ignoring: isIdle,
+                            child: PressableScale(
+                              onTap: onStop,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: colors.error,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'STOP',
+                                    style: AppTextStyles.bodyLargeBold(color: Colors.white).copyWith(letterSpacing: 1.2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xl),
-              PressableScale(
-                onTap: onStop,
-                child: _CircleButton(
-                  size: 72,
-                  color: colors.error,
-                  child: Icon(
-                    PhosphorIcons.stop(PhosphorIconsStyle.fill),
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        if (trackerState.status == 'paused') {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              PressableScale(
-                onTap: () {
-                  ref.read(soundServiceProvider).playPauseResume();
-                  notifier.resumeRun();
-                },
-                child: _CircleButton(
-                  size: 72,
-                  color: colors.accent,
-                  child: Icon(
-                    PhosphorIcons.play(PhosphorIconsStyle.fill),
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xl),
-              PressableScale(
-                onTap: onStop,
-                child: _CircleButton(
-                  size: 72,
-                  color: colors.error,
-                  child: Icon(
-                    PhosphorIcons.stop(PhosphorIconsStyle.fill),
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-
-        return const SizedBox.shrink();
+                );
+              },
+            ),
+          ],
+        );
       },
+    );
+  }
+}
+
+class _TargetPaceSelector extends StatelessWidget {
+  const _TargetPaceSelector({
+    required this.trackerState,
+    required this.colors,
+    required this.notifier,
+    required this.ref,
+  });
+
+  final RunTrackerState trackerState;
+  final AppColors colors;
+  final RunTrackerController notifier;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentPace = trackerState.targetPaceSPerKm;
+    final String paceStr = currentPace != null 
+        ? '${(currentPace / 60).floor()}:${(currentPace % 60).toString().padLeft(2, '0')} /km'
+        : 'Set Target Pace';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(PhosphorIcons.minus(), color: colors.textPrimary),
+            onPressed: () {
+              ref.read(hapticsServiceProvider).lightImpact();
+              final newPace = (currentPace ?? 360) + 10; // Slower pace = more seconds
+              notifier.setTargetPace(newPace);
+            },
+          ),
+          const SizedBox(width: 8),
+          Text(
+            paceStr,
+            style: AppTextStyles.bodyLarge(color: colors.textPrimary),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(PhosphorIcons.plus(), color: colors.textPrimary),
+            onPressed: () {
+              ref.read(hapticsServiceProvider).lightImpact();
+              final newPace = (currentPace ?? 360) - 10; // Faster pace = less seconds
+              if (newPace > 0) notifier.setTargetPace(newPace);
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -493,7 +560,7 @@ class _StopBottomSheet extends StatelessWidget {
                 if (savedRun != null && context.mounted) {
                   final pointsAsync = ref.read(routePointsProvider);
                   final points = pointsAsync.valueOrNull ?? [];
-                  Navigator.of(context).pushReplacement(
+                  Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => PostRunSummaryScreen(
                         run: savedRun,

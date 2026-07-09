@@ -4,8 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../profile/presentation/settings_screen.dart';
 import '../application/run_tracker_controller.dart';
-import 'active_run_screen.dart';
+import '../../navigation/presentation/main_scaffold.dart';
 import '../../../shared/widgets/pressable_scale.dart';
+import 'package:disable_battery_optimization/disable_battery_optimization.dart';
 
 class PermissionGateScreen extends ConsumerStatefulWidget {
   const PermissionGateScreen({super.key});
@@ -32,7 +33,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
     final state = ref.read(runTrackerProvider);
     if (state.permissionsGranted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ActiveRunScreen()),
+        MaterialPageRoute(builder: (_) => const MainScaffold()),
       );
     }
   }
@@ -45,7 +46,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
     ref.listen(runTrackerProvider, (prev, next) {
       if (next.permissionsGranted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const ActiveRunScreen()),
+          MaterialPageRoute(builder: (_) => const MainScaffold()),
         );
       }
     });
@@ -251,6 +252,16 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
         setState(() {
           _errorMsg = "Background location permission denied. Change permission to 'Allow all the time' in settings.";
         });
+      } else {
+        // Ask for battery optimization exemption on Android
+        try {
+          bool? isBatteryOptimizationDisabled = await DisableBatteryOptimization.isBatteryOptimizationDisabled;
+          if (isBatteryOptimizationDisabled == false) {
+            await DisableBatteryOptimization.showDisableBatteryOptimizationSettings();
+          }
+        } catch (e) {
+          debugPrint('Battery optimization check failed: $e');
+        }
       }
     } catch (e) {
       setState(() {

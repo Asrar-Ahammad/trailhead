@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +21,9 @@ class RunTrackerState {
   final int stepCount;
   final bool gpsWeak;
   final bool permissionsGranted;
+  final int? targetPaceSPerKm;
+  final int? currentSplitPaceSPerKm;
+  final Position? initialPosition;
 
   RunTrackerState({
     required this.status,
@@ -28,6 +33,9 @@ class RunTrackerState {
     this.stepCount = 0,
     this.gpsWeak = false,
     this.permissionsGranted = false,
+    this.targetPaceSPerKm,
+    this.currentSplitPaceSPerKm,
+    this.initialPosition,
   });
 
   RunTrackerState copyWith({
@@ -38,6 +46,9 @@ class RunTrackerState {
     int? stepCount,
     bool? gpsWeak,
     bool? permissionsGranted,
+    int? targetPaceSPerKm,
+    int? currentSplitPaceSPerKm,
+    Position? initialPosition,
   }) {
     return RunTrackerState(
       status: status ?? this.status,
@@ -47,17 +58,29 @@ class RunTrackerState {
       stepCount: stepCount ?? this.stepCount,
       gpsWeak: gpsWeak ?? this.gpsWeak,
       permissionsGranted: permissionsGranted ?? this.permissionsGranted,
+      targetPaceSPerKm: targetPaceSPerKm ?? this.targetPaceSPerKm,
+      currentSplitPaceSPerKm: currentSplitPaceSPerKm ?? this.currentSplitPaceSPerKm,
+      initialPosition: initialPosition ?? this.initialPosition,
     );
   }
 }
 
 class RunTrackerController extends StateNotifier<RunTrackerState> {
   StreamSubscription? _portSubscription;
+  final FlutterTts _flutterTts = FlutterTts();
 
   RunTrackerController() : super(RunTrackerState(status: 'idle')) {
     _initForegroundTask();
     _checkPermissionsSilently();
     _recoverOrphanedRuns();
+    _initTts();
+  }
+
+  void _initTts() {
+    _flutterTts.setLanguage("en-US");
+    _flutterTts.setSpeechRate(0.5);
+    _flutterTts.setVolume(1.0);
+    _flutterTts.setPitch(1.0);
   }
 
   void _initForegroundTask() {
@@ -81,21 +104,34 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     );
 
     // Listen to background isolate messages
-    FlutterForegroundTask.receivePort?.listen((message) {
-      if (message is Map<String, dynamic>) {
-        final type = message['type'];
+    FlutterForegroundTask.addTaskDataCallback((data) {
+      if (data is Map) {
+        final type = data['type'];
         if (type == 'stats_update') {
           state = state.copyWith(
-            distanceM: message['distanceM'] as double,
-            durationS: message['durationS'] as int,
-            stepCount: message['stepCount'] as int,
-            status: (message['isPaused'] as bool) ? 'paused' : 'running',
+            distanceM: (data['distanceM'] as num).toDouble(),
+            durationS: (data['durationS'] as num).toInt(),
+            stepCount: (data['stepCount'] as num).toInt(),
+            status: (data['isPaused'] as bool) ? 'paused' : 'running',
+            currentSplitPaceSPerKm: data['currentSplitPaceSPerKm'] != null ? (data['currentSplitPaceSPerKm'] as num).toInt() : null,
           );
         } else if (type == 'gps_weak') {
-          state = state.copyWith(gpsWeak: message['weak'] as bool);
+          state = state.copyWith(gpsWeak: data['weak'] as bool);
+        } else if (type == 'split_reached') {
+          _handleSplitReached((data['km'] as num).toInt(), (data['timeS'] as num).toInt(), (data['paceSPerKm'] as num).toInt());
         }
       }
     });
+  }
+
+  void _handleSplitReached(int km, int splitTimeS, int paceSPerKm) async {
+    HapticFeedback.heavyImpact();
+    
+    final int paceMin = (paceSPerKm / 60).floor();
+    final int paceSec = (paceSPerKm % 60).round();
+    
+    final String text = "Kilometer $km. Split pace $paceMin minutes $paceSec seconds.";
+    await _flutterTts.speak(text);
   }
 
   Future<void> _checkPermissionsSilently() async {
@@ -111,7 +147,14 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       backgroundGranted = hasLocation == LocationPermission.always;
     }
 
-    state = state.copyWith(permissionsGranted: isGranted && backgroundGranted);
+    Position? pos;
+    if (isGranted) {
+      try {
+        pos = await Geolocator.getLastKnownPosition() ?? await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+      } catch (_) {}
+    }
+
+    state = state.copyWith(permissionsGranted: isGranted && backgroundGranted, initialPosition: pos);
   }
 
   Future<bool> requestForegroundPermission() async {
@@ -122,7 +165,14 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     final granted = permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse;
     
-    state = state.copyWith(permissionsGranted: granted);
+    Position? pos = state.initialPosition;
+    if (granted && pos == null) {
+      try {
+        pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+      } catch (_) {}
+    }
+    
+    state = state.copyWith(permissionsGranted: granted, initialPosition: pos);
     return granted;
   }
 
@@ -135,7 +185,15 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     }
     
     final granted = permission == LocationPermission.always;
-    state = state.copyWith(permissionsGranted: granted);
+    
+    Position? pos = state.initialPosition;
+    if (granted && pos == null) {
+      try {
+        pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+      } catch (_) {}
+    }
+    
+    state = state.copyWith(permissionsGranted: granted, initialPosition: pos);
     return granted;
   }
 
@@ -177,6 +235,14 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     }
   }
 
+  void setTargetPace(int? paceS) {
+    state = state.copyWith(targetPaceSPerKm: paceS);
+  }
+  
+  void updateInitialPosition(Position pos) {
+    state = state.copyWith(initialPosition: pos);
+  }
+
   Future<void> startRun() async {
     if (state.status != 'idle') return;
 
@@ -200,6 +266,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       durationS: 0,
       stepCount: 0,
       permissionsGranted: state.permissionsGranted,
+      initialPosition: state.initialPosition,
+      targetPaceSPerKm: state.targetPaceSPerKm,
     );
 
     // Start Foreground Service
@@ -280,7 +348,12 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       }
     }
 
-    state = state.copyWith(status: 'stopped');
+    state = RunTrackerState(
+      status: 'idle',
+      permissionsGranted: state.permissionsGranted,
+      initialPosition: state.initialPosition,
+      targetPaceSPerKm: state.targetPaceSPerKm,
+    );
     return activeRun;
   }
 

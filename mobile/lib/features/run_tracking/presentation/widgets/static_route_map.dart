@@ -14,9 +14,15 @@ class StaticRouteMap extends StatelessWidget {
   const StaticRouteMap({
     super.key,
     required this.points,
+    this.showBaseMap = true,
+    this.showMarkers = true,
+    this.padding = const EdgeInsets.all(32.0),
   });
 
   final List<LatLng> points;
+  final bool showBaseMap;
+  final bool showMarkers;
+  final EdgeInsets padding;
 
   String _tileUrl(Brightness brightness) {
     if (brightness == Brightness.dark) {
@@ -52,20 +58,29 @@ class StaticRouteMap extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: FlutterMap(
         options: MapOptions(
+          initialCameraFit: bounds != null
+              ? CameraFit.bounds(
+                  bounds: bounds,
+                  padding: padding,
+                )
+              : null,
           initialCenter: center,
           initialZoom: 14.0,
+          backgroundColor: Colors.transparent,
           interactionOptions: const InteractionOptions(
             // Read-only — disable all gestures on the static map
             flags: InteractiveFlag.none,
           ),
         ),
         children: [
-          TileLayer(
-            urlTemplate: _tileUrl(brightness),
-            subdomains: const ['a', 'b', 'c'],
-            tileProvider: MapTileCacheManager.instance.tileProvider,
-            userAgentPackageName: 'com.trailhead.mobile',
-          ),
+          if (showBaseMap)
+            TileLayer(
+              urlTemplate: _tileUrl(brightness),
+              subdomains: const ['a', 'b', 'c'],
+              tileProvider: MapTileCacheManager.instance.tileProvider,
+              userAgentPackageName: 'com.trailhead.mobile',
+            ),
+
 
           // Full route polyline
           if (points.length >= 2)
@@ -80,20 +95,21 @@ class StaticRouteMap extends StatelessWidget {
             ),
 
           // Start marker — green
-          CircleLayer(
-            circles: [
-              CircleMarker(
-                point: points.first,
-                radius: 8,
-                color: colors.success,
-                borderColor: Colors.white,
-                borderStrokeWidth: 2,
-              ),
-            ],
-          ),
+          if (showMarkers)
+            CircleLayer(
+              circles: [
+                CircleMarker(
+                  point: points.first,
+                  radius: 8,
+                  color: colors.success,
+                  borderColor: Colors.white,
+                  borderStrokeWidth: 2,
+                ),
+              ],
+            ),
 
           // End marker — coral/accent
-          if (points.length > 1)
+          if (showMarkers && points.length > 1)
             CircleLayer(
               circles: [
                 CircleMarker(
@@ -106,12 +122,14 @@ class StaticRouteMap extends StatelessWidget {
               ],
             ),
 
-          RichAttributionWidget(
-            attributions: [
-              TextSourceAttribution('\u00a9 OpenStreetMap contributors'),
-              TextSourceAttribution('\u00a9 CARTO'),
-            ],
-          ),
+          if (showBaseMap)
+            const RichAttributionWidget(
+              attributions: [
+                TextSourceAttribution('\u00a9 OpenStreetMap contributors'),
+                TextSourceAttribution('\u00a9 CARTO'),
+              ],
+              showFlutterMapAttribution: false,
+            ),
         ],
       ),
     );

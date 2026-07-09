@@ -11,7 +11,10 @@ import 'features/sync/application/sync_service.dart';
 import 'features/sync/data/api_client.dart';
 import 'features/sync/data/models/sync_job_isar.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'shared/theme/app_colors.dart';
+import 'shared/theme/app_themes.dart';
 
 late Isar isarInstance;
 
@@ -70,6 +73,7 @@ void callbackDispatcher() {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterForegroundTask.initCommunicationPort();
 
   // Initialize Workmanager
   Workmanager().initialize(
@@ -97,34 +101,26 @@ class TrailheadApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark || 
+                  (themeMode == ThemeMode.system && 
+                   WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
+                   
+    final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
 
-    return MaterialApp(
-      title: 'Trailhead',
-      debugShowCheckedModeBanner: false,
-      themeMode: themeMode,
-      darkTheme: _buildTheme(AppColors.dark, Brightness.dark),
-      theme: _buildTheme(AppColors.light, Brightness.light),
-      home: const AuthWrapper(),
-    );
-  }
-
-  ThemeData _buildTheme(AppColors colors, Brightness brightness) {
-    return ThemeData(
-      brightness: brightness,
-      scaffoldBackgroundColor: colors.background,
-      primaryColor: colors.accent,
-      colorScheme: ColorScheme(
-        brightness: brightness,
-        primary: colors.accent,
-        onPrimary: const Color(0xFFFFFFFF),
-        secondary: colors.accentMuted,
-        onSecondary: const Color(0xFFFFFFFF),
-        surface: colors.surface,
-        onSurface: colors.textPrimary,
-        error: colors.error,
-        onError: const Color(0xFFFFFFFF),
+    return WithForegroundTask(
+      child: ThemeProvider(
+        initTheme: initTheme,
+        builder: (context, myTheme) {
+          return MaterialApp(
+            title: 'Trailhead',
+            debugShowCheckedModeBanner: false,
+            themeMode: themeMode,
+            theme: myTheme,
+            darkTheme: AppThemes.darkTheme,
+            home: const AuthWrapper(),
+          );
+        },
       ),
-      extensions: [colors],
     );
   }
 }

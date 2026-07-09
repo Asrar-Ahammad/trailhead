@@ -22,43 +22,48 @@ const RunPointIsarSchema = CollectionSchema(
       name: r'accuracy',
       type: IsarType.double,
     ),
-    r'clientRunId': PropertySchema(
+    r'cadence': PropertySchema(
       id: 1,
+      name: r'cadence',
+      type: IsarType.long,
+    ),
+    r'clientRunId': PropertySchema(
+      id: 2,
       name: r'clientRunId',
       type: IsarType.string,
     ),
     r'elevation': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'elevation',
       type: IsarType.double,
     ),
     r'isPaused': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'isPaused',
       type: IsarType.bool,
     ),
     r'lat': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'lat',
       type: IsarType.double,
     ),
     r'lng': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'lng',
       type: IsarType.double,
     ),
     r'sequence': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'sequence',
       type: IsarType.long,
     ),
     r'speed': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'speed',
       type: IsarType.double,
     ),
     r'timestamp': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'timestamp',
       type: IsarType.dateTime,
     )
@@ -113,14 +118,15 @@ void _runPointIsarSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDouble(offsets[0], object.accuracy);
-  writer.writeString(offsets[1], object.clientRunId);
-  writer.writeDouble(offsets[2], object.elevation);
-  writer.writeBool(offsets[3], object.isPaused);
-  writer.writeDouble(offsets[4], object.lat);
-  writer.writeDouble(offsets[5], object.lng);
-  writer.writeLong(offsets[6], object.sequence);
-  writer.writeDouble(offsets[7], object.speed);
-  writer.writeDateTime(offsets[8], object.timestamp);
+  writer.writeLong(offsets[1], object.cadence);
+  writer.writeString(offsets[2], object.clientRunId);
+  writer.writeDouble(offsets[3], object.elevation);
+  writer.writeBool(offsets[4], object.isPaused);
+  writer.writeDouble(offsets[5], object.lat);
+  writer.writeDouble(offsets[6], object.lng);
+  writer.writeLong(offsets[7], object.sequence);
+  writer.writeDouble(offsets[8], object.speed);
+  writer.writeDateTime(offsets[9], object.timestamp);
 }
 
 RunPointIsar _runPointIsarDeserialize(
@@ -131,15 +137,16 @@ RunPointIsar _runPointIsarDeserialize(
 ) {
   final object = RunPointIsar();
   object.accuracy = reader.readDoubleOrNull(offsets[0]);
-  object.clientRunId = reader.readStringOrNull(offsets[1]);
-  object.elevation = reader.readDoubleOrNull(offsets[2]);
+  object.cadence = reader.readLongOrNull(offsets[1]);
+  object.clientRunId = reader.readStringOrNull(offsets[2]);
+  object.elevation = reader.readDoubleOrNull(offsets[3]);
   object.id = id;
-  object.isPaused = reader.readBool(offsets[3]);
-  object.lat = reader.readDoubleOrNull(offsets[4]);
-  object.lng = reader.readDoubleOrNull(offsets[5]);
-  object.sequence = reader.readLong(offsets[6]);
-  object.speed = reader.readDoubleOrNull(offsets[7]);
-  object.timestamp = reader.readDateTimeOrNull(offsets[8]);
+  object.isPaused = reader.readBool(offsets[4]);
+  object.lat = reader.readDoubleOrNull(offsets[5]);
+  object.lng = reader.readDoubleOrNull(offsets[6]);
+  object.sequence = reader.readLong(offsets[7]);
+  object.speed = reader.readDoubleOrNull(offsets[8]);
+  object.timestamp = reader.readDateTimeOrNull(offsets[9]);
   return object;
 }
 
@@ -153,20 +160,22 @@ P _runPointIsarDeserializeProp<P>(
     case 0:
       return (reader.readDoubleOrNull(offset)) as P;
     case 1:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 2:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readBool(offset)) as P;
-    case 4:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 4:
+      return (reader.readBool(offset)) as P;
     case 5:
       return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readLong(offset)) as P;
-    case 7:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 7:
+      return (reader.readLong(offset)) as P;
     case 8:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 9:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -414,6 +423,80 @@ extension RunPointIsarQueryFilter
         upper: upper,
         includeUpper: includeUpper,
         epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterFilterCondition>
+      cadenceIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'cadence',
+      ));
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterFilterCondition>
+      cadenceIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'cadence',
+      ));
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterFilterCondition>
+      cadenceEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cadence',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterFilterCondition>
+      cadenceGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cadence',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterFilterCondition>
+      cadenceLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cadence',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterFilterCondition>
+      cadenceBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cadence',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -1111,6 +1194,18 @@ extension RunPointIsarQuerySortBy
     });
   }
 
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterSortBy> sortByCadence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cadence', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterSortBy> sortByCadenceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cadence', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunPointIsar, RunPointIsar, QAfterSortBy> sortByClientRunId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'clientRunId', Sort.asc);
@@ -1220,6 +1315,18 @@ extension RunPointIsarQuerySortThenBy
   QueryBuilder<RunPointIsar, RunPointIsar, QAfterSortBy> thenByAccuracyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'accuracy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterSortBy> thenByCadence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cadence', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunPointIsar, RunPointIsar, QAfterSortBy> thenByCadenceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cadence', Sort.desc);
     });
   }
 
@@ -1341,6 +1448,12 @@ extension RunPointIsarQueryWhereDistinct
     });
   }
 
+  QueryBuilder<RunPointIsar, RunPointIsar, QDistinct> distinctByCadence() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'cadence');
+    });
+  }
+
   QueryBuilder<RunPointIsar, RunPointIsar, QDistinct> distinctByClientRunId(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1402,6 +1515,12 @@ extension RunPointIsarQueryProperty
   QueryBuilder<RunPointIsar, double?, QQueryOperations> accuracyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'accuracy');
+    });
+  }
+
+  QueryBuilder<RunPointIsar, int?, QQueryOperations> cadenceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'cadence');
     });
   }
 

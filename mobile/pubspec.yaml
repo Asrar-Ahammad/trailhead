@@ -67,6 +67,12 @@ dependencies:
   workmanager: ^0.9.0+3
   audioplayers: ^6.7.1
   audio_session: ^0.2.4
+  flutter_native_splash: ^2.4.7
+  flutter_launcher_icons: ^0.14.4
+  disable_battery_optimization: ^1.1.2
+  flutter_tts: ^4.2.5
+  share_plus: ^13.2.0
+  animated_theme_switcher: ^2.0.10
 
 dev_dependencies:
   flutter_test:
@@ -95,6 +101,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/sounds/
+    - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -121,3 +128,15 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  min_sdk_android: 24 # android min sdk min:16, default:21
+
+flutter_native_splash:
+  color: "#121212"
+  image: "assets/images/app_icon.png"
+  android: true
+  ios: true

@@ -1,0 +1,154 @@
+import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
+import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
+import 'package:trailhead_mobile/features/history/presentation/widgets/run_metric_chart.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/tracking_calcs.dart';
+import 'package:trailhead_mobile/shared/theme/app_colors.dart';
+import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
+import 'dart:math';
+
+class RunChartsSection extends StatelessWidget {
+  final RunIsar run;
+  final List<RunPointIsar> points;
+
+  const RunChartsSection({
+    super.key,
+    required this.run,
+    required this.points,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (points.isEmpty) return const SizedBox.shrink();
+
+    final colors = Theme.of(context).extension<AppColors>()!;
+    
+    // Process points into cumulative distance and charts
+    double currentDistance = 0.0;
+    RunPointIsar? lastPoint;
+
+    final List<ChartDataPoint> paceData = [];
+    final List<ChartDataPoint> cadenceData = [];
+    final List<ChartDataPoint> elevationData = [];
+    
+    double maxElevation = -9999;
+    double maxCadence = 0;
+    double maxSpeed = 0; // for fastest split / pace
+
+    for (final point in points) {
+      if (lastPoint != null && point.lat != null && point.lng != null && lastPoint.lat != null && lastPoint.lng != null) {
+        currentDistance += TrackingCalcs.calculateDistance(
+          lastPoint.lat!, lastPoint.lng!, point.lat!, point.lng!
+        );
+      }
+      
+      final currentDistKm = currentDistance / 1000.0;
+      
+      // Pace (only if speed > 0)
+      if (point.speed != null && point.speed! > 0.1) {
+        final paceSeconds = 1000.0 / point.speed!;
+        // Cap pace to reasonable running/walking bounds (e.g. max 20 min/km = 1200s)
+        if (paceSeconds < 1200) {
+          paceData.add(ChartDataPoint(currentDistKm, paceSeconds));
+        }
+        maxSpeed = max(maxSpeed, point.speed!);
+      }
+      
+      // Cadence
+      if (point.cadence != null && point.cadence! > 0) {
+        cadenceData.add(ChartDataPoint(currentDistKm, point.cadence!.toDouble()));
+        maxCadence = max(maxCadence, point.cadence!.toDouble());
+      }
+      
+      // Elevation
+      if (point.elevation != null) {
+        elevationData.add(ChartDataPoint(currentDistKm, point.elevation!));
+        maxElevation = max(maxElevation, point.elevation!);
+      }
+      
+      lastPoint = point;
+    }
+
+    final double avgPace = run.avgPaceSPerKm ?? 0;
+    final double avgCadence = run.avgCadenceSpm ?? 0;
+    final double elevationGain = run.elevationGainM ?? 0;
+    final double fastestPaceSPerKm = maxSpeed > 0 ? (1000.0 / maxSpeed) : 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (paceData.isNotEmpty) ...[
+          RunMetricChart(
+            title: 'Pace',
+            type: MetricType.pace,
+            data: paceData,
+            color: Colors.blueAccent, // Use a static color or theme color
+            average: avgPace > 0 ? avgPace : null,
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow(colors, [
+            _StatItem('Avg Pace', avgPace > 0 ? _formatPace(avgPace) : '--'),
+            _StatItem('Fastest Split', fastestPaceSPerKm > 0 ? _formatPace(fastestPaceSPerKm) : '--'),
+          ]),
+          const SizedBox(height: 32),
+        ],
+        
+        if (cadenceData.isNotEmpty) ...[
+          RunMetricChart(
+            title: 'Cadence',
+            type: MetricType.cadence,
+            data: cadenceData,
+            color: Colors.pinkAccent,
+            average: avgCadence > 0 ? avgCadence : null,
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow(colors, [
+            _StatItem('Avg Cadence', avgCadence > 0 ? '${avgCadence.round()} spm' : '--'),
+            _StatItem('Max Cadence', maxCadence > 0 ? '${maxCadence.round()} spm' : '--'),
+          ]),
+          const SizedBox(height: 32),
+        ],
+        
+        if (elevationData.isNotEmpty) ...[
+          RunMetricChart(
+            title: 'Elevation',
+            type: MetricType.elevation,
+            data: elevationData,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          _buildStatRow(colors, [
+            _StatItem('Elevation Gain', '${elevationGain.round()} m'),
+            _StatItem('Max Elevation', maxElevation > -9999 ? '${maxElevation.round()} m' : '--'),
+          ]),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStatRow(AppColors colors, List<_StatItem> stats) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: stats.map((stat) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(stat.label, style: AppTextStyles.label(color: colors.textSecondary)),
+          const SizedBox(height: 4),
+          Text(stat.value, style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+        ],
+      )).toList(),
+    );
+  }
+
+  String _formatPace(double seconds) {
+    final m = seconds ~/ 60;
+    final s = (seconds % 60).round();
+    return '$m:${s.toString().padLeft(2, '0')} /km';
+  }
+}
+
+class _StatItem {
+  final String label;
+  final String value;
+  _StatItem(this.label, this.value);
+}

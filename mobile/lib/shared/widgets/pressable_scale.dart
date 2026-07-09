@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
-class PressableScale extends StatefulWidget {
+class PressableScale extends ConsumerStatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
 
@@ -11,10 +13,10 @@ class PressableScale extends StatefulWidget {
   });
 
   @override
-  State<PressableScale> createState() => _PressableScaleState();
+  ConsumerState<PressableScale> createState() => _PressableScaleState();
 }
 
-class _PressableScaleState extends State<PressableScale> {
+class _PressableScaleState extends ConsumerState<PressableScale> {
   bool _isPressed = false;
 
   @override
@@ -22,6 +24,7 @@ class _PressableScaleState extends State<PressableScale> {
     return GestureDetector(
       onTapDown: (_) {
         if (widget.onTap != null) {
+          ref.read(hapticsServiceProvider).lightImpact();
           setState(() => _isPressed = true);
         }
       },

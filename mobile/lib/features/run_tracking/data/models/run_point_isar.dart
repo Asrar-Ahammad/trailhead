@@ -15,6 +15,7 @@ class RunPointIsar {
   DateTime? timestamp;
   double? accuracy;
   double? speed;
+  int? cadence; // spm
   bool isPaused = false;
   int sequence = 0; // order within run
 }

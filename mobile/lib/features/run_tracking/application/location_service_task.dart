@@ -8,6 +8,7 @@ import 'package:pedometer/pedometer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
+import '../../sync/data/models/sync_job_isar.dart';
 import 'tracking_calcs.dart';
 
 @pragma('vm:entry-point')
@@ -27,14 +28,27 @@ class LocationTaskHandler extends TaskHandler {
   int _currentSteps = 0;
   bool _isPaused = false;
   
+  int _lastPointSteps = 0;
+  DateTime? _lastPointTime;
+  int _currentCadence = 0;
+  
   Position? _lastPosition;
   Timer? _timer;
+  
+  int _lastSplitKm = 0;
+  int _lastSplitTimeS = 0;
+  double _lastSplitDistanceM = 0.0;
+  
+  // Elevation smoothing
+  final List<double> _altitudeBuffer = [];
+  double _elevationGainM = 0.0;
+  double? _lastSmoothedAltitude;
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     final dir = await getApplicationDocumentsDirectory();
     _isar = Isar.getInstance() ?? await Isar.open(
-      [RunIsarSchema, RunPointIsarSchema],
+      [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema],
       directory: dir.path,
     );
 
@@ -48,7 +62,16 @@ class LocationTaskHandler extends TaskHandler {
     _clientRunId = activeRun.clientRunId;
     _durationS = activeRun.durationS ?? 0;
     _distanceM = activeRun.distanceM ?? 0.0;
+    _elevationGainM = activeRun.elevationGainM ?? 0.0;
     _isPaused = false;
+    
+    _lastPointSteps = _currentSteps;
+    _lastPointTime = DateTime.now();
+    _currentCadence = 0;
+    
+    _lastSplitKm = (_distanceM / 1000).floor();
+    _lastSplitDistanceM = _distanceM;
+    _lastSplitTimeS = _durationS;
 
     // Retrieve last position if there are already points for this run
     final lastPoint = await _isar!.runPointIsars
@@ -77,11 +100,6 @@ class LocationTaskHandler extends TaskHandler {
         accuracy: LocationAccuracy.high,
         distanceFilter: 5, // Receive update when moving 5 meters
         intervalDuration: const Duration(seconds: 2),
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationText: "Tracking your run...",
-          notificationTitle: "Trailhead",
-          enableWakeLock: true,
-        ),
       ),
     ).listen((Position position) {
       _handleLocationUpdate(position);
@@ -110,8 +128,8 @@ class LocationTaskHandler extends TaskHandler {
   void _handleLocationUpdate(Position position) async {
     if (_isar == null || _clientRunId == null) return;
 
-    // Filter by accuracy (reject points with accuracy > 30m)
-    if (position.accuracy > 30.0) {
+    // Filter by accuracy (reject points with accuracy > 20m)
+    if (position.accuracy > 20.0) {
       FlutterForegroundTask.sendDataToMain({
         'type': 'gps_weak',
         'weak': true,
@@ -153,6 +171,39 @@ class LocationTaskHandler extends TaskHandler {
     if (!_isPaused) {
       _distanceM += deltaDist;
       
+      // Calculate smoothed elevation
+      _altitudeBuffer.add(position.altitude);
+      if (_altitudeBuffer.length > 3) {
+        _altitudeBuffer.removeAt(0);
+      }
+      
+      if (_altitudeBuffer.length == 3) {
+        final double smoothedAltitude = _altitudeBuffer.reduce((a, b) => a + b) / 3.0;
+        if (_lastSmoothedAltitude != null) {
+          final double deltaAlt = smoothedAltitude - _lastSmoothedAltitude!;
+          if (deltaAlt > 0) {
+            _elevationGainM += deltaAlt;
+          }
+        }
+        _lastSmoothedAltitude = smoothedAltitude;
+      }
+
+      // Calculate instantaneous cadence
+      if (_lastPointTime != null) {
+        final double deltaSeconds = position.timestamp.difference(_lastPointTime!).inMilliseconds / 1000.0;
+        if (deltaSeconds >= 2.0) { // Update over a reasonable window
+          final int deltaSteps = _currentSteps - _lastPointSteps;
+          _currentCadence = ((deltaSteps / deltaSeconds) * 60).round();
+          // Cadence caps (walking/running usually 60-250)
+          if (_currentCadence > 300) _currentCadence = 0;
+          _lastPointSteps = _currentSteps;
+          _lastPointTime = position.timestamp;
+        }
+      } else {
+        _lastPointTime = position.timestamp;
+        _lastPointSteps = _currentSteps;
+      }
+
       // Save point to local database
       final count = await _isar!.runPointIsars.filter().clientRunIdEqualTo(_clientRunId).count();
       final point = RunPointIsar()
@@ -163,6 +214,7 @@ class LocationTaskHandler extends TaskHandler {
         ..timestamp = position.timestamp
         ..accuracy = position.accuracy
         ..speed = speed
+        ..cadence = _currentCadence
         ..isPaused = false
         ..sequence = count + 1;
 
@@ -193,6 +245,7 @@ class LocationTaskHandler extends TaskHandler {
       activeRun.distanceM = _distanceM;
       activeRun.durationS = _durationS;
       activeRun.stepCount = _currentSteps;
+      activeRun.elevationGainM = _elevationGainM;
       
       if (_currentSteps > 0) {
         activeRun.avgStrideLengthM = _distanceM / _currentSteps;
@@ -242,6 +295,34 @@ class LocationTaskHandler extends TaskHandler {
       notificationText: notificationText,
     );
 
+    // Split detection
+    final int currentKm = distanceKm.floor();
+    if (currentKm > _lastSplitKm) {
+      final int splitTimeS = _durationS - _lastSplitTimeS;
+      final double splitDistanceKm = (_distanceM - _lastSplitDistanceM) / 1000.0;
+      final int splitPaceSPerKm = splitDistanceKm > 0 ? (splitTimeS / splitDistanceKm).round() : 0;
+      
+      FlutterForegroundTask.sendDataToMain({
+        'type': 'split_reached',
+        'km': currentKm,
+        'timeS': splitTimeS,
+        'paceSPerKm': splitPaceSPerKm,
+      });
+      
+      _lastSplitKm = currentKm;
+      _lastSplitTimeS = _durationS;
+      _lastSplitDistanceM = _distanceM;
+    }
+
+    // Current Split Pace
+    int? currentSplitPace;
+    if (_distanceM > _lastSplitDistanceM && _durationS > _lastSplitTimeS) {
+      final double currentSplitDistKm = (_distanceM - _lastSplitDistanceM) / 1000.0;
+      if (currentSplitDistKm > 0) {
+        currentSplitPace = ((_durationS - _lastSplitTimeS) / currentSplitDistKm).round();
+      }
+    }
+
     // Send data to UI isolate
     FlutterForegroundTask.sendDataToMain({
       'type': 'stats_update',
@@ -249,7 +330,9 @@ class LocationTaskHandler extends TaskHandler {
       'durationS': _durationS,
       'distanceM': _distanceM,
       'stepCount': _currentSteps,
+      'elevationGainM': _elevationGainM,
       'isPaused': _isPaused,
+      'currentSplitPaceSPerKm': currentSplitPace,
     });
   }
 
