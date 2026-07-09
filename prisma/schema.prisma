@@ -44,6 +44,7 @@ model RunPoint {
   elevation Float?
   timestamp DateTime
   accuracy  Float?
+  cadence   Int?
   sequence  Int      // order within run
 
   @@unique([runId, sequence])

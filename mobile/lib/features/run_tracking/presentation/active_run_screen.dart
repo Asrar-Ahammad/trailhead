@@ -556,10 +556,13 @@ class _StopBottomSheet extends StatelessWidget {
               onTap: () async {
                 Navigator.pop(context);
                 ref.read(soundServiceProvider).playRunFinish();
+                
+                // Fetch points before stopping the run (which clears the tracker state)
+                final pointsAsync = ref.read(routePointsProvider);
+                final points = pointsAsync.valueOrNull ?? [];
+
                 final savedRun = await notifier.stopRun();
                 if (savedRun != null && context.mounted) {
-                  final pointsAsync = ref.read(routePointsProvider);
-                  final points = pointsAsync.valueOrNull ?? [];
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => PostRunSummaryScreen(

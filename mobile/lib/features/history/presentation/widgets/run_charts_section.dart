@@ -44,14 +44,23 @@ class RunChartsSection extends StatelessWidget {
       
       final currentDistKm = currentDistance / 1000.0;
       
+      double? currentSpeed = point.speed;
+      if (currentSpeed == null && lastPoint != null && point.lat != null && point.lng != null && lastPoint.lat != null && lastPoint.lng != null && point.timestamp != null && lastPoint.timestamp != null) {
+        final dist = TrackingCalcs.calculateDistance(lastPoint.lat!, lastPoint.lng!, point.lat!, point.lng!);
+        final timeDiff = point.timestamp!.difference(lastPoint.timestamp!).inSeconds.toDouble();
+        if (timeDiff > 0) {
+          currentSpeed = dist / timeDiff;
+        }
+      }
+
       // Pace (only if speed > 0)
-      if (point.speed != null && point.speed! > 0.1) {
-        final paceSeconds = 1000.0 / point.speed!;
+      if (currentSpeed != null && currentSpeed > 0.1) {
+        final paceSeconds = 1000.0 / currentSpeed;
         // Cap pace to reasonable running/walking bounds (e.g. max 20 min/km = 1200s)
         if (paceSeconds < 1200) {
           paceData.add(ChartDataPoint(currentDistKm, paceSeconds));
         }
-        maxSpeed = max(maxSpeed, point.speed!);
+        maxSpeed = max(maxSpeed, currentSpeed);
       }
       
       // Cadence

@@ -8,6 +8,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
+import '../../run_tracking/application/run_format_utils.dart';
 
 import '../../haptics/application/haptics_service.dart';
 import '../../navigation/presentation/main_scaffold.dart';
@@ -228,7 +229,7 @@ class HomeScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                summary.mostRecentRun!.title ?? 'Morning Run',
+                                RunFormatUtils.getRunTitle(summary.mostRecentRun!.title, summary.mostRecentRun!.startTime),
                                 style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary),
                               ),
                               const SizedBox(height: 4),

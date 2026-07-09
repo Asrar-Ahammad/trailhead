@@ -9,6 +9,7 @@ import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/stat
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 
 class ActivityCard extends ConsumerWidget {
   final RunIsar run;
@@ -69,7 +70,7 @@ class ActivityCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    run.title ?? 'Morning Run',
+                    RunFormatUtils.getRunTitle(run.title, run.startTime),
                     style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary).copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: 4),

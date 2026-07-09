@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../run_tracking/application/run_format_utils.dart';
 import '../../run_tracking/data/models/run_isar.dart';
 import '../../run_tracking/data/models/run_point_isar.dart';
 
@@ -40,7 +41,7 @@ class GpxExportUtil {
     
     // Track
     buffer.writeln('  <trk>');
-    buffer.writeln('    <name>${run.title ?? "Morning Run"}</name>');
+    buffer.writeln('    <name>${RunFormatUtils.getRunTitle(run.title, run.startTime)}</name>');
     buffer.writeln('    <trkseg>');
     
     // Points

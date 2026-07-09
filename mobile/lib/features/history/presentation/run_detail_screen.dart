@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
@@ -162,7 +163,7 @@ class RunDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              run.title ?? 'Morning Run',
+              RunFormatUtils.getRunTitle(run.title, run.startTime),
               style: AppTextStyles.headline(color: retroColors.textPrimary).copyWith(fontSize: 32),
             ),
             const SizedBox(height: 24),

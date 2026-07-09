@@ -4,6 +4,9 @@ import '../application/auth_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
+import '../../sync/application/sync_service.dart';
+import '../../sync/data/api_client.dart';
+import '../../../main.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -37,11 +40,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     if (mounted) {
-      setState(() => _isLoading = false);
       if (success) {
+        // Fetch existing remote runs
+        try {
+          final apiClient = ref.read(apiClientProvider);
+          final syncService = SyncService(isar: isarInstance, apiClient: apiClient);
+          await syncService.fetchInitialData();
+        } catch (e) {
+          debugPrint('Failed to fetch initial data: $e');
+        }
+        setState(() => _isLoading = false);
         // Pop will return back to PermissionGate (or main app flow)
         Navigator.of(context).pushReplacementNamed('/');
       } else {
+        setState(() => _isLoading = false);
         _error = 'Authentication failed. Please check your credentials.';
       }
     }

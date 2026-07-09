@@ -15,6 +15,7 @@ const pointSchema = z.object({
     return !isNaN(d.getTime());
   }, { message: "Invalid timestamp format" }),
   accuracy: z.number().nullable().optional(),
+  cadence: z.number().int().nullable().optional(),
   sequence: z.number().int().nonnegative(),
 });
 
@@ -60,6 +61,7 @@ export async function POST(
       elevation: p.elevation !== undefined && p.elevation !== null ? p.elevation : null,
       timestamp: new Date(p.timestamp),
       accuracy: p.accuracy !== undefined && p.accuracy !== null ? p.accuracy : null,
+      cadence: p.cadence !== undefined && p.cadence !== null ? p.cadence : null,
       sequence: p.sequence,
     }));
 

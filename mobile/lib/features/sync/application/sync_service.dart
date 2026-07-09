@@ -94,7 +94,10 @@ class SyncService {
         final pointsPayload = batch.map((p) => {
           'lat': p.lat,
           'lng': p.lng,
+          'elevation': p.elevation,
           'timestamp': p.timestamp?.toIso8601String(),
+          'accuracy': p.accuracy,
+          'cadence': p.cadence,
           'sequence': p.sequence,
         }).toList();
 
@@ -121,6 +124,68 @@ class SyncService {
     } catch (e) {
       print('Sync error for job ${job.clientRunId}: $e');
       return false;
+    }
+  }
+
+  /// Fetch existing runs from the server (used on first login)
+  Future<void> fetchInitialData() async {
+    try {
+      int page = 1;
+      int totalPages = 1;
+      do {
+        final response = await apiClient.client.get('/runs?page=$page&limit=20');
+        if (response.statusCode == 200) {
+          final data = response.data;
+          final runsList = data['runs'] as List<dynamic>;
+          totalPages = data['pagination']['totalPages'] as int;
+
+          for (final runJson in runsList) {
+            final clientRunId = runJson['id'];
+            
+            // Check if it exists locally
+            final existingRun = await isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+            if (existingRun == null) {
+              // Fetch detailed run to get points
+              final detailResponse = await apiClient.client.get('/runs/$clientRunId');
+              if (detailResponse.statusCode == 200) {
+                final detailData = detailResponse.data;
+                
+                final run = RunIsar()
+                  ..clientRunId = detailData['id']
+                  ..title = detailData['title']
+                  ..startTime = DateTime.parse(detailData['startTime'])
+                  ..endTime = DateTime.parse(detailData['endTime'])
+                  ..distanceM = (detailData['distanceM'] as num?)?.toDouble()
+                  ..durationS = detailData['durationS'] as int?
+                  ..avgPaceSPerKm = (detailData['avgPaceSPerKm'] as num?)?.toDouble()
+                  ..elevationGainM = (detailData['elevationGainM'] as num?)?.toDouble()
+                  ..status = 'completed'
+                  ..synced = true
+                  ..syncedAt = DateTime.now();
+
+                final pointsData = detailData['points'] as List<dynamic>? ?? [];
+                final points = pointsData.map((p) => RunPointIsar()
+                  ..clientRunId = clientRunId
+                  ..lat = (p['lat'] as num).toDouble()
+                  ..lng = (p['lng'] as num).toDouble()
+                  ..elevation = (p['elevation'] as num?)?.toDouble()
+                  ..timestamp = DateTime.parse(p['timestamp'])
+                  ..cadence = p['cadence'] as int?
+                  ..sequence = p['sequence'] as int
+                ).toList();
+
+                await isar.writeTxn(() async {
+                  await isar.runIsars.put(run);
+                  await isar.runPointIsars.putAll(points);
+                });
+              }
+            }
+          }
+        }
+        page++;
+      } while (page <= totalPages);
+    } catch (e) {
+      print('initialSync error: $e');
     }
   }
 }

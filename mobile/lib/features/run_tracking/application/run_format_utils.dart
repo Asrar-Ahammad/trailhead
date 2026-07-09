@@ -34,4 +34,22 @@ abstract final class RunFormatUtils {
     if (calories == null || calories <= 0) return '--';
     return calories.round().toString();
   }
+
+  /// Returns the run title, or a time-based default (e.g. "Morning Run") if null.
+  static String getRunTitle(String? title, DateTime? startTime) {
+    if (title != null && title.trim().isNotEmpty) {
+      return title;
+    }
+    final start = startTime?.toLocal() ?? DateTime.now();
+    final hour = start.hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Morning Run';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Afternoon Run';
+    } else if (hour >= 17 && hour < 21) {
+      return 'Evening Run';
+    } else {
+      return 'Night Run';
+    }
+  }
 }
