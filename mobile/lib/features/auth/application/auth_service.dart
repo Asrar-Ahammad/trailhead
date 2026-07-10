@@ -37,6 +37,8 @@ class AuthService {
 
       if (response.statusCode == 200 && response.data['token'] != null) {
         await saveToken(response.data['token']);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_email', email);
         return true;
       }
       return false;
@@ -58,6 +60,8 @@ class AuthService {
 
       if (response.statusCode == 200 && response.data['token'] != null) {
         await saveToken(response.data['token']);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_email', email);
         return true;
       }
       return false;

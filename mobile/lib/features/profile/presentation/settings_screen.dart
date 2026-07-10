@@ -31,6 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _lastRestDaysUpdate;
   double? _userWeightKg;
   String? _userName;
+  String? _userEmail;
   String? _userDob; // ISO8601 string
   String? _userGender;
 
@@ -51,9 +52,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _lastRestDaysUpdate = prefs.getString('last_rest_days_update');
       _userWeightKg = prefs.getDouble('user_weight_kg');
       _userName = prefs.getString('user_name');
+      _userEmail = prefs.getString('user_email');
       _userDob = prefs.getString('user_dob');
       _userGender = prefs.getString('user_gender');
     });
+
+    try {
+      final api = ref.read(apiClientProvider);
+      final response = await api.client.get('/auth/me');
+      if (response.statusCode == 200 && response.data['email'] != null) {
+        final email = response.data['email'];
+        await prefs.setString('user_email', email);
+        if (mounted) {
+          setState(() {
+            _userEmail = email;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch user profile: $e');
+    }
   }
 
   Future<void> _updateRestDays() async {
@@ -124,7 +142,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
         try {
           final api = ref.read(apiClientProvider);
-          await api.put('/streak', data: {'restDaysLimit': val});
+          await api.client.put('/streak', data: {'restDaysLimit': val});
         } catch (e) {
           debugPrint('Failed to sync rest days to backend: $e');
         }
@@ -376,6 +394,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Widget _buildSectionHeader(String title, AppColors colors) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, top: 24, bottom: 8),
+      child: Text(
+        title,
+        style: GoogleFonts.spaceGrotesk(
+          color: colors.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionGroup(List<Widget> children, AppColors colors) {
+    final List<Widget> items = [];
+    for (int i = 0; i < children.length; i++) {
+      items.add(children[i]);
+      if (i < children.length - 1) {
+        items.add(Divider(color: colors.border.withOpacity(0.5), height: 1, indent: 16, endIndent: 16));
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.border.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: items,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
@@ -396,255 +450,130 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 24, bottom: 8),
-            child: Text(
-              'PROFILE',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
+          _buildSectionHeader('PROFILE', colors),
+          _buildSectionGroup([
+            ListTile(
+              title: Text('Email', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text(_userEmail?.isNotEmpty == true ? _userEmail! : 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              trailing: Icon(PhosphorIcons.envelopeSimple(), color: colors.textSecondary, size: 20),
             ),
-          ),
-          ListTile(
-            title: Text(
-              'Name',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            ListTile(
+              title: Text('Name', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text(_userName?.isNotEmpty == true ? _userName! : 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
+              onTap: _updateName,
             ),
-            subtitle: Text(
-              _userName?.isNotEmpty == true ? _userName! : 'Not set',
-              style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14),
+            ListTile(
+              title: Text('Date of Birth', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text(_userDob != null ? '${_userDob!.split('T').first} (${_calculateAge()} years)' : 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
+              onTap: _updateDob,
             ),
-            trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary),
-            onTap: _updateName,
-          ),
-          Divider(color: colors.border, height: 1),
-          ListTile(
-            title: Text(
-              'Date of Birth',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            ListTile(
+              title: Text('Gender', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text(_userGender ?? 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
+              onTap: _updateGender,
             ),
-            subtitle: Text(
-              _userDob != null ? '${_userDob!.split('T').first} (${_calculateAge()} years)' : 'Not set',
-              style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14),
+            ListTile(
+              title: Text('Body Weight', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text(_userWeightKg != null ? '${_userWeightKg!.toStringAsFixed(1)} kg' : 'Not set (Required for Calories)', style: GoogleFonts.spaceGrotesk(color: _userWeightKg != null ? colors.textSecondary : colors.error, fontSize: 14)),
+              trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
+              onTap: _updateWeight,
             ),
-            trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary),
-            onTap: _updateDob,
-          ),
-          Divider(color: colors.border, height: 1),
-          ListTile(
-            title: Text(
-              'Gender',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+          ], colors),
+
+          _buildSectionHeader('WORKOUT', colors),
+          _buildSectionGroup([
+            SwitchListTile(
+              title: Text('Audio Cues', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text('Announce distance and pace.', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              value: _audioCuesEnabled,
+              onChanged: _toggleAudioCues,
+              activeColor: colors.accent,
             ),
-            subtitle: Text(
-              _userGender ?? 'Not set',
-              style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14),
-            ),
-            trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary),
-            onTap: _updateGender,
-          ),
-          Divider(color: colors.border, height: 1),
-          ListTile(
-            title: Text(
-              'Body Weight',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              _userWeightKg != null ? '${_userWeightKg!.toStringAsFixed(1)} kg' : 'Not set (Required for Calories)',
-              style: GoogleFonts.spaceGrotesk(
-                color: _userWeightKg != null ? colors.textSecondary : colors.error,
-                fontSize: 14,
-              ),
-            ),
-            trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary),
-            onTap: _updateWeight,
-          ),
-          Divider(color: colors.border, height: 1),
-          Padding(
-            padding: const EdgeInsets.only(left: 16, top: 24, bottom: 8),
-            child: Text(
-              'PREFERENCES',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textSecondary,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ),
-          SwitchListTile(
-            title: Text(
-              'Audio Cues',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              'Announce distance and pace during workouts.',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-            value: _audioCuesEnabled,
-            onChanged: _toggleAudioCues,
-            activeColor: colors.accent,
-          ),
-          if (_audioCuesEnabled)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Cue Frequency',
-                    style: GoogleFonts.spaceGrotesk(
-                      color: colors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+            if (_audioCuesEnabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Cue Frequency', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w500)),
+                    DropdownButton<double>(
+                      value: _audioCueFrequency,
+                      dropdownColor: colors.surface,
+                      style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
+                      underline: const SizedBox.shrink(),
+                      items: const [
+                        DropdownMenuItem(value: 1.0, child: Text('Every 1 km')),
+                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 km')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) _updateAudioCueFrequency(value);
+                      },
                     ),
-                  ),
-                  DropdownButton<double>(
-                    value: _audioCueFrequency,
-                    dropdownColor: colors.surface,
-                    style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
-                    underline: const SizedBox.shrink(),
-                    items: const [
-                      DropdownMenuItem(value: 1.0, child: Text('Every 1 km')),
-                      DropdownMenuItem(value: 0.5, child: Text('Every 0.5 km')),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        _updateAudioCueFrequency(value);
+                  ],
+                ),
+              ),
+            ListTile(
+              title: Text('Monthly Rest Days', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text('$_restDaysLimit days/month', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
+              onTap: _updateRestDays,
+            ),
+          ], colors),
+
+          _buildSectionHeader('APP PREFERENCES', colors),
+          _buildSectionGroup([
+            SwitchListTile(
+              title: Text('Retro UI Sounds', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text('Play 8-bit sound effects.', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              value: _uiSoundsEnabled,
+              onChanged: _toggleUiSounds,
+              activeColor: colors.accent,
+            ),
+            SwitchListTile(
+              title: Text('Haptic Feedback', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: Text('Vibrate on UI interactions.', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              value: _hapticsEnabled,
+              onChanged: _toggleHaptics,
+              activeColor: colors.accent,
+            ),
+            ListTile(
+              title: Text('App Theme', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              trailing: ThemeSwitcher(
+                builder: (context) => DropdownButton<ThemeMode>(
+                  value: themeMode,
+                  dropdownColor: colors.surface,
+                  style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
+                    DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+                    DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+                  ],
+                  onChanged: (mode) {
+                    if (mode != null) {
+                      ref.read(themeModeProvider.notifier).setMode(mode);
+                      final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
+                      final newTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
+                      
+                      if (isDark) {
+                        ref.read(soundServiceProvider).playThemeDark();
+                      } else {
+                        ref.read(soundServiceProvider).playThemeLight();
                       }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          Divider(color: colors.border, height: 1),
-          SwitchListTile(
-            title: Text(
-              'Retro UI Sounds',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              'Play 8-bit sound effects on interaction.',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-            value: _uiSoundsEnabled,
-            onChanged: _toggleUiSounds,
-            activeColor: colors.accent,
-          ),
-          Divider(color: colors.border, height: 1),
-          ListTile(
-            title: Text(
-              'Monthly Rest Days',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              '$_restDaysLimit days/month',
-              style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14),
-            ),
-            trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary),
-            onTap: _updateRestDays,
-          ),
-          Divider(color: colors.border, height: 1),
-          SwitchListTile(
-            title: Text(
-              'Haptic Feedback',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              'Vibrate on UI interactions.',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textSecondary,
-                fontSize: 14,
-              ),
-            ),
-            value: _hapticsEnabled,
-            onChanged: _toggleHaptics,
-            activeColor: colors.accent,
-          ),
-          Divider(color: colors.border, height: 1),
-          ListTile(
-            title: Text(
-              'App Theme',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            trailing: ThemeSwitcher(
-              builder: (context) => DropdownButton<ThemeMode>(
-                value: themeMode,
-                dropdownColor: colors.surface,
-                style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
-                  DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
-                  DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
-                ],
-                onChanged: (mode) {
-                  if (mode != null) {
-                    ref.read(themeModeProvider.notifier).setMode(mode);
-                    
-                    final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
-                    final newTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
-                    
-                    if (isDark) {
-                      ref.read(soundServiceProvider).playThemeDark();
-                    } else {
-                      ref.read(soundServiceProvider).playThemeLight();
+                      
+                      ThemeSwitcher.of(context).changeTheme(theme: newTheme);
                     }
-                    
-                    ThemeSwitcher.of(context).changeTheme(theme: newTheme);
-                  }
-                },
+                  },
+                ),
               ),
             ),
-          ),
-          Divider(color: colors.border, height: 1),
+          ], colors),
+
           const SizedBox(height: 32),
           TextButton(
             onPressed: _logout,
@@ -652,7 +581,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               backgroundColor: colors.surface,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 side: BorderSide(color: colors.error.withOpacity(0.5)),
               ),
             ),
