@@ -3,6 +3,7 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { getCachedRunDetail } from '@/lib/cache';
 import { revalidateTag } from 'next/cache';
 import { dbServer } from '@/lib/db-server';
+import { updateStreak } from '@/lib/streakEngine';
 
 export async function GET(
   req: NextRequest,
@@ -53,6 +54,8 @@ export async function DELETE(
       dbServer.personalRecord.deleteMany({ where: { runId: id } }),
       dbServer.run.delete({ where: { id } }),
     ]);
+
+    await updateStreak(userId, new Date());
 
     revalidateTag(`runs-${userId}`, 'max');
     revalidateTag(`run-detail-${id}`, 'max');
