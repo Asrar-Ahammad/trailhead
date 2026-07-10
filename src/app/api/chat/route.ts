@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
 import OpenAI from 'openai';
 import { z } from 'zod';
-import prisma from '@/lib/prisma';
+import { dbServer as prisma } from '@/lib/db-server';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
 
       if (message.tool_calls && message.tool_calls.length > 0) {
         for (const toolCall of message.tool_calls) {
+          if (toolCall.type !== 'function') continue;
           const args = JSON.parse(toolCall.function.arguments);
           let toolResult = '';
 
