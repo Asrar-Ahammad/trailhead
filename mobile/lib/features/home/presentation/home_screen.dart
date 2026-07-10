@@ -7,6 +7,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
+import 'package:trailhead_mobile/features/stats/application/ai_coach_provider.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import '../../run_tracking/application/run_format_utils.dart';
 
@@ -25,6 +26,7 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final summaryAsync = ref.watch(weeklySummaryProvider);
+    final aiCoachAsync = ref.watch(aiCoachProvider);
     
     return Scaffold(
       backgroundColor: retroColors.background,
@@ -58,7 +60,7 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             summaryAsync.when(
-              data: (summary) => _buildContent(context, ref, retroColors, summary),
+              data: (summary) => _buildContent(context, ref, retroColors, summary, aiCoachAsync),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, stack) => Center(child: Text('Error: \$err')),
             ),
@@ -83,7 +85,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklySummary summary) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklySummary summary, AsyncValue<AiCoachData> aiCoachAsync) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -136,8 +138,63 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.xl),
+
+        aiCoachAsync.when(
+          data: (coachData) {
+            final hasFlag = coachData.fatigueFlag != null;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('AI COACH', style: AppTextStyles.retroLabel(color: retroColors.accent).copyWith(fontSize: 14)),
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: retroColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: hasFlag ? retroColors.error : retroColors.accent),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (hasFlag) ...[
+                        Row(
+                          children: [
+                            Icon(PhosphorIcons.warning(PhosphorIconsStyle.fill), color: retroColors.error, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(coachData.fatigueFlag!, style: AppTextStyles.bodyMediumBold(color: retroColors.error))),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(PhosphorIcons.robot(PhosphorIconsStyle.fill), color: retroColors.accent, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              coachData.coachingFeedback,
+                              style: AppTextStyles.bodyMedium(color: retroColors.textPrimary),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
+            );
+          },
+          loading: () => const Padding(
+            padding: EdgeInsets.only(bottom: AppSpacing.xl),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (err, stack) => const SizedBox.shrink(),
+        ),
             
-            Text('DISTANCE OVER TIME', style: AppTextStyles.retroLabel(color: retroColors.accent).copyWith(fontSize: 14)),
+        Text('DISTANCE OVER TIME', style: AppTextStyles.retroLabel(color: retroColors.accent).copyWith(fontSize: 14)),
             const SizedBox(height: AppSpacing.md),
             
             // Chart Container

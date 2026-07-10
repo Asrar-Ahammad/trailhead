@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { dbServer } from '@/lib/db-server';
 import { getLocalDateString } from '@/lib/streakEngine';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function GET(req: NextRequest) {
   try {
@@ -112,6 +115,71 @@ export async function GET(req: NextRequest) {
     const endStr = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: tz });
     const dateRange = `${startStr} - ${endStr}`;
 
+    // Fetch user context for AI
+    const user = await dbServer.user.findUnique({
+      where: { id: userId },
+    });
+
+    let age = 'Unknown';
+    if (user?.dob) {
+      const birthDate = new Date(user.dob);
+      const ageDate = new Date(Date.now() - birthDate.getTime());
+      age = Math.abs(ageDate.getUTCFullYear() - 1970).toString();
+    }
+    const weight = user?.weightKg ? `${user.weightKg}kg` : 'Unknown';
+    const gender = user?.gender || 'Unknown';
+
+    // 10% rule: Calculate average of previous 4 weeks
+    const startOf4WeeksAgo = new Date(startOfWeek);
+    startOf4WeeksAgo.setDate(startOfWeek.getDate() - 28);
+    
+    const last4WeeksRuns = await dbServer.run.findMany({
+      where: {
+        userId,
+        startTime: {
+          gte: startOf4WeeksAgo,
+          lt: startOfWeek,
+        },
+      },
+    });
+
+    let previous4WeeksDistanceKm = 0;
+    last4WeeksRuns.forEach(r => previous4WeeksDistanceKm += r.distanceM / 1000);
+    const avgWeeklyDistanceKm = previous4WeeksDistanceKm / 4;
+
+    let coachingFeedback = currentDistanceKm > 0 
+      ? "Consistency is key. You've hit your targets this week. Keep maintaining this pace."
+      : "Start your run streak! Log your first workout of the week to stay active.";
+    let fatigueFlag: string | null = null;
+
+    if (process.env.OPENAI_API_KEY && currentDistanceKm > 0) {
+      const prompt = `You are an elite running coach providing weekly feedback.
+User Context: Age: ${age}, Gender: ${gender}, Weight: ${weight}.
+Current Week Distance: ${currentDistanceKm.toFixed(1)} km across ${currentCount} runs.
+Previous 4-Week Average Distance: ${avgWeeklyDistanceKm.toFixed(1)} km/week.
+
+The "10% rule" states weekly mileage shouldn't increase by more than 10%. 
+Analyze the data. Keep the tone encouraging but non-alarmist. DO NOT provide medical advice.
+
+Return a JSON object with two fields:
+- "coachingFeedback": 2-4 sentences of personalized training feedback.
+- "fatigueFlag": A short 1-sentence warning string IF the user significantly exceeded the 10% rule (e.g. "You ramped up your mileage very fast this week—prioritize recovery!"). Otherwise, return null.`;
+
+      try {
+        const aiResponse = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' },
+        });
+
+        const parsed = JSON.parse(aiResponse.choices[0].message.content || '{}');
+        if (parsed.coachingFeedback) coachingFeedback = parsed.coachingFeedback;
+        if (parsed.fatigueFlag) fatigueFlag = parsed.fatigueFlag;
+      } catch (e) {
+        console.error('OpenAI Error in weekly summary:', e);
+      }
+    }
+
     return NextResponse.json({
       dateRange,
       stats: {
@@ -130,10 +198,8 @@ export async function GET(req: NextRequest) {
         rank: pr.rank,
         achievedAt: pr.achievedAt,
       })),
-      // AI Coach line placeholder (coaching feedback cached generation in Phase 9)
-      aiCoachFeedback: currentDistanceKm > 0 
-        ? "Consistency is key. You've hit your targets this week. Keep maintaining this pace."
-        : "Start your run streak! Log your first workout of the week to stay active.",
+      coachingFeedback,
+      fatigueFlag,
     });
   } catch (err) {
     console.error('Error calculating weekly summary:', err);
