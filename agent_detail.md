@@ -14,7 +14,7 @@ Native Android app (Flutter) for tracking runs via live GPS, true background tra
 - Animations: Flutter's native animation system — `AnimatedContainer`/`AnimatedOpacity`/implicit animations for simple transitions, `AnimationController` + `Tween` for custom sequences (route draw, count-up, completion sequence), `Hero` for shared-element transitions (icon morphs), optionally `flutter_animate` package for cleaner declarative syntax over raw controllers. This replaces the old Framer Motion + GSAP web-only rule — those don't apply in Flutter, this is the Flutter-native equivalent, same design intent (spring-like, purposeful, sequenced).
 - Backend: unchanged — Next.js API routes (route handlers), hit over HTTPS from Flutter via `dio` or `http` package
 - DB: Prisma ORM + Supabase Postgres (unchanged)
-- Auth: **Supabase Auth** (switched from Clerk — Clerk has no official Flutter SDK; Supabase Auth has a proper Flutter package and you're already on Supabase Postgres, one less integration to bridge)
+- Auth: **Custom auth system** — email/password, `passwordHash` stored on the User table (own backend, not a third-party auth provider). Backend issues its own session token/JWT on login, validated on every API request server-side.
 - AI: OpenAI API, called from backend only (unchanged — Flutter app never holds the OpenAI key, always goes through your Next.js API routes)
 - Icons: `pixelarticons` (primary, pixel-art style) + `phosphor_flutter` (supplementary, for icons pixelarticons doesn't cover) — used together, judgment call on which fits each spot rather than a rigid per-context split
 - Deployment: Play Store (internal testing track first, production later). Backend stays on Vercel.
@@ -45,7 +45,7 @@ Native Android app (Flutter) for tracking runs via live GPS, true background tra
 
 Full list of screens/states the app needs. Cross-reference against User interaction flow (below) for sequencing, and Design system spec for visual treatment.
 
-- **Auth**: login/signup via Supabase Auth, gate before Home.
+- **Auth**: login/signup via custom auth system (email/password), gate before Home.
 - **Permission gate**: shown on first Record visit or on Start tap if background location was revoked. Explains why background location is required, requests foreground then background permission (Android 10+ two-step). Blocks past this point on denial, links to Android app settings.
 - **Home**: greeting, weekly summary widget (distance/time/pace, PR banner if applicable, progress delta, AI coach line), streak indicator (single consistent unit), quick-start Run/Walk buttons, most recent activity card (→ Run Detail). Bottom nav: Home / Record / You.
 - **Record — pre-run**: map centered on current location, GPS lock status, Run/Walk mode toggle, Start button (disabled until GPS lock acquired).
@@ -69,7 +69,7 @@ Both deferred intentionally — revisit when Phase 9 build order reaches these s
 
 
 ### App launch
-Cold start → check Supabase Auth session. Logged in → Home. Not logged in → auth screen.
+Cold start → check for a valid stored session token (secure local storage, not shared_preferences — see Security section). Valid → Home. Missing/expired → auth screen.
 If a run was in-progress when app was last killed: recover draft from Isar, reconnect to foreground service if still alive, resume straight to active-run screen (not Home) — user shouldn't have to re-navigate to their own in-progress run.
 
 ### Home screen
@@ -155,7 +155,7 @@ Backend stays as originally speced — Next.js API routes, Prisma, Supabase Post
 Prisma schema (unchanged from original plan):
 ```prisma
 model User {
-  id        String   @id // Supabase Auth user id
+  id        String   @id @default(cuid()) // own backend, not a third-party auth provider id
   email     String   @unique
   weightKg  Float?   // optional, prompts calorie calc accuracy — see Phase 1 note
   createdAt DateTime @default(now())
@@ -208,9 +208,14 @@ model Streak {
 }
 ```
 
-Auth: Supabase Auth session token attached to every API request (Bearer token header). Backend route handlers validate the Supabase JWT server-side, derive `userId` from it — never trust a client-sent `userId`.
+Auth: custom system, own backend. Login/signup routes issue a signed JWT (or session token) on success, Flutter app stores it in secure local storage (`flutter_secure_storage`, not `shared_preferences` — a session token is more sensitive than a theme preference) and attaches it as a Bearer token header on every subsequent API request. Backend route handlers validate the token server-side on every request, derive `userId` from it — never trust a client-sent `userId`.
+- Password hashing: bcrypt or argon2 (argon2 preferred, stronger default) for `passwordHash` — never store plaintext, never roll your own hashing.
+- Token expiry + refresh: short-lived access token + longer-lived refresh token is the standard pattern (avoids forcing re-login constantly while still limiting a leaked token's window) — implement if not already, otherwise a single longer-lived token is a reasonable v1 simplification, just note the tradeoff (harder to revoke a compromised token early).
+- Login rate limiting: separate, stricter rate limit on the login route specifically (not just the general API rate limit) — prevents credential-stuffing/brute-force attempts. This is a common gap in custom auth builds that a managed provider would have handled for you by default.
+- Signup validation: email format check, password minimum strength requirement (length + complexity, or at minimum a length floor — don't accept single-character passwords), duplicate-email check before insert.
 
 API routes (unchanged surface, same as original plan):
+- `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout` — custom auth routes, built on your own backend (no third-party auth provider handling this)
 - `POST /api/runs` — create run (metadata only)
 - `POST /api/runs/:id/points` — batch insert points (accept array, max 500 per call)
 - `GET /api/runs` — list user's runs, paginated
@@ -219,7 +224,7 @@ API routes (unchanged surface, same as original plan):
 - `GET /api/streak` — current + longest streak count
 - `GET /api/summary/weekly` — weekly summary widget payload
 
-Flutter networking: `dio` package, base client with auth header interceptor (attaches current Supabase session token to every request, refreshes on 401).
+Flutter networking: `dio` package, base client with auth header interceptor (attaches the current custom-auth session token to every request, refreshes/re-prompts login on 401).
 
 ---
 
@@ -465,8 +470,6 @@ Respect Android's reduced-motion system setting (`MediaQuery.disableAnimations` 
 ### UI Sounds (retro audio layer)
 Optional 8-bit sound effects, distinct per interaction type — the audio counterpart to the pixel visual layer. Settings toggle: "UI Sounds," **off by default**, user opts in.
 
-- **Toggle Switches**: Any toggle switches that are added to the application must play the `playToggleSwitch()` sound from the `SoundService` (`features/audio/application/sound_service.dart`) whenever they are toggled, so that they have consistent sound feedback.
-
 Behavior:
 - Respects device silent/vibrate mode — check system audio state before playing (Android `AudioManager` ringer mode), stay silent if the phone is silenced. Don't force sound through regardless of that setting.
 - Runs fully independent of voice coaching/TTS (9.9) and split audio callouts — no ducking, no overlap avoidance, they can play simultaneously if both are active. Keep the two systems decoupled in code, not just in behavior — separate audio players/channels so one doesn't block or interfere with the other.
@@ -529,8 +532,9 @@ Run Flutter's accessibility scanner (`flutter_accessibility_scanner` or Android'
 ## Security
 
 ### Auth
-Supabase Auth session on every API call (Bearer token). Backend route handlers validate JWT server-side, derive `userId` from it — no route trusts a client-sent `userId`.
+Custom auth, own JWT/session token on every API call (Bearer token). Backend route handlers validate the token server-side, derive `userId` from it — no route trusts a client-sent `userId`.
 Backend queries always scoped `WHERE userId = session.userId`. No client-supplied userId param accepted anywhere.
+Since this is a self-built auth system (not a managed provider), the following are on you to implement correctly rather than inherited for free — treat as part of this checklist, not optional extras: password hashing via bcrypt/argon2 (never plaintext, never a custom hash scheme), signed token with a real secret (env var, never hardcoded, never committed), login-route rate limiting distinct from general API rate limiting, token expiry handling, secure client-side token storage (`flutter_secure_storage`, not `shared_preferences`). See Phase 3 for implementation detail.
 
 ### API protection
 Rate limit all backend routes. Points-insert endpoint especially — batch size cap enforced server-side too, not just client.
@@ -546,12 +550,12 @@ HTTPS only for all backend calls, enforced at deploy.
 
 ### OpenAI calls
 API key server-side only, lives in backend env vars, never in the Flutter app, never in the compiled APK — verify with an APK string-dump check before release build (`strings` on the built APK, grep for key-shaped strings) as a final gate.
-User data sent to OpenAI: stats/aggregates only (distance/pace numbers), never raw lat/lng arrays.
+User data sent to OpenAI: stats/aggregates only (distance/pace numbers), never raw lat/lng arrays. Demographic context (age derived from DOB, gender, weight — see Phase 9) sent only where the specific feature calls for it, never blanket-included, and age is sent as a derived number, never the raw birthdate.
 Sanitize user free-text input (NL logging feature) before including in prompts — strip/escape prompt-injection attempts.
 
 ### Secrets
 Backend env vars unchanged from original plan — never committed, `.env.example` placeholders only.
-Flutter app: no secrets embedded at all. Any config that must ship in the APK (e.g. Supabase anon/public key — this one is meant to be public, unlike the OpenAI key) documented as intentionally public, not treated as a leak.
+Flutter app: no secrets embedded at all. Since auth is fully custom (no third-party provider), there's no equivalent "meant to be public" client key the way a managed auth provider might issue — every credential the app needs at runtime is either the user's own session token (obtained via login, not embedded) or must go through your backend. If Supabase's connection details are ever needed client-side for any reason, treat that decision deliberately and document why, don't assume it's automatically safe to ship.
 
 ### Local device data
 Isar DB unencrypted by default on-device — acceptable given no E2EE requirement and no data more sensitive than fitness/location history stored (no payment info). Flag to user if this changes (e.g. adding payment features later) — would need `flutter_secure_storage` or encrypted Isar at that point.
@@ -601,6 +605,12 @@ Android: enable `android:allowBackup="false"` or configure backup rules carefull
 
 All AI calls happen in your Next.js backend, same as originally speced. The Flutter app calls your own API routes (e.g. `POST /api/runs/:id/summary`), which internally call OpenAI. Nothing here changes with the platform switch except the client is now Flutter instead of a web PWA.
 
+**Demographic personalization:** `User.dob`, `User.gender`, `User.weightKg` (already in schema) feed into AI features where they'd meaningfully change the response — pace/effort context differs by age and sex, calorie/training-load context differs by weight. Not every sub-feature needs these; add them only where noted per-feature below, not as a blanket include-everywhere rule.
+- Compute age from `dob` at request time server-side (don't send raw birthdate to OpenAI — send only the derived age in years, one less piece of PII in the prompt than necessary).
+- `gender` may be null or "Prefer not to say" — when so, omit the field from the prompt entirely rather than sending a placeholder value. Never assume a default.
+- `weightKg` may be null (not yet entered, per the calorie-calc flow in Phase 1) — omit when null, same null-safe rule as everywhere else in this doc.
+- These are sensitive personal attributes — treat with the same discipline as the existing "no raw GPS coordinates to OpenAI" rule in Security: send the minimum derived value needed (age in years, not DOB; a category/context line, not raw fields dumped verbatim), never more than the specific feature needs.
+
 General rules for every sub-feature:
 - Use JSON mode where structured output needed
 - System prompt always specifies exact JSON schema expected, explicitly states "return only JSON, no markdown, no preamble"
@@ -611,7 +621,7 @@ General rules for every sub-feature:
 
 ### 9.1 Run summary / finish-workout comment
 - Trigger: moment user taps "Finish" on active run — fire request immediately, completion screen shows stats instantly, comment slots in when ready
-- Input: this workout's own stats only — distance, duration, pace, splits, time of day, weather if available, calories/stride/cadence if available (null-safe, don't pass "—" placeholder text into the prompt, just omit the field when null)
+- Input: this workout's own stats only — distance, duration, pace, splits, time of day, weather if available, calories/stride/cadence if available (null-safe, don't pass "—" placeholder text into the prompt, just omit the field when null). Age + gender optional context (only if set) — lets the comment reference age-appropriate pace context without being asked; weight already factors into the calorie number itself, doesn't need separate mention here.
 - Model: gpt-4o-mini
 - Output: 1-2 sentence comment specific to this workout's numbers, plain text
 - Latency: show "Generating insights…" placeholder immediately, replace with real text on arrival
@@ -636,16 +646,17 @@ General rules for every sub-feature:
 
 ### 9.5 Race prediction
 - Riegel formula computed in code first, not AI: `T2 = T1 × (D2/D1)^1.06`
-- Model: gpt-4o, given Riegel estimate + recent trend, contextualizes prediction
+- Model: gpt-4o, given Riegel estimate + recent trend, contextualizes prediction. Age + gender context (if set) — age-graded pace tables are standard practice in race prediction, worth including so the model's contextualization reflects realistic expectations for the runner's age/sex rather than generic averages.
 - Output: predicted times 5k/10k/half/marathon, one-line reasoning
 
 ### 9.6 Coaching feedback
-- Input: last 4-8 weeks of run summaries
+- Input: last 4-8 weeks of run summaries. Age + gender + weight context (if set) — training load and recovery guidance reasonably differs by these factors, include when available.
 - Output: pattern flags, 2-4 sentence feedback, non-alarmist tone
 
 ### 9.7 Fatigue/injury risk flagging
 - 10%-rule ramp-rate computed in code first, not trusted to AI math
-- Soft-nudge text only if thresholds exceeded, never phrased as medical advice
+- Age context (if set) — recovery-time expectations reasonably differ by age; include if available, but this stays a soft input to phrasing, not a threshold the code branches on (the 10% rule itself doesn't change per-user, only the AI's soft-nudge language might acknowledge age where relevant)
+- Soft-nudge text only if thresholds exceeded, never phrased as medical advice — this applies doubly once age is in the prompt, don't let the model drift toward anything resembling medical guidance just because age is available context
 
 ### 9.8 Smart splits
 - Adaptive split points based on route elevation/history, fallback to fixed km/mile splits if no data
@@ -663,13 +674,13 @@ General rules for every sub-feature:
 - Delivered via Android local notification (`flutter_local_notifications`)
 
 ### 9.12 Post-rest return plan
-- Time off duration + pre-break fitness → structured ramp-back plan, conservative bias
+- Time off duration + pre-break fitness → structured ramp-back plan, conservative bias. Age context (if set) — conservative bias should scale somewhat with age; include when available.
 
 ### 9.13 Auto run titles
 - Context-based title generation (time of day, location type, effort, distance)
 
 ### 9.14 Training plan generation
-- Goal + fitness history → gpt-4o → structured multi-week plan JSON
+- Goal + fitness history + age/gender/weight context (if set) → gpt-4o → structured multi-week plan JSON. This is the feature where demographic context matters most — training volume/intensity recommendations genuinely should account for these factors, more so than the lighter-touch uses in 9.5-9.7 and 9.12.
 
 ### 9.15 Route recommendations
 - Past route metadata (not raw GPS points) + target distance → text suggestions
@@ -689,5 +700,5 @@ Each phase ships a working, testable increment. Phase 1-2 alone = usable tracker
 
 ## Migration notes (from prior PWA build)
 - Backend (Next.js API, Prisma schema, Supabase Postgres) carries over almost entirely — this was already designed as a proper backend, not tightly coupled to the PWA client.
-- Auth changes: Clerk → Supabase Auth. Existing users (if any were created under Clerk) need a migration path — out of scope until real user data exists; flag before launch if it does.
+- Auth changes: Clerk (original PWA plan) → custom-built auth system (own JWT, `passwordHash` on User table) — not Supabase Auth, a fully self-implemented system. Existing users (if any were created under Clerk) need a migration path — out of scope until real user data exists; flag before launch if it does.
 - Known bugs from the PWA build to fix in the rewrite, not carry forward: streak unit inconsistency (days vs weeks shown on different screens), pace-calculation divide-by-near-zero producing garbage values (e.g. "33:20/km" on a 2-second run) — add a minimum-distance/duration floor before computing pace, "No map data" on synced runs — verify points are actually persisted and fetched correctly before render.
