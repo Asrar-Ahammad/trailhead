@@ -55,9 +55,7 @@ RULES:
 
     try {
       const jsonResponse = JSON.parse(content);
-      // Strip out any accidental emojis
-      const stringified = JSON.stringify(jsonResponse).replace(/[\\p{Emoji_Presentation}\\p{Emoji}\\uFE0F]/gu, '');
-      return NextResponse.json(JSON.parse(stringified));
+      return NextResponse.json(jsonResponse);
     } catch (parseError) {
       console.error("Failed to parse OpenAI JSON:", content);
       throw parseError;
