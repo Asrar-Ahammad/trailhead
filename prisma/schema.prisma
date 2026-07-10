@@ -12,6 +12,10 @@ model User {
   id              String           @id @default(cuid())
   email           String           @unique
   passwordHash    String
+  name            String?
+  dob             String?          // ISO8601 Date String
+  gender          String?          // "Male", "Female", "Prefer not to say"
+  weightKg        Float?
   createdAt       DateTime         @default(now())
   runs            Run[]
   personalRecords PersonalRecord[]

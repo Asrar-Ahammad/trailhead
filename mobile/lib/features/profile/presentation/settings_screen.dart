@@ -60,12 +60,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final api = ref.read(apiClientProvider);
       final response = await api.client.get('/auth/me');
-      if (response.statusCode == 200 && response.data['email'] != null) {
-        final email = response.data['email'];
-        await prefs.setString('user_email', email);
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data;
+        if (data['email'] != null) await prefs.setString('user_email', data['email']);
+        if (data['name'] != null) await prefs.setString('user_name', data['name']);
+        if (data['dob'] != null) await prefs.setString('user_dob', data['dob']);
+        if (data['gender'] != null) await prefs.setString('user_gender', data['gender']);
+        if (data['weightKg'] != null) await prefs.setDouble('user_weight_kg', (data['weightKg'] as num).toDouble());
+
         if (mounted) {
           setState(() {
-            _userEmail = email;
+            if (data['email'] != null) _userEmail = data['email'];
+            if (data['name'] != null) _userName = data['name'];
+            if (data['dob'] != null) _userDob = data['dob'];
+            if (data['gender'] != null) _userGender = data['gender'];
+            if (data['weightKg'] != null) _userWeightKg = (data['weightKg'] as num).toDouble();
           });
         }
       }
@@ -246,6 +255,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         setState(() {
           _userWeightKg = weight;
         });
+
+        try {
+          final api = ref.read(apiClientProvider);
+          await api.client.put('/auth/me', data: {'weightKg': weight});
+        } catch (e) {
+          debugPrint('Failed to sync weight to backend: $e');
+        }
       }
     }
   }
@@ -288,6 +304,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _userName = result.trim();
       });
+
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.client.put('/auth/me', data: {'name': result.trim()});
+      } catch (e) {
+        debugPrint('Failed to sync name to backend: $e');
+      }
     }
   }
 
@@ -321,6 +344,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _userDob = dateStr;
       });
+
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.client.put('/auth/me', data: {'dob': dateStr});
+      } catch (e) {
+        debugPrint('Failed to sync dob to backend: $e');
+      }
     }
   }
 
@@ -331,7 +361,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (context) => SimpleDialog(
         backgroundColor: colors.surface,
         title: Text('Gender', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
-        children: ['Male', 'Female', 'Other', 'Prefer not to say'].map((g) => SimpleDialogOption(
+        children: ['Male', 'Female', 'Prefer not to say'].map((g) => SimpleDialogOption(
           onPressed: () => Navigator.of(context).pop(g),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -347,6 +377,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _userGender = result;
       });
+
+      try {
+        final api = ref.read(apiClientProvider);
+        await api.client.put('/auth/me', data: {'gender': result});
+      } catch (e) {
+        debugPrint('Failed to sync gender to backend: $e');
+      }
     }
   }
 

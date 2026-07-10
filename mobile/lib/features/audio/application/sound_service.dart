@@ -263,4 +263,26 @@ class SoundService {
       await _alertPlayer.play(AssetSource('sounds/streak_fanfare.wav'));
     } catch (_) {}
   }
+
+  Future<void> playTabBestEfforts() async {
+    if (_uiSoundsEnabled == null) {
+      await _init();
+    }
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/tab_best_efforts.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playTabAllTime() async {
+    if (_uiSoundsEnabled == null) {
+      await _init();
+    }
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/tab_all_time.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
 }

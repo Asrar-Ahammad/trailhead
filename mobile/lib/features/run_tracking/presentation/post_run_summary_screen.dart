@@ -14,6 +14,7 @@ import '../../history/data/run_history_repository.dart';
 import '../../stats/application/pr_engine.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'dart:math';
 
 final postRunPRProvider = FutureProvider.family<bool, String?>((ref, clientRunId) async {
@@ -47,6 +48,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   late final Animation<double> _aiFade;
   
   bool _statsAnimationStarted = false;
+  bool _prSoundPlayed = false;
 
   @override
   void initState() {
@@ -102,6 +104,14 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
           _statsAnimationStarted = true;
         });
       }
+      if (_staggerController.value >= 0.4 && !_prSoundPlayed) {
+        final isNewPr = ref.read(postRunPRProvider(widget.run.clientRunId)).valueOrNull;
+        if (isNewPr == true) {
+          ref.read(soundServiceProvider).playPrNew();
+          ref.read(hapticsServiceProvider).heavyImpact();
+          _prSoundPlayed = true;
+        }
+      }
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -135,6 +145,16 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
     final colors = Theme.of(context).extension<AppColors>()!;
     final aiSummaryAsync = ref.watch(mockAiSummaryProvider(widget.run));
     final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.clientRunId));
+
+    ref.listen(postRunPRProvider(widget.run.clientRunId), (prev, next) {
+      if (next.value == true && prev?.value != true) {
+        if (_staggerController.value >= 0.4 && !_prSoundPlayed) {
+          ref.read(soundServiceProvider).playPrNew();
+          ref.read(hapticsServiceProvider).heavyImpact();
+          _prSoundPlayed = true;
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: colors.background,

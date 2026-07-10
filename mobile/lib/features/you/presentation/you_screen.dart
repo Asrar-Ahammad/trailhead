@@ -231,8 +231,13 @@ class YouScreen extends ConsumerWidget {
                       label: Text('Best Efforts', style: AppTextStyles.label(color: mode == 'best_effort' ? retroColors.surface : retroColors.textPrimary)),
                       selected: mode == 'best_effort',
                       selectedColor: retroColors.accent,
+                      showCheckmark: false,
                       onSelected: (val) {
-                        if(val) ref.read(recordsModeProvider.notifier).state = 'best_effort';
+                        if(val) {
+                          ref.read(hapticsServiceProvider).lightImpact();
+                          ref.read(soundServiceProvider).playTabBestEfforts();
+                          ref.read(recordsModeProvider.notifier).state = 'best_effort';
+                        }
                       },
                     ),
                     const SizedBox(width: 16),
@@ -240,8 +245,13 @@ class YouScreen extends ConsumerWidget {
                       label: Text('All-Time PRs', style: AppTextStyles.label(color: mode == 'manual' ? retroColors.surface : retroColors.textPrimary)),
                       selected: mode == 'manual',
                       selectedColor: retroColors.accent,
+                      showCheckmark: false,
                       onSelected: (val) {
-                        if(val) ref.read(recordsModeProvider.notifier).state = 'manual';
+                        if(val) {
+                          ref.read(hapticsServiceProvider).lightImpact();
+                          ref.read(soundServiceProvider).playTabAllTime();
+                          ref.read(recordsModeProvider.notifier).state = 'manual';
+                        }
                       },
                     ),
                   ],
@@ -305,9 +315,10 @@ class YouScreen extends ConsumerWidget {
               ),
               if (mode == 'manual')
                 Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0, bottom: 120.0),
                   child: ElevatedButton(
                     onPressed: () {
+                      ref.read(hapticsServiceProvider).lightImpact();
                       _showAddPRDialog(context, retroColors, ref);
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: retroColors.accent),
