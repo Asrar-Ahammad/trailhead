@@ -38,6 +38,10 @@ class RunIsar {
   
   String? aiSummary;
   
+  String? subjectiveEffort;
+  
+  String? conditions;
+  
   bool synced = false;
   
   DateTime? lastModifiedAt;

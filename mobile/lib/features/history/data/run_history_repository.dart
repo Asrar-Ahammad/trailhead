@@ -64,4 +64,13 @@ class RunHistoryRepository {
       await _isar.runIsars.delete(id);
     });
   }
+
+  Future<void> saveRun(RunIsar run, [List<RunPointIsar> points = const []]) async {
+    await _isar.writeTxn(() async {
+      await _isar.runIsars.put(run);
+      if (points.isNotEmpty) {
+        await _isar.runPointIsars.putAll(points);
+      }
+    });
+  }
 }

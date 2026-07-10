@@ -39,4 +39,7 @@ generate_tone('mobile/assets/sounds/tab_best_efforts.wav', freq_start=600, freq_
 # All-Time PRs: Deeper, slightly descending or steady sawtooth wave (feels more established/historical)
 generate_tone('mobile/assets/sounds/tab_all_time.wav', freq_start=400, freq_end=350, duration_s=0.2, volume=0.3, waveform='sawtooth')
 
-print("Generated tab_best_efforts.wav and tab_all_time.wav")
+# Add Manual Run FAB: Bright ascending sine wave
+generate_tone('mobile/assets/sounds/fab_add_run.wav', freq_start=500, freq_end=1200, duration_s=0.2, volume=0.3, waveform='sine')
+
+print("Generated tab_best_efforts.wav, tab_all_time.wav, and fab_add_run.wav")

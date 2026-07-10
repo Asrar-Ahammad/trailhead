@@ -52,58 +52,68 @@ const RunIsarSchema = CollectionSchema(
       name: r'clientRunId',
       type: IsarType.string,
     ),
-    r'distanceM': PropertySchema(
+    r'conditions': PropertySchema(
       id: 7,
+      name: r'conditions',
+      type: IsarType.string,
+    ),
+    r'distanceM': PropertySchema(
+      id: 8,
       name: r'distanceM',
       type: IsarType.double,
     ),
     r'durationS': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'durationS',
       type: IsarType.long,
     ),
     r'elevationGainM': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'elevationGainM',
       type: IsarType.double,
     ),
     r'endTime': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'endTime',
       type: IsarType.dateTime,
     ),
     r'lastModifiedAt': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'lastModifiedAt',
       type: IsarType.dateTime,
     ),
     r'startTime': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'startTime',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'status',
       type: IsarType.string,
     ),
     r'stepCount': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'stepCount',
       type: IsarType.long,
     ),
+    r'subjectiveEffort': PropertySchema(
+      id: 16,
+      name: r'subjectiveEffort',
+      type: IsarType.string,
+    ),
     r'synced': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'synced',
       type: IsarType.bool,
     ),
     r'syncedAt': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'syncedAt',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'title',
       type: IsarType.string,
     )
@@ -174,7 +184,19 @@ int _runIsarEstimateSize(
     }
   }
   {
+    final value = object.conditions;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.status;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.subjectiveEffort;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -201,17 +223,19 @@ void _runIsarSerialize(
   writer.writeDouble(offsets[4], object.avgStrideLengthM);
   writer.writeDouble(offsets[5], object.caloriesKcal);
   writer.writeString(offsets[6], object.clientRunId);
-  writer.writeDouble(offsets[7], object.distanceM);
-  writer.writeLong(offsets[8], object.durationS);
-  writer.writeDouble(offsets[9], object.elevationGainM);
-  writer.writeDateTime(offsets[10], object.endTime);
-  writer.writeDateTime(offsets[11], object.lastModifiedAt);
-  writer.writeDateTime(offsets[12], object.startTime);
-  writer.writeString(offsets[13], object.status);
-  writer.writeLong(offsets[14], object.stepCount);
-  writer.writeBool(offsets[15], object.synced);
-  writer.writeDateTime(offsets[16], object.syncedAt);
-  writer.writeString(offsets[17], object.title);
+  writer.writeString(offsets[7], object.conditions);
+  writer.writeDouble(offsets[8], object.distanceM);
+  writer.writeLong(offsets[9], object.durationS);
+  writer.writeDouble(offsets[10], object.elevationGainM);
+  writer.writeDateTime(offsets[11], object.endTime);
+  writer.writeDateTime(offsets[12], object.lastModifiedAt);
+  writer.writeDateTime(offsets[13], object.startTime);
+  writer.writeString(offsets[14], object.status);
+  writer.writeLong(offsets[15], object.stepCount);
+  writer.writeString(offsets[16], object.subjectiveEffort);
+  writer.writeBool(offsets[17], object.synced);
+  writer.writeDateTime(offsets[18], object.syncedAt);
+  writer.writeString(offsets[19], object.title);
 }
 
 RunIsar _runIsarDeserialize(
@@ -228,18 +252,20 @@ RunIsar _runIsarDeserialize(
   object.avgStrideLengthM = reader.readDoubleOrNull(offsets[4]);
   object.caloriesKcal = reader.readDoubleOrNull(offsets[5]);
   object.clientRunId = reader.readStringOrNull(offsets[6]);
-  object.distanceM = reader.readDoubleOrNull(offsets[7]);
-  object.durationS = reader.readLongOrNull(offsets[8]);
-  object.elevationGainM = reader.readDoubleOrNull(offsets[9]);
-  object.endTime = reader.readDateTimeOrNull(offsets[10]);
+  object.conditions = reader.readStringOrNull(offsets[7]);
+  object.distanceM = reader.readDoubleOrNull(offsets[8]);
+  object.durationS = reader.readLongOrNull(offsets[9]);
+  object.elevationGainM = reader.readDoubleOrNull(offsets[10]);
+  object.endTime = reader.readDateTimeOrNull(offsets[11]);
   object.id = id;
-  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[11]);
-  object.startTime = reader.readDateTimeOrNull(offsets[12]);
-  object.status = reader.readStringOrNull(offsets[13]);
-  object.stepCount = reader.readLongOrNull(offsets[14]);
-  object.synced = reader.readBool(offsets[15]);
-  object.syncedAt = reader.readDateTimeOrNull(offsets[16]);
-  object.title = reader.readStringOrNull(offsets[17]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[12]);
+  object.startTime = reader.readDateTimeOrNull(offsets[13]);
+  object.status = reader.readStringOrNull(offsets[14]);
+  object.stepCount = reader.readLongOrNull(offsets[15]);
+  object.subjectiveEffort = reader.readStringOrNull(offsets[16]);
+  object.synced = reader.readBool(offsets[17]);
+  object.syncedAt = reader.readDateTimeOrNull(offsets[18]);
+  object.title = reader.readStringOrNull(offsets[19]);
   return object;
 }
 
@@ -265,26 +291,30 @@ P _runIsarDeserializeProp<P>(
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readLongOrNull(offset)) as P;
-    case 9:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 9:
+      return (reader.readLongOrNull(offset)) as P;
     case 10:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 12:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
-    case 14:
-      return (reader.readLongOrNull(offset)) as P;
-    case 15:
-      return (reader.readBool(offset)) as P;
-    case 16:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readLongOrNull(offset)) as P;
+    case 16:
+      return (reader.readStringOrNull(offset)) as P;
     case 17:
+      return (reader.readBool(offset)) as P;
+    case 18:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 19:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1380,6 +1410,152 @@ extension RunIsarQueryFilter
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'conditions',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'conditions',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'conditions',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'conditions',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'conditions',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'conditions',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'conditions',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'conditions',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'conditions',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'conditions',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'conditions',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> conditionsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'conditions',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> distanceMIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2083,6 +2259,159 @@ extension RunIsarQueryFilter
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'subjectiveEffort',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'subjectiveEffort',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> subjectiveEffortEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'subjectiveEffort',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'subjectiveEffort',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'subjectiveEffort',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> subjectiveEffortBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'subjectiveEffort',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'subjectiveEffort',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'subjectiveEffort',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'subjectiveEffort',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> subjectiveEffortMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'subjectiveEffort',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'subjectiveEffort',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      subjectiveEffortIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'subjectiveEffort',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> syncedEqualTo(
       bool value) {
     return QueryBuilder.apply(this, (query) {
@@ -2400,6 +2729,18 @@ extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByConditions() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'conditions', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByConditionsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'conditions', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByDistanceM() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'distanceM', Sort.asc);
@@ -2493,6 +2834,18 @@ extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByStepCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stepCount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortBySubjectiveEffort() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'subjectiveEffort', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortBySubjectiveEffortDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'subjectiveEffort', Sort.desc);
     });
   }
 
@@ -2619,6 +2972,18 @@ extension RunIsarQuerySortThenBy
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByConditions() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'conditions', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByConditionsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'conditions', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByDistanceM() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'distanceM', Sort.asc);
@@ -2727,6 +3092,18 @@ extension RunIsarQuerySortThenBy
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenBySubjectiveEffort() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'subjectiveEffort', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenBySubjectiveEffortDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'subjectiveEffort', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenBySynced() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'synced', Sort.asc);
@@ -2811,6 +3188,13 @@ extension RunIsarQueryWhereDistinct
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByConditions(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'conditions', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByDistanceM() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'distanceM');
@@ -2857,6 +3241,14 @@ extension RunIsarQueryWhereDistinct
   QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByStepCount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'stepCount');
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctBySubjectiveEffort(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'subjectiveEffort',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -2930,6 +3322,12 @@ extension RunIsarQueryProperty
     });
   }
 
+  QueryBuilder<RunIsar, String?, QQueryOperations> conditionsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'conditions');
+    });
+  }
+
   QueryBuilder<RunIsar, double?, QQueryOperations> distanceMProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'distanceM');
@@ -2975,6 +3373,12 @@ extension RunIsarQueryProperty
   QueryBuilder<RunIsar, int?, QQueryOperations> stepCountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'stepCount');
+    });
+  }
+
+  QueryBuilder<RunIsar, String?, QQueryOperations> subjectiveEffortProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'subjectiveEffort');
     });
   }
 
