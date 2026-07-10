@@ -225,7 +225,10 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _startListening,
-                    style: ElevatedButton.styleFrom(backgroundColor: _isListening ? colors.error : colors.surfaceRaised),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isListening ? colors.error : colors.surfaceRaised,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                     child: Text(_isListening ? 'Listening...' : 'Voice Input', style: AppTextStyles.bodyMediumBold(color: colors.textPrimary)),
                   ),
                 ),
@@ -237,7 +240,10 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                       final hasText = value.text.trim().isNotEmpty;
                       return ElevatedButton(
                         onPressed: (_isParsing || !hasText) ? null : _parseText,
-                        style: ElevatedButton.styleFrom(backgroundColor: colors.accent),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colors.accent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         child: _isParsing 
                           ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2)) 
                           : Text('Parse', style: AppTextStyles.bodyMediumBold(color: colors.surface)),
@@ -263,6 +269,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.accent,
                 padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: Text('SAVE MANUAL RUN', style: AppTextStyles.bodyLargeBold(color: colors.surface)),
             ),

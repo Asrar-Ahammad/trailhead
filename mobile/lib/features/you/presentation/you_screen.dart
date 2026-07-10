@@ -13,6 +13,7 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
+import 'package:trailhead_mobile/features/predictions/presentation/prediction_screen.dart';
 
 final historyProvider = StreamProvider<List<RunIsar>>((ref) {
   final repo = ref.read(runHistoryRepositoryProvider);
@@ -124,6 +125,15 @@ class YouScreen extends ConsumerWidget {
                 backgroundColor: retroColors.surface,
                 elevation: 0,
                 actions: [
+                  IconButton(
+                    icon: Icon(PhosphorIcons.timer(), color: retroColors.textPrimary),
+                    onPressed: () {
+                      ref.read(soundServiceProvider).playSettingsTap();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const PredictionScreen()),
+                      );
+                    },
+                  ),
                   IconButton(
                     icon: Icon(PhosphorIcons.gearSix(), color: retroColors.textPrimary),
                     onPressed: () {

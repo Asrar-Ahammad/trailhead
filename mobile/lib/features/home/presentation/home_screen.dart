@@ -15,6 +15,8 @@ import '../../navigation/presentation/main_scaffold.dart';
 import '../../audio/application/sound_service.dart';
 
 import 'package:trailhead_mobile/features/chat/presentation/chat_screen.dart';
+import 'package:trailhead_mobile/features/weather/presentation/weather_pace_card.dart';
+import 'package:trailhead_mobile/features/weather/application/weather_service.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -30,9 +32,28 @@ class HomeScreen extends ConsumerWidget {
         title: Text('HOME', style: AppTextStyles.retroLabel(color: retroColors.textPrimary).copyWith(fontSize: 32)),
         backgroundColor: retroColors.surface,
         elevation: 0,
+        actions: [
+          ref.watch(weatherPacingProvider).maybeWhen(
+            data: (data) => Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: Text(
+                  (data['city'] as String).toUpperCase(),
+                  style: AppTextStyles.retroLabel(color: retroColors.textSecondary).copyWith(fontSize: 14),
+                ),
+              ),
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.only(
+          left: AppSpacing.lg,
+          top: AppSpacing.lg,
+          right: AppSpacing.lg,
+          bottom: 160.0, // extra padding so content scrolls past FAB
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -45,7 +66,7 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 90.0, right: 8.0),
+        padding: const EdgeInsets.only(bottom: 120.0, right: 8.0),
         child: FloatingActionButton(
           heroTag: 'chat_fab',
           onPressed: () {
@@ -185,6 +206,9 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const SizedBox(height: AppSpacing.xl),
+
+            const WeatherPaceCard(),
             const SizedBox(height: AppSpacing.xl),
 
             Text('QUICK START', style: AppTextStyles.retroLabel(color: retroColors.accent).copyWith(fontSize: 14)),
