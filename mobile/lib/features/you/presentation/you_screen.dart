@@ -24,6 +24,7 @@ final prsProvider = FutureProvider<List<PersonalRecord>>((ref) async {
 });
 
 final selectedActivitiesProvider = StateProvider<Set<int>>((ref) => {});
+final isDeletingProvider = StateProvider<bool>((ref) => false);
 
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});
@@ -35,6 +36,7 @@ class YouScreen extends ConsumerWidget {
     final prsAsync = ref.watch(prsProvider);
 
     final selectedIds = ref.watch(selectedActivitiesProvider);
+    final isDeleting = ref.watch(isDeletingProvider);
 
     return DefaultTabController(
       length: 3,
@@ -47,44 +49,61 @@ class YouScreen extends ConsumerWidget {
                 elevation: 0,
                 leading: IconButton(
                   icon: Icon(PhosphorIcons.x(), color: retroColors.textPrimary),
-                  onPressed: () {
+                  onPressed: isDeleting ? null : () {
                     ref.read(selectedActivitiesProvider.notifier).state = {};
                   },
                 ),
                 actions: [
-                  IconButton(
-                    icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          backgroundColor: retroColors.surface,
-                          title: Text('Delete Activities?', style: AppTextStyles.headline(color: retroColors.textPrimary)),
-                          content: Text('Are you sure you want to delete ${selectedIds.length} activities?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, false),
-                              child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx, true),
-                              child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
-                            ),
-                          ],
+                  if (isDeleting)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: retroColors.error, strokeWidth: 2),
                         ),
-                      );
+                      ),
+                    )
+                  else
+                    IconButton(
+                      icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
+                      onPressed: () async {
+                        final confirmed = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: retroColors.surface,
+                            title: Text('Delete Activities?', style: AppTextStyles.headline(color: retroColors.textPrimary)),
+                            content: Text('Are you sure you want to delete ${selectedIds.length} activities?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
+                              ),
+                            ],
+                          ),
+                        );
 
-                      if (confirmed == true) {
-                        final repo = ref.read(runHistoryRepositoryProvider);
-                        for (final id in selectedIds) {
-                          await repo.deleteRun(id);
+                        if (confirmed == true) {
+                          ref.read(isDeletingProvider.notifier).state = true;
+                          try {
+                            final repo = ref.read(runHistoryRepositoryProvider);
+                            for (final id in selectedIds) {
+                              await repo.deleteRun(id);
+                            }
+                          } finally {
+                            ref.read(isDeletingProvider.notifier).state = false;
+                            ref.read(selectedActivitiesProvider.notifier).state = {};
+                            ref.refresh(historyProvider);
+                            ref.refresh(prsProvider);
+                          }
                         }
-                        ref.read(selectedActivitiesProvider.notifier).state = {};
-                        ref.refresh(historyProvider);
-                        ref.refresh(prsProvider);
-                      }
-                    },
-                  ),
+                      },
+                    ),
                 ],
                 bottom: TabBar(
                   indicatorColor: retroColors.accent,

@@ -48,9 +48,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Run not found' }, { status: 404 });
     }
 
-    await dbServer.run.delete({
-      where: { id },
-    });
+    await dbServer.$transaction([
+      dbServer.runPoint.deleteMany({ where: { runId: id } }),
+      dbServer.personalRecord.deleteMany({ where: { runId: id } }),
+      dbServer.run.delete({ where: { id } }),
+    ]);
 
     revalidateTag(`runs-${userId}`, 'max');
     revalidateTag(`run-detail-${id}`, 'max');
