@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../data/models/run_isar.dart';
 import '../application/run_format_utils.dart';
-import '../application/mock_ai_summary_service.dart';
+import '../application/ai_summary_service.dart';
 import 'widgets/static_route_map.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
@@ -143,7 +143,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final aiSummaryAsync = ref.watch(mockAiSummaryProvider(widget.run));
+    final aiSummaryAsync = ref.watch(aiSummaryProvider(widget.run));
     final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.clientRunId));
 
     ref.listen(postRunPRProvider(widget.run.clientRunId), (prev, next) {
