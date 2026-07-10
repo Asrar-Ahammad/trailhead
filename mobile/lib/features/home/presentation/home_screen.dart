@@ -14,6 +14,8 @@ import '../../haptics/application/haptics_service.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import '../../audio/application/sound_service.dart';
 
+import 'package:trailhead_mobile/features/chat/presentation/chat_screen.dart';
+
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -40,6 +42,19 @@ class HomeScreen extends ConsumerWidget {
               error: (err, stack) => Center(child: Text('Error: \$err')),
             ),
           ],
+        ),
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 90.0, right: 8.0),
+        child: FloatingActionButton(
+          heroTag: 'chat_fab',
+          onPressed: () {
+            ref.read(hapticsServiceProvider).mediumImpact();
+            ref.read(soundServiceProvider).playButtonTap();
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen()));
+          },
+          backgroundColor: retroColors.accent,
+          child: Icon(PhosphorIcons.chat(PhosphorIconsStyle.fill), color: retroColors.background),
         ),
       ),
     );

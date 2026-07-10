@@ -83,6 +83,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       if (micStatus.isGranted) {
         bool available = await _initSpeechIfNeeded();
         if (available) {
+          ref.read(soundServiceProvider).playMicStart();
           setState(() => _isListening = true);
           
           final int cursorPos = _textController.selection.baseOffset >= 0 
