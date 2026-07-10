@@ -34,6 +34,8 @@ model Run {
   elevationGainM Float?
   title         String?
   aiSummary     String?
+  subjectiveEffort String? // "easy" | "moderate" | "hard"
+  conditions    String?
   activityType  String?    @default("run")
   syncedAt      DateTime   @default(now())
   points        RunPoint[]

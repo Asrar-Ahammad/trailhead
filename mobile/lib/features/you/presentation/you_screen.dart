@@ -12,6 +12,7 @@ import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
 
 final historyProvider = StreamProvider<List<RunIsar>>((ref) {
   final repo = ref.read(runHistoryRepositoryProvider);
@@ -167,6 +168,17 @@ class YouScreen extends ConsumerWidget {
         },
         loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
         error: (err, stack) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
+      ),
+        floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          ref.read(hapticsServiceProvider).mediumImpact();
+          ref.read(soundServiceProvider).playFabAddRun();
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManualEntryScreen()));
+        },
+        backgroundColor: retroColors.accent,
+        child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
+      ),
+        child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
       ),
     ));
   }

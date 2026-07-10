@@ -285,4 +285,15 @@ class SoundService {
       await _actionPlayer.play(AssetSource('sounds/tab_all_time.wav'), mode: PlayerMode.lowLatency);
     } catch (_) {}
   }
+
+  Future<void> playFabAddRun() async {
+    if (_uiSoundsEnabled == null) {
+      await _init();
+    }
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/fab_add_run.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
 }
