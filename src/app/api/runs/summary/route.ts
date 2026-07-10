@@ -49,21 +49,21 @@ export async function POST(req: NextRequest) {
 
     // Construct the prompt context
     const stats: Record<string, any> = {};
-    if (parsed.distanceM) stats.distanceKm = (parsed.distanceM / 1000).toFixed(2);
-    if (parsed.durationS) {
+    if (parsed.distanceM != null) stats.distanceKm = (parsed.distanceM / 1000).toFixed(2);
+    if (parsed.durationS != null) {
       const mins = Math.floor(parsed.durationS / 60);
       const secs = parsed.durationS % 60;
       stats.duration = `${mins}m ${secs}s`;
     }
-    if (parsed.avgPaceSPerKm) {
+    if (parsed.avgPaceSPerKm != null) {
       const pMins = Math.floor(parsed.avgPaceSPerKm / 60);
       const pSecs = Math.floor(parsed.avgPaceSPerKm % 60).toString().padStart(2, '0');
       stats.pacePerKm = `${pMins}:${pSecs}`;
     }
-    if (parsed.timeOfDay) stats.timeOfDay = parsed.timeOfDay;
-    if (parsed.caloriesKcal) stats.calories = Math.round(parsed.caloriesKcal);
-    if (parsed.avgStrideLengthM) stats.strideLengthMeters = parsed.avgStrideLengthM.toFixed(2);
-    if (parsed.avgCadenceSpm) stats.cadenceSPM = Math.round(parsed.avgCadenceSpm);
+    if (parsed.timeOfDay != null) stats.timeOfDay = parsed.timeOfDay;
+    if (parsed.caloriesKcal != null) stats.calories = Math.round(parsed.caloriesKcal);
+    if (parsed.avgStrideLengthM != null) stats.strideLengthMeters = parsed.avgStrideLengthM.toFixed(2);
+    if (parsed.avgCadenceSpm != null) stats.cadenceSPM = Math.round(parsed.avgCadenceSpm);
     
     if (age) stats.age = age;
     if (gender) stats.gender = gender;
@@ -101,7 +101,7 @@ RULES:
       const jsonResponse = JSON.parse(content);
       if (jsonResponse.summary && typeof jsonResponse.summary === 'string') {
         // Strip emojis if any slipped through
-        const cleanSummary = jsonResponse.summary.replace(/[\\p{Emoji_Presentation}\\p{Emoji}\\uFE0F]/gu, '');
+        const cleanSummary = jsonResponse.summary.replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu, '');
         return NextResponse.json({ summary: cleanSummary });
       }
       throw new Error("Invalid schema from OpenAI");
