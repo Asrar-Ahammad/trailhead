@@ -51,10 +51,13 @@ class RunDetailScreen extends ConsumerWidget {
         ? ref.watch(runPointsProvider(run.clientRunId!)) 
         : const AsyncValue.data(<LatLng>[]);
 
+    final activityStr = (run.activityType ?? 'run').toUpperCase();
+    final titleText = '$activityStr DETAILS';
+
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text('RUN DETAILS', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24)),
+        title: Text(titleText, style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -163,7 +166,7 @@ class RunDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              RunFormatUtils.getRunTitle(run.title, run.startTime),
+              RunFormatUtils.getRunTitle(run.title, run.startTime, activityType: run.activityType ?? 'run'),
               style: AppTextStyles.headline(color: retroColors.textPrimary).copyWith(fontSize: 32),
             ),
             const SizedBox(height: 24),
@@ -181,6 +184,7 @@ class RunDetailScreen extends ConsumerWidget {
                 _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
                 _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
                 _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', '${run.caloriesKcal?.toStringAsFixed(0) ?? '--'} kcal'),
+                _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Steps', '${run.stepCount ?? '--'}'),
               ],
             ),
             

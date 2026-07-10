@@ -73,14 +73,14 @@ class ActiveRunScreen extends ConsumerWidget {
                 AppSpacing.xl,
                 AppSpacing.md,
                 AppSpacing.xl,
-                AppSpacing.lg,
+                AppSpacing.xxl + 24.0, // Increased bottom padding
               ),
               child: _RunControls(
                 trackerState: trackerState,
                 colors: colors,
                 onStop: () {
                   ref.read(runTrackerProvider.notifier).pauseRun();
-                  _showStopSheet(context, ref, colors);
+                  _showStopSheet(context, ref, colors, trackerState.activityType);
                 },
               ),
             ),
@@ -90,15 +90,60 @@ class ActiveRunScreen extends ConsumerWidget {
     );
   }
 
-  void _showStopSheet(BuildContext context, WidgetRef ref, AppColors colors) {
-    showModalBottomSheet(
+  void _showStopSheet(BuildContext context, WidgetRef ref, AppColors colors, String activityType) async {
+    final result = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _StopBottomSheet(colors: colors, ref: ref),
+      builder: (ctx) => _StopBottomSheet(colors: colors, activityType: activityType),
     );
+
+    debugPrint('[SAVE_DEBUG] Bottom sheet returned: $result');
+    debugPrint('[SAVE_DEBUG] context.mounted: ${context.mounted}');
+
+    if (!context.mounted) return;
+
+    final notifier = ref.read(runTrackerProvider.notifier);
+
+    if (result == 'save') {
+      debugPrint('[SAVE_DEBUG] Starting save flow...');
+      ref.read(soundServiceProvider).playRunFinish();
+
+      // Read points BEFORE stopping the run (while ref is still valid)
+      final pointsAsync = ref.read(routePointsProvider);
+      final points = pointsAsync.valueOrNull ?? [];
+      debugPrint('[SAVE_DEBUG] Points count: ${points.length}');
+
+      try {
+        final savedRun = await notifier.stopRun();
+        debugPrint('[SAVE_DEBUG] stopRun returned: ${savedRun?.clientRunId}, status=${savedRun?.status}');
+        debugPrint('[SAVE_DEBUG] context.mounted after stopRun: ${context.mounted}');
+        if (savedRun != null && context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => PostRunSummaryScreen(
+                run: savedRun,
+                points: points,
+              ),
+            ),
+          );
+        } else {
+          debugPrint('[SAVE_DEBUG] Navigation skipped - savedRun: $savedRun, mounted: ${context.mounted}');
+        }
+      } catch (e, stack) {
+        debugPrint('[SAVE_DEBUG] stopRun THREW: $e');
+        debugPrint('[SAVE_DEBUG] Stack: $stack');
+      }
+    } else if (result == 'discard') {
+      ref.read(soundServiceProvider).playRunDiscard();
+      notifier.discardRun();
+    } else {
+      // Dismissed or 'resume' — resume tracking
+      ref.read(soundServiceProvider).playPauseResume();
+      notifier.resumeRun();
+    }
   }
 }
 
@@ -258,6 +303,10 @@ class _StatPanel extends StatelessWidget {
               ),
             ],
           ),
+
+          // Target pace comparison indicator
+          if (trackerState.targetPaceSPerKm != null && trackerState.status == 'running')
+            _PaceComparisonBadge(trackerState: trackerState, colors: colors),
         ],
       ),
     );
@@ -268,12 +317,104 @@ class _StatPanel extends StatelessWidget {
       return colors.textPrimary;
     }
     if (trackerState.currentSplitPaceSPerKm! <= trackerState.targetPaceSPerKm!) {
-      return colors.accent; // Green/Accent - Ahead or on pace
+      return colors.accent; // Ahead or on pace
     } else {
-      return colors.error; // Red/Coral - Behind pace
+      return colors.error; // Behind pace
     }
   }
 }
+
+/// A live color-coded badge showing pace status vs. the target.
+class _PaceComparisonBadge extends StatelessWidget {
+  const _PaceComparisonBadge({required this.trackerState, required this.colors});
+
+  final RunTrackerState trackerState;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = trackerState.targetPaceSPerKm!;
+    // Use split pace if available, else fall back to average pace
+    final int? currentRaw = trackerState.currentSplitPaceSPerKm ??
+        (trackerState.distanceM > 0 && trackerState.durationS > 0
+            ? (trackerState.durationS / (trackerState.distanceM / 1000.0)).round()
+            : null);
+
+    if (currentRaw == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.lg),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(PhosphorIcons.timer(), color: colors.textSecondary, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              'CALCULATING PACE…',
+              style: AppTextStyles.labelCaps(color: colors.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final int diffS = currentRaw - target; // negative = ahead, positive = behind
+    final bool ahead = diffS <= -3;
+    final bool behind = diffS >= 3;
+    final bool onPace = !ahead && !behind;
+
+    final Color badgeColor = ahead
+        ? colors.accent
+        : behind
+            ? colors.error
+            : const Color(0xFFF5A623); // amber for "on pace"
+
+    final IconData icon = ahead
+        ? Icons.arrow_upward_rounded
+        : behind
+            ? Icons.arrow_downward_rounded
+            : Icons.remove_rounded;
+
+    final String label = ahead ? 'AHEAD' : behind ? 'BEHIND' : 'ON PACE';
+
+    final String diffLabel = onPace
+        ? '± 0s/km'
+        : '${diffS.abs()}s/km ${ahead ? 'faster' : 'slower'}';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.lg),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: badgeColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: badgeColor.withOpacity(0.5), width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: badgeColor, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppTextStyles.labelCaps(color: badgeColor),
+            ),
+            const SizedBox(width: 8),
+            Container(width: 1, height: 14, color: badgeColor.withOpacity(0.4)),
+            const SizedBox(width: 8),
+            Text(
+              diffLabel,
+              style: AppTextStyles.label(color: badgeColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
 
 class _RunControls extends StatelessWidget {
   const _RunControls({
@@ -298,20 +439,39 @@ class _RunControls extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedSize(
+            AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) => SizeTransition(
+                sizeFactor: animation,
+                axisAlignment: -1.0, // Expand/collapse from the top edge
+                child: child,
+              ),
               child: isIdle
                   ? Padding(
+                      key: const ValueKey('selectors'),
                       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
-                      child: _TargetPaceSelector(
-                        trackerState: trackerState,
-                        colors: colors,
-                        notifier: notifier,
-                        ref: ref,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _ActivityTypeSelector(
+                            trackerState: trackerState,
+                            colors: colors,
+                            notifier: notifier,
+                            ref: ref,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          _TargetPaceSelector(
+                            trackerState: trackerState,
+                            colors: colors,
+                            notifier: notifier,
+                            ref: ref,
+                          ),
+                        ],
                       ),
                     )
-                  : const SizedBox(width: double.infinity, height: 0),
+                  : const SizedBox(key: ValueKey('empty'), width: double.infinity, height: 0),
             ),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -357,7 +517,7 @@ class _RunControls extends StatelessWidget {
                             ),
                             child: Center(
                               child: Text(
-                                isIdle ? 'START RUN' : (isPaused ? 'RESUME' : 'PAUSE'),
+                                isIdle ? 'START' : (isPaused ? 'RESUME' : 'PAUSE'),
                                 style: AppTextStyles.bodyLargeBold(
                                   color: isIdle || isPaused ? Colors.white : colors.textPrimary,
                                 ).copyWith(letterSpacing: 1.2),
@@ -434,16 +594,17 @@ class _TargetPaceSelector extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: colors.surfaceRaised,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colors.border),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
             icon: Icon(PhosphorIcons.minus(), color: colors.textPrimary),
             onPressed: () {
               ref.read(hapticsServiceProvider).lightImpact();
+              ref.read(soundServiceProvider).playPaceDown();
               final newPace = (currentPace ?? 360) + 10; // Slower pace = more seconds
               notifier.setTargetPace(newPace);
             },
@@ -458,11 +619,120 @@ class _TargetPaceSelector extends StatelessWidget {
             icon: Icon(PhosphorIcons.plus(), color: colors.textPrimary),
             onPressed: () {
               ref.read(hapticsServiceProvider).lightImpact();
+              ref.read(soundServiceProvider).playPaceUp();
               final newPace = (currentPace ?? 360) - 10; // Faster pace = less seconds
               if (newPace > 0) notifier.setTargetPace(newPace);
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActivityTypeSelector extends StatelessWidget {
+  const _ActivityTypeSelector({
+    required this.trackerState,
+    required this.colors,
+    required this.notifier,
+    required this.ref,
+  });
+
+  final RunTrackerState trackerState;
+  final AppColors colors;
+  final RunTrackerController notifier;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRun = trackerState.activityType == 'run';
+
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.border),
+      ),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            alignment: isRun ? Alignment.centerLeft : Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              heightFactor: 1.0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.accent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSegment(
+                  title: 'Run',
+                  icon: PhosphorIcons.personSimpleRun(),
+                  isSelected: isRun,
+                  onTap: () {
+                    ref.read(hapticsServiceProvider).lightImpact();
+                    ref.read(soundServiceProvider).playSwitchRun();
+                    notifier.setActivityType('run');
+                  },
+                ),
+              ),
+              Expanded(
+                child: _buildSegment(
+                  title: 'Walk',
+                  icon: PhosphorIcons.personSimpleWalk(),
+                  isSelected: !isRun,
+                  onTap: () {
+                    ref.read(hapticsServiceProvider).lightImpact();
+                    ref.read(soundServiceProvider).playSwitchWalk();
+                    notifier.setActivityType('walk');
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegment({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: isSelected ? Colors.white : colors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: AppTextStyles.bodyLargeBold(
+                color: isSelected ? Colors.white : colors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -500,15 +770,14 @@ class _CircleButton extends StatelessWidget {
 }
 
 class _StopBottomSheet extends StatelessWidget {
-  const _StopBottomSheet({required this.colors, required this.ref});
+  const _StopBottomSheet({required this.colors, required this.activityType});
 
   final AppColors colors;
-  final WidgetRef ref;
+  final String activityType;
 
   @override
   Widget build(BuildContext context) {
-    final notifier = ref.read(runTrackerProvider.notifier);
-
+    final activityStr = activityType.toLowerCase() == 'walk' ? 'Walk' : 'Run';
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -538,11 +807,7 @@ class _StopBottomSheet extends StatelessWidget {
 
             // Resume
             PressableScale(
-              onTap: () {
-                Navigator.pop(context);
-                ref.read(soundServiceProvider).playPauseResume();
-                notifier.resumeRun();
-              },
+              onTap: () => Navigator.pop(context, 'resume'),
               child: _SheetButton(
                 label: 'Resume Tracking',
                 backgroundColor: colors.surfaceRaised,
@@ -553,26 +818,7 @@ class _StopBottomSheet extends StatelessWidget {
 
             // Save
             PressableScale(
-              onTap: () async {
-                Navigator.pop(context);
-                ref.read(soundServiceProvider).playRunFinish();
-                
-                // Fetch points before stopping the run (which clears the tracker state)
-                final pointsAsync = ref.read(routePointsProvider);
-                final points = pointsAsync.valueOrNull ?? [];
-
-                final savedRun = await notifier.stopRun();
-                if (savedRun != null && context.mounted) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => PostRunSummaryScreen(
-                        run: savedRun,
-                        points: points,
-                      ),
-                    ),
-                  );
-                }
-              },
+              onTap: () => Navigator.pop(context, 'save'),
               child: _SheetButton(
                 label: 'Finish & Save',
                 backgroundColor: colors.accent,
@@ -583,12 +829,9 @@ class _StopBottomSheet extends StatelessWidget {
 
             // Discard
             PressableScale(
-              onTap: () {
-                Navigator.pop(context);
-                notifier.discardRun();
-              },
+              onTap: () => Navigator.pop(context, 'discard'),
               child: _SheetButton(
-                label: 'Discard Run',
+                label: 'Discard $activityStr',
                 backgroundColor: Colors.transparent,
                 textColor: colors.error,
               ),

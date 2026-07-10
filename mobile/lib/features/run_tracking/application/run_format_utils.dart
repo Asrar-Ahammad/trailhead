@@ -36,20 +36,21 @@ abstract final class RunFormatUtils {
   }
 
   /// Returns the run title, or a time-based default (e.g. "Morning Run") if null.
-  static String getRunTitle(String? title, DateTime? startTime) {
+  static String getRunTitle(String? title, DateTime? startTime, {String activityType = 'run'}) {
     if (title != null && title.trim().isNotEmpty) {
       return title;
     }
     final start = startTime?.toLocal() ?? DateTime.now();
     final hour = start.hour;
+    final activityName = activityType.toLowerCase() == 'walk' ? 'Walk' : 'Run';
     if (hour >= 5 && hour < 12) {
-      return 'Morning Run';
+      return 'Morning $activityName';
     } else if (hour >= 12 && hour < 17) {
-      return 'Afternoon Run';
+      return 'Afternoon $activityName';
     } else if (hour >= 17 && hour < 21) {
-      return 'Evening Run';
+      return 'Evening $activityName';
     } else {
-      return 'Night Run';
+      return 'Night $activityName';
     }
   }
 }

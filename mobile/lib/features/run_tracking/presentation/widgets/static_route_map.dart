@@ -17,12 +17,14 @@ class StaticRouteMap extends StatelessWidget {
     this.showBaseMap = true,
     this.showMarkers = true,
     this.padding = const EdgeInsets.all(32.0),
+    this.animationProgress,
   });
 
   final List<LatLng> points;
   final bool showBaseMap;
   final bool showMarkers;
   final EdgeInsets padding;
+  final double? animationProgress;
 
   String _tileUrl(Brightness brightness) {
     if (brightness == Brightness.dark) {
@@ -32,9 +34,14 @@ class StaticRouteMap extends StatelessWidget {
   }
 
   /// Computes a [LatLngBounds] that fits all [points] with padding.
+  /// Returns null if there are fewer than 2 distinct points (zero-area bounds
+  /// would cause an infinite zoom crash in flutter_map).
   LatLngBounds? _fitBounds() {
-    if (points.isEmpty) return null;
-    return LatLngBounds.fromPoints(points);
+    if (points.length < 2) return null;
+    final bounds = LatLngBounds.fromPoints(points);
+    // Guard against zero-area bounds (all points identical)
+    if (bounds.north == bounds.south && bounds.east == bounds.west) return null;
+    return bounds;
   }
 
   @override
@@ -54,6 +61,12 @@ class StaticRouteMap extends StatelessWidget {
           )
         : points.first;
 
+    List<LatLng> renderPoints = points;
+    if (animationProgress != null) {
+      final pointsToShow = (points.length * animationProgress!).ceil().clamp(1, points.length);
+      renderPoints = points.sublist(0, pointsToShow);
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: FlutterMap(
@@ -65,7 +78,7 @@ class StaticRouteMap extends StatelessWidget {
                 )
               : null,
           initialCenter: center,
-          initialZoom: 14.0,
+          initialZoom: 15.0, // used when bounds is null (single/identical points)
           backgroundColor: Colors.transparent,
           interactionOptions: const InteractionOptions(
             // Read-only — disable all gestures on the static map
@@ -83,11 +96,11 @@ class StaticRouteMap extends StatelessWidget {
 
 
           // Full route polyline
-          if (points.length >= 2)
+          if (renderPoints.length >= 2)
             PolylineLayer(
               polylines: [
                 Polyline(
-                  points: points,
+                  points: renderPoints,
                   strokeWidth: 3.5,
                   color: colors.accent,
                 ),
@@ -99,7 +112,7 @@ class StaticRouteMap extends StatelessWidget {
             CircleLayer(
               circles: [
                 CircleMarker(
-                  point: points.first,
+                  point: renderPoints.first,
                   radius: 8,
                   color: colors.success,
                   borderColor: Colors.white,
@@ -109,11 +122,11 @@ class StaticRouteMap extends StatelessWidget {
             ),
 
           // End marker — coral/accent
-          if (showMarkers && points.length > 1)
+          if (showMarkers && renderPoints.length > 1 && (animationProgress == null || animationProgress! >= 1.0))
             CircleLayer(
               circles: [
                 CircleMarker(
-                  point: points.last,
+                  point: renderPoints.last,
                   radius: 8,
                   color: colors.accent,
                   borderColor: Colors.white,

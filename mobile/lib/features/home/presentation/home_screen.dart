@@ -12,6 +12,7 @@ import '../../run_tracking/application/run_format_utils.dart';
 
 import '../../haptics/application/haptics_service.dart';
 import '../../navigation/presentation/main_scaffold.dart';
+import '../../audio/application/sound_service.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -24,7 +25,7 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text('TRAILHEAD', style: AppTextStyles.retroLabel(color: retroColors.textPrimary).copyWith(fontSize: 20)),
+        title: Text('HOME', style: AppTextStyles.retroLabel(color: retroColors.textPrimary).copyWith(fontSize: 32)),
         backgroundColor: retroColors.surface,
         elevation: 0,
       ),
@@ -57,7 +58,7 @@ class HomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: retroColors.accent.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: retroColors.accent),
                 ),
                 child: Row(
@@ -87,10 +88,10 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: _StatCard(
-                title: 'RUNS',
+                title: 'ACTIVITIES',
                 value: summary.runCount.toString(),
                 unit: '',
-                icon: PhosphorIcons.sneaker(),
+                icon: PhosphorIcons.sneakerMove(),
                 colors: retroColors,
               ),
             ),
@@ -104,7 +105,7 @@ class HomeScreen extends ConsumerWidget {
             // Chart Container
             Container(
               height: 250,
-              padding: const EdgeInsets.only(top: AppSpacing.lg, right: AppSpacing.lg),
+              padding: const EdgeInsets.only(top: AppSpacing.lg, right: AppSpacing.lg, bottom: AppSpacing.sm),
               decoration: BoxDecoration(
                 color: retroColors.surfaceRaised,
                 borderRadius: BorderRadius.circular(12),
@@ -120,6 +121,7 @@ class HomeScreen extends ConsumerWidget {
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        reservedSize: 32,
                         getTitlesWidget: (value, meta) {
                           const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
                           return Padding(
@@ -175,15 +177,14 @@ class HomeScreen extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: retroColors.accent,
-                      foregroundColor: retroColors.background,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: Icon(PhosphorIcons.play()),
-                    label: Text('START RUN', style: AppTextStyles.bodyLargeBold()),
+                    child: Text('START RUN / WALK', style: AppTextStyles.bodyLargeBold(color: Colors.white)),
                     onPressed: () {
                       ref.read(hapticsServiceProvider).lightImpact();
                       ref.read(navigationProvider.notifier).state = 1; // Jump to record tab
@@ -199,11 +200,16 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.md),
               Card(
                 color: retroColors.surface,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: retroColors.border),
+                ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () {
                     ref.read(hapticsServiceProvider).lightImpact();
+                    ref.read(soundServiceProvider).playActivityTap();
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => RunDetailScreen(run: summary.mostRecentRun!),
@@ -229,7 +235,7 @@ class HomeScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                RunFormatUtils.getRunTitle(summary.mostRecentRun!.title, summary.mostRecentRun!.startTime),
+                                RunFormatUtils.getRunTitle(summary.mostRecentRun!.title, summary.mostRecentRun!.startTime, activityType: summary.mostRecentRun!.activityType ?? 'run'),
                                 style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary),
                               ),
                               const SizedBox(height: 4),

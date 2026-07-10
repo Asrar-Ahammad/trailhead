@@ -10,16 +10,20 @@ import 'package:trailhead_mobile/features/profile/presentation/settings_screen.d
 import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
+import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
-final historyProvider = FutureProvider<List<RunIsar>>((ref) async {
+final historyProvider = StreamProvider<List<RunIsar>>((ref) {
   final repo = ref.read(runHistoryRepositoryProvider);
-  return repo.getCompletedRuns();
+  return repo.watchCompletedRuns();
 });
 
 final prsProvider = FutureProvider<List<PersonalRecord>>((ref) async {
   final engine = ref.read(prEngineProvider);
   return engine.calculatePRs();
 });
+
+final selectedActivitiesProvider = StateProvider<Set<int>>((ref) => {});
 
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});
@@ -30,24 +34,85 @@ class YouScreen extends ConsumerWidget {
     final historyAsync = ref.watch(historyProvider);
     final prsAsync = ref.watch(prsProvider);
 
+    final selectedIds = ref.watch(selectedActivitiesProvider);
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         backgroundColor: retroColors.background,
-        appBar: AppBar(
-          title: Text('YOU', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24, fontWeight: FontWeight.bold)),
-          backgroundColor: retroColors.surface,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: Icon(PhosphorIcons.gearSix(), color: retroColors.textPrimary),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                );
-              },
-            ),
-          ],
+        appBar: selectedIds.isNotEmpty
+            ? AppBar(
+                title: Text('${selectedIds.length} Selected', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 20)),
+                backgroundColor: retroColors.surfaceRaised,
+                elevation: 0,
+                leading: IconButton(
+                  icon: Icon(PhosphorIcons.x(), color: retroColors.textPrimary),
+                  onPressed: () {
+                    ref.read(selectedActivitiesProvider.notifier).state = {};
+                  },
+                ),
+                actions: [
+                  IconButton(
+                    icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: retroColors.surface,
+                          title: Text('Delete Activities?', style: AppTextStyles.headline(color: retroColors.textPrimary)),
+                          content: Text('Are you sure you want to delete ${selectedIds.length} activities?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        final repo = ref.read(runHistoryRepositoryProvider);
+                        for (final id in selectedIds) {
+                          await repo.deleteRun(id);
+                        }
+                        ref.read(selectedActivitiesProvider.notifier).state = {};
+                        ref.refresh(historyProvider);
+                        ref.refresh(prsProvider);
+                      }
+                    },
+                  ),
+                ],
+                bottom: TabBar(
+                  indicatorColor: retroColors.accent,
+                  labelColor: retroColors.accent,
+                  unselectedLabelColor: retroColors.textSecondary,
+                  labelStyle: AppTextStyles.retroLabelLarge().copyWith(fontSize: 16),
+                  tabs: const [
+                    Tab(text: 'ACTIVITIES'),
+                    Tab(text: 'RECORDS'),
+                    Tab(text: 'PROGRESS'),
+                  ],
+                ),
+              )
+            : AppBar(
+                title: Text('YOU', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24, fontWeight: FontWeight.bold)),
+                backgroundColor: retroColors.surface,
+                elevation: 0,
+                actions: [
+                  IconButton(
+                    icon: Icon(PhosphorIcons.gearSix(), color: retroColors.textPrimary),
+                    onPressed: () {
+                      ref.read(soundServiceProvider).playSettingsTap();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      );
+                    },
+                  ),
+                ],
           bottom: TabBar(
             indicatorColor: retroColors.accent,
             labelColor: retroColors.accent,
@@ -223,7 +288,33 @@ class YouScreen extends ConsumerWidget {
               data: (prs) => prs.where((pr) => pr.run.id == item.id).length,
               orElse: () => 0,
             );
-            return ActivityCard(run: item, achievementsCount: achievementsCount);
+            
+            final isSelectionMode = ref.watch(selectedActivitiesProvider).isNotEmpty;
+            final isSelected = ref.watch(selectedActivitiesProvider).contains(item.id);
+
+            return ActivityCard(
+              run: item, 
+              achievementsCount: achievementsCount,
+              isSelectionMode: isSelectionMode,
+              isSelected: isSelected,
+              onSelect: () {
+                final currentSelection = Set<int>.from(ref.read(selectedActivitiesProvider));
+                if (isSelected) {
+                  currentSelection.remove(item.id);
+                } else {
+                  currentSelection.add(item.id);
+                }
+                ref.read(selectedActivitiesProvider.notifier).state = currentSelection;
+                ref.read(soundServiceProvider).playToggleSwitch(); // Audio feedback for toggle
+              },
+              onLongPress: () {
+                if (!isSelectionMode) {
+                  ref.read(selectedActivitiesProvider.notifier).state = {item.id};
+                  ref.read(soundServiceProvider).playToggleSwitch(); // Audio feedback for toggle
+                  ref.read(hapticsServiceProvider).lightImpact();
+                }
+              },
+            );
           }
           
           return const SizedBox.shrink();

@@ -24,6 +24,8 @@ class RunIsar {
   
   double? elevationGainM;
   
+  String? activityType; // "run" or "walk"
+  
   int? stepCount;
   
   double? avgStrideLengthM;

@@ -32,6 +32,17 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
   static const double _defaultZoom = 2.0;
 
   @override
+  void didUpdateWidget(LiveRunMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialLocation != oldWidget.initialLocation && widget.initialLocation != null) {
+      final points = ref.read(routePointsProvider).valueOrNull ?? [];
+      if (points.isEmpty) {
+        _mapController.move(widget.initialLocation!, _runningZoom);
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _mapController.dispose();
     super.dispose();

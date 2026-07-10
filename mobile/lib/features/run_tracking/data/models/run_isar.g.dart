@@ -17,88 +17,93 @@ const RunIsarSchema = CollectionSchema(
   name: r'RunIsar',
   id: -2463788054546546243,
   properties: {
-    r'aiSummary': PropertySchema(
+    r'activityType': PropertySchema(
       id: 0,
+      name: r'activityType',
+      type: IsarType.string,
+    ),
+    r'aiSummary': PropertySchema(
+      id: 1,
       name: r'aiSummary',
       type: IsarType.string,
     ),
     r'avgCadenceSpm': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'avgCadenceSpm',
       type: IsarType.double,
     ),
     r'avgPaceSPerKm': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'avgPaceSPerKm',
       type: IsarType.double,
     ),
     r'avgStrideLengthM': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'avgStrideLengthM',
       type: IsarType.double,
     ),
     r'caloriesKcal': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'caloriesKcal',
       type: IsarType.double,
     ),
     r'clientRunId': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'clientRunId',
       type: IsarType.string,
     ),
     r'distanceM': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'distanceM',
       type: IsarType.double,
     ),
     r'durationS': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'durationS',
       type: IsarType.long,
     ),
     r'elevationGainM': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'elevationGainM',
       type: IsarType.double,
     ),
     r'endTime': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'endTime',
       type: IsarType.dateTime,
     ),
     r'lastModifiedAt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'lastModifiedAt',
       type: IsarType.dateTime,
     ),
     r'startTime': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'startTime',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'status',
       type: IsarType.string,
     ),
     r'stepCount': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'stepCount',
       type: IsarType.long,
     ),
     r'synced': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'synced',
       type: IsarType.bool,
     ),
     r'syncedAt': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'syncedAt',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'title',
       type: IsarType.string,
     )
@@ -151,6 +156,12 @@ int _runIsarEstimateSize(
 ) {
   var bytesCount = offsets.last;
   {
+    final value = object.activityType;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.aiSummary;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -183,23 +194,24 @@ void _runIsarSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.aiSummary);
-  writer.writeDouble(offsets[1], object.avgCadenceSpm);
-  writer.writeDouble(offsets[2], object.avgPaceSPerKm);
-  writer.writeDouble(offsets[3], object.avgStrideLengthM);
-  writer.writeDouble(offsets[4], object.caloriesKcal);
-  writer.writeString(offsets[5], object.clientRunId);
-  writer.writeDouble(offsets[6], object.distanceM);
-  writer.writeLong(offsets[7], object.durationS);
-  writer.writeDouble(offsets[8], object.elevationGainM);
-  writer.writeDateTime(offsets[9], object.endTime);
-  writer.writeDateTime(offsets[10], object.lastModifiedAt);
-  writer.writeDateTime(offsets[11], object.startTime);
-  writer.writeString(offsets[12], object.status);
-  writer.writeLong(offsets[13], object.stepCount);
-  writer.writeBool(offsets[14], object.synced);
-  writer.writeDateTime(offsets[15], object.syncedAt);
-  writer.writeString(offsets[16], object.title);
+  writer.writeString(offsets[0], object.activityType);
+  writer.writeString(offsets[1], object.aiSummary);
+  writer.writeDouble(offsets[2], object.avgCadenceSpm);
+  writer.writeDouble(offsets[3], object.avgPaceSPerKm);
+  writer.writeDouble(offsets[4], object.avgStrideLengthM);
+  writer.writeDouble(offsets[5], object.caloriesKcal);
+  writer.writeString(offsets[6], object.clientRunId);
+  writer.writeDouble(offsets[7], object.distanceM);
+  writer.writeLong(offsets[8], object.durationS);
+  writer.writeDouble(offsets[9], object.elevationGainM);
+  writer.writeDateTime(offsets[10], object.endTime);
+  writer.writeDateTime(offsets[11], object.lastModifiedAt);
+  writer.writeDateTime(offsets[12], object.startTime);
+  writer.writeString(offsets[13], object.status);
+  writer.writeLong(offsets[14], object.stepCount);
+  writer.writeBool(offsets[15], object.synced);
+  writer.writeDateTime(offsets[16], object.syncedAt);
+  writer.writeString(offsets[17], object.title);
 }
 
 RunIsar _runIsarDeserialize(
@@ -209,24 +221,25 @@ RunIsar _runIsarDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = RunIsar();
-  object.aiSummary = reader.readStringOrNull(offsets[0]);
-  object.avgCadenceSpm = reader.readDoubleOrNull(offsets[1]);
-  object.avgPaceSPerKm = reader.readDoubleOrNull(offsets[2]);
-  object.avgStrideLengthM = reader.readDoubleOrNull(offsets[3]);
-  object.caloriesKcal = reader.readDoubleOrNull(offsets[4]);
-  object.clientRunId = reader.readStringOrNull(offsets[5]);
-  object.distanceM = reader.readDoubleOrNull(offsets[6]);
-  object.durationS = reader.readLongOrNull(offsets[7]);
-  object.elevationGainM = reader.readDoubleOrNull(offsets[8]);
-  object.endTime = reader.readDateTimeOrNull(offsets[9]);
+  object.activityType = reader.readStringOrNull(offsets[0]);
+  object.aiSummary = reader.readStringOrNull(offsets[1]);
+  object.avgCadenceSpm = reader.readDoubleOrNull(offsets[2]);
+  object.avgPaceSPerKm = reader.readDoubleOrNull(offsets[3]);
+  object.avgStrideLengthM = reader.readDoubleOrNull(offsets[4]);
+  object.caloriesKcal = reader.readDoubleOrNull(offsets[5]);
+  object.clientRunId = reader.readStringOrNull(offsets[6]);
+  object.distanceM = reader.readDoubleOrNull(offsets[7]);
+  object.durationS = reader.readLongOrNull(offsets[8]);
+  object.elevationGainM = reader.readDoubleOrNull(offsets[9]);
+  object.endTime = reader.readDateTimeOrNull(offsets[10]);
   object.id = id;
-  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[10]);
-  object.startTime = reader.readDateTimeOrNull(offsets[11]);
-  object.status = reader.readStringOrNull(offsets[12]);
-  object.stepCount = reader.readLongOrNull(offsets[13]);
-  object.synced = reader.readBool(offsets[14]);
-  object.syncedAt = reader.readDateTimeOrNull(offsets[15]);
-  object.title = reader.readStringOrNull(offsets[16]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[11]);
+  object.startTime = reader.readDateTimeOrNull(offsets[12]);
+  object.status = reader.readStringOrNull(offsets[13]);
+  object.stepCount = reader.readLongOrNull(offsets[14]);
+  object.synced = reader.readBool(offsets[15]);
+  object.syncedAt = reader.readDateTimeOrNull(offsets[16]);
+  object.title = reader.readStringOrNull(offsets[17]);
   return object;
 }
 
@@ -240,7 +253,7 @@ P _runIsarDeserializeProp<P>(
     case 0:
       return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
       return (reader.readDoubleOrNull(offset)) as P;
     case 3:
@@ -248,28 +261,30 @@ P _runIsarDeserializeProp<P>(
     case 4:
       return (reader.readDoubleOrNull(offset)) as P;
     case 5:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readLongOrNull(offset)) as P;
-    case 8:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
+      return (reader.readLongOrNull(offset)) as P;
     case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 10:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
-    case 13:
-      return (reader.readLongOrNull(offset)) as P;
-    case 14:
-      return (reader.readBool(offset)) as P;
-    case 15:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readLongOrNull(offset)) as P;
+    case 15:
+      return (reader.readBool(offset)) as P;
     case 16:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 17:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -603,6 +618,154 @@ extension RunIsarQueryWhere on QueryBuilder<RunIsar, RunIsar, QWhereClause> {
 
 extension RunIsarQueryFilter
     on QueryBuilder<RunIsar, RunIsar, QFilterCondition> {
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'activityType',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      activityTypeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'activityType',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'activityType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'activityType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'activityType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'activityType',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'activityType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'activityType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'activityType',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'activityType',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> activityTypeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'activityType',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      activityTypeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'activityType',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiSummaryIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2153,6 +2316,18 @@ extension RunIsarQueryLinks
     on QueryBuilder<RunIsar, RunIsar, QFilterCondition> {}
 
 extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByActivityType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByActivityTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityType', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAiSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aiSummary', Sort.asc);
@@ -2360,6 +2535,18 @@ extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
 
 extension RunIsarQuerySortThenBy
     on QueryBuilder<RunIsar, RunIsar, QSortThenBy> {
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByActivityType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByActivityTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'activityType', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAiSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aiSummary', Sort.asc);
@@ -2579,6 +2766,13 @@ extension RunIsarQuerySortThenBy
 
 extension RunIsarQueryWhereDistinct
     on QueryBuilder<RunIsar, RunIsar, QDistinct> {
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByActivityType(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'activityType', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByAiSummary(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2691,6 +2885,12 @@ extension RunIsarQueryProperty
   QueryBuilder<RunIsar, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<RunIsar, String?, QQueryOperations> activityTypeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'activityType');
     });
   }
 

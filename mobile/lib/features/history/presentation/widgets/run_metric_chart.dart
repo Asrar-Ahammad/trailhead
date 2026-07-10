@@ -39,6 +39,17 @@ class RunMetricChart extends ConsumerStatefulWidget {
 class _RunMetricChartState extends ConsumerState<RunMetricChart> {
   int? _lastTouchedIndex;
 
+  String _getTooltipMessage(MetricType type) {
+    switch (type) {
+      case MetricType.pace:
+        return 'Shows your speed in minutes per kilometer over the course of your activity.';
+      case MetricType.cadence:
+        return 'Shows your steps per minute throughout the activity.';
+      case MetricType.elevation:
+        return 'Shows the elevation profile of your route in meters.';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
@@ -90,7 +101,19 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
               widget.title,
               style: AppTextStyles.headline(color: colors.textPrimary).copyWith(fontSize: 20),
             ),
-            Icon(PhosphorIcons.info(), color: colors.textSecondary, size: 20),
+            Tooltip(
+              message: _getTooltipMessage(widget.type),
+              triggerMode: TooltipTriggerMode.tap,
+              showDuration: const Duration(seconds: 3),
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              textStyle: AppTextStyles.bodyMedium(color: colors.background),
+              decoration: BoxDecoration(
+                color: colors.textPrimary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(PhosphorIcons.info(), color: colors.textSecondary, size: 20),
+            ),
           ],
         ),
         const SizedBox(height: 16),

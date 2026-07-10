@@ -10,12 +10,19 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../../shared/widgets/count_up_text.dart';
+import '../../history/data/run_history_repository.dart';
+import '../../stats/application/pr_engine.dart';
+import '../../navigation/presentation/main_scaffold.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'dart:math';
+
+final postRunPRProvider = FutureProvider.family<bool, int>((ref, runId) async {
+  final engine = ref.read(prEngineProvider);
+  final prs = await engine.calculatePRs();
+  return prs.any((pr) => pr.run.id == runId);
+});
 
 /// The signature post-workout completion screen.
-/// Implements a staggered animation sequence:
-/// 1. Map fades in
-/// 2. Stats count up
-/// 3. AI summary text fades in last
 class PostRunSummaryScreen extends ConsumerStatefulWidget {
   const PostRunSummaryScreen({
     super.key,
@@ -33,7 +40,9 @@ class PostRunSummaryScreen extends ConsumerStatefulWidget {
 class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> with SingleTickerProviderStateMixin {
   late final AnimationController _staggerController;
   late final Animation<double> _mapFade;
+  late final Animation<double> _mapDraw;
   late final Animation<double> _statsFade;
+  late final Animation<double> _prSlide;
   late final Animation<double> _aiFade;
   
   bool _statsAnimationStarted = false;
@@ -46,15 +55,23 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
       duration: const Duration(milliseconds: 3000),
     );
 
-    // Map fades in over first 800ms
+    // Map fades in (0-300ms)
     _mapFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _staggerController,
-        curve: const Interval(0.0, 0.25, curve: Curves.easeOut),
+        curve: const Interval(0.0, 0.1, curve: Curves.easeOut),
       ),
     );
 
-    // Stats container fades in starting at 600ms
+    // Map polyline draws stroke-by-stroke (0-900ms)
+    _mapDraw = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _staggerController,
+        curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
+      ),
+    );
+
+    // Stats fade in (600-1350ms)
     _statsFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _staggerController,
@@ -62,11 +79,19 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
       ),
     );
 
-    // AI summary fades in starting at 2000ms
+    // PR Banner slides up (1200-1800ms) - using elastic curve
+    _prSlide = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _staggerController,
+        curve: const Interval(0.4, 0.6, curve: Curves.elasticOut),
+      ),
+    );
+
+    // AI summary fades in (1800-2400ms)
     _aiFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _staggerController,
-        curve: const Interval(0.65, 1.0, curve: Curves.easeOut),
+        curve: const Interval(0.6, 0.8, curve: Curves.easeOut),
       ),
     );
 
@@ -78,9 +103,15 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
       }
     });
 
-    // Start sequence
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _staggerController.forward();
+      if (MediaQuery.of(context).disableAnimations) {
+        _staggerController.value = 1.0;
+        setState(() {
+          _statsAnimationStarted = true;
+        });
+      } else {
+        _staggerController.forward();
+      }
     });
   }
 
@@ -90,99 +121,200 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
     super.dispose();
   }
 
+
+
+  void _saveRun() {
+    ref.read(hapticsServiceProvider).mediumImpact();
+    ref.read(navigationProvider.notifier).state = 0; // Go to home
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final aiSummaryAsync = ref.watch(mockAiSummaryProvider(widget.run));
+    final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.id));
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: AppBar(
-        backgroundColor: colors.background,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(PhosphorIcons.x(PhosphorIconsStyle.bold), color: colors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(), // Go back to Home/History
-        ),
-        title: Text('RUN COMPLETED', style: AppTextStyles.labelCaps(color: colors.textPrimary)),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 1. Fading Map
-              FadeTransition(
-                opacity: _mapFade,
-                child: SizedBox(
-                  height: 250,
-                  child: StaticRouteMap(points: widget.points),
-                ),
-              ),
-              
-              const SizedBox(height: AppSpacing.xl),
-              
-              // 2. Fading/Counting Stats
-              FadeTransition(
-                opacity: _statsFade,
-                child: _buildStatsGrid(colors),
-              ),
-              
-              const SizedBox(height: AppSpacing.xxl),
-              
-              // 3. Fading AI Summary
-              FadeTransition(
-                opacity: _aiFade,
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: colors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colors.border),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 48), // Top padding for status bar
+                  Text('RUN COMPLETED', style: AppTextStyles.labelCaps(color: colors.textPrimary), textAlign: TextAlign.center),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // 1. Fading/Drawing Map
+                  AnimatedBuilder(
+                    animation: _staggerController,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _mapFade.value,
+                        child: SizedBox(
+                          height: 250,
+                          child: StaticRouteMap(
+                            points: widget.points,
+                            animationProgress: _mapDraw.value,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  
+                  const SizedBox(height: AppSpacing.xl),
+                  
+                  // 2. Fading/Counting Stats
+                  FadeTransition(
+                    opacity: _statsFade,
+                    child: _buildStatsGrid(colors),
+                  ),
+                  
+                  const SizedBox(height: AppSpacing.xl),
+                  
+                  // 3. PR Banner (if applicable)
+                  isNewPrAsync.when(
+                    data: (isNewPr) {
+                      if (!isNewPr) return const SizedBox.shrink();
+                      return AnimatedBuilder(
+                        animation: _prSlide,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(0, 50 * _prSlide.value),
+                            child: Opacity(
+                              opacity: (1.0 - _prSlide.value).clamp(0.0, 1.0),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: AppSpacing.xl),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: colors.accent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: colors.accent),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: colors.accent, size: 32),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('NEW PERSONAL RECORD!', style: AppTextStyles.labelCaps(color: colors.accent)),
+                                          const SizedBox(height: 4),
+                                          Text('You set a new best!', style: AppTextStyles.bodyMedium(color: colors.textPrimary)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+
+                  // 4. Fading AI Summary
+                  FadeTransition(
+                    opacity: _aiFade,
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill), color: colors.accent, size: 20),
-                          const SizedBox(width: AppSpacing.sm),
-                          Text('AI COACH', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
+                          Row(
+                            children: [
+                              Icon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill), color: colors.accent, size: 20),
+                              const SizedBox(width: AppSpacing.sm),
+                              Text('AI COACH', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          aiSummaryAsync.when(
+                            data: (summary) => Text(
+                              summary,
+                              style: AppTextStyles.bodyLarge(color: colors.textPrimary),
+                            ),
+                            loading: () => Column(
+                              children: [
+                                LinearProgressIndicator(color: colors.accent, backgroundColor: colors.surfaceRaised),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text('Generating summary...', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
+                              ],
+                            ),
+                            error: (err, stack) => Text('Failed to load summary.', style: AppTextStyles.bodyMedium(color: colors.error)),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      aiSummaryAsync.when(
-                        data: (summary) => Text(
-                          summary,
-                          style: AppTextStyles.bodyLarge(color: colors.textPrimary),
-                        ),
-                        loading: () => Column(
-                          children: [
-                            LinearProgressIndicator(color: colors.accent, backgroundColor: colors.surfaceRaised),
-                            const SizedBox(height: AppSpacing.sm),
-                            Text('Generating summary...', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
-                          ],
-                        ),
-                        error: (err, stack) => Text('Failed to load summary.', style: AppTextStyles.bodyMedium(color: colors.error)),
-                      ),
-                    ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 120), // Padding for bottom sheet
+                ],
+              ),
+            ),
+          ),
+          
+          // 5. Save/Discard Bottom Sheet
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, -5)),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _saveRun,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('SAVE RUN', style: AppTextStyles.bodyLargeBold(color: Colors.white)),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildStatsGrid(AppColors colors) {
-    // Only animate the numbers if the timeline has reached this point
     final distance = widget.run.distanceM ?? 0.0;
     final duration = (widget.run.durationS ?? 0).toDouble();
+    final pace = widget.run.avgPaceSPerKm ?? 0.0;
+    
+    // Derived stats if not present
+    final kcal = widget.run.caloriesKcal ?? (distance / 1000.0 * 65.0); // Rough estimate
+    final cadence = widget.run.avgCadenceSpm ?? 160.0;
+    final stride = widget.run.avgStrideLengthM ?? 1.1;
 
+    // Staggered durations for counting up
     return Column(
       children: [
         // Big Distance
@@ -205,50 +337,45 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Column(
-              children: [
-                if (_statsAnimationStarted)
-                  CountUpText(
-                    targetValue: duration,
-                    duration: const Duration(milliseconds: 1500),
-                    builder: (ctx, val, _) => Text(
-                      RunFormatUtils.formatDuration(val.toInt()),
-                      style: AppTextStyles.displayStat(color: colors.textPrimary),
-                    ),
-                  )
-                else
-                  Text('00:00', style: AppTextStyles.displayStat(color: colors.textPrimary)),
-                
-                Text('TIME', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
-              ],
-            ),
+            _buildStatItem('TIME', duration, 1600, (val) => RunFormatUtils.formatDuration(val.toInt()), colors),
             Container(height: 40, width: 1, color: colors.border),
-            Column(
-              children: [
-                if (_statsAnimationStarted)
-                  // For pace, we don't 'count up' the pace string easily, 
-                  // but we can compute it from the animated distance and duration.
-                  // For simplicity and a satisfying feel, we just show the final pace,
-                  // or calculate pace from the current animated values.
-                  CountUpText(
-                    targetValue: 1.0, // dummy target for animation timing
-                    duration: const Duration(milliseconds: 1500),
-                    builder: (ctx, val, _) {
-                      // Interpolate between 0 and final pace
-                      return Text(
-                        RunFormatUtils.formatPace(distance, (duration * val).toInt()),
-                        style: AppTextStyles.displayStat(color: colors.textPrimary),
-                      );
-                    }
-                  )
-                else
-                  Text('--:--', style: AppTextStyles.displayStat(color: colors.textPrimary)),
-                  
-                Text('PACE /KM', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
-              ],
-            ),
+            _buildStatItem('PACE /KM', pace, 1700, (val) => RunFormatUtils.formatPace(0, val.toInt()), colors),
           ],
         ),
+        const SizedBox(height: AppSpacing.lg),
+        
+        // Cadence, Stride, Calories
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildStatItem('CALORIES', kcal, 1800, (val) => val.toInt().toString(), colors, small: true),
+            Container(height: 30, width: 1, color: colors.border),
+            _buildStatItem('CADENCE', cadence, 1900, (val) => val.toInt().toString(), colors, small: true),
+            Container(height: 30, width: 1, color: colors.border),
+            _buildStatItem('STRIDE (M)', stride, 2000, (val) => val.toStringAsFixed(2), colors, small: true),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(String label, double target, int durationMs, String Function(double) formatter, AppColors colors, {bool small = false}) {
+    return Column(
+      children: [
+        if (_statsAnimationStarted)
+          CountUpText(
+            targetValue: target,
+            duration: Duration(milliseconds: durationMs),
+            builder: (ctx, val, _) => Text(
+              formatter(val),
+              style: small ? AppTextStyles.displayMedium(color: colors.textPrimary) : AppTextStyles.displayStat(color: colors.textPrimary),
+            ),
+          )
+        else
+          Text(formatter(0), style: small ? AppTextStyles.displayMedium(color: colors.textPrimary) : AppTextStyles.displayStat(color: colors.textPrimary)),
+        
+        const SizedBox(height: 2),
+        Text(label, style: AppTextStyles.labelCaps(color: colors.textSecondary).copyWith(fontSize: small ? 10 : 12)),
       ],
     );
   }

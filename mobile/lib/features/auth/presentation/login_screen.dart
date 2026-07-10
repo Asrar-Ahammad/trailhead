@@ -41,13 +41,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (mounted) {
       if (success) {
-        // Fetch existing remote runs
+        // Fetch existing remote runs in the background to avoid blocking login
         try {
           final apiClient = ref.read(apiClientProvider);
           final syncService = SyncService(isar: isarInstance, apiClient: apiClient);
-          await syncService.fetchInitialData();
+          syncService.fetchInitialData().catchError((e) {
+            debugPrint('Failed to fetch initial data: $e');
+          });
         } catch (e) {
-          debugPrint('Failed to fetch initial data: $e');
+          debugPrint('Error starting sync: $e');
         }
         setState(() => _isLoading = false);
         // Pop will return back to PermissionGate (or main app flow)

@@ -18,73 +18,73 @@ class WeeklySummary {
   });
 }
 
-final weeklySummaryProvider = FutureProvider<WeeklySummary>((ref) async {
+final weeklySummaryProvider = StreamProvider<WeeklySummary>((ref) {
   final repo = ref.read(runHistoryRepositoryProvider);
-  final allRuns = await repo.getCompletedRuns(limit: 500); // Need enough runs for streak calculation
-
-  if (allRuns.isEmpty) {
-    return WeeklySummary(distanceKm: 0, runCount: 0, streakDays: 0, chartData: List.filled(7, 0.0));
-  }
-
-  final now = DateTime.now();
-  // Find Monday of the current week (1 = Monday, 7 = Sunday)
-  final startOfWeek = now.subtract(Duration(days: now.weekday - 1)).copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
-  
-  double totalDistance = 0;
-  int runCount = 0;
-  List<double> chartData = List.filled(7, 0.0);
-
-  for (final run in allRuns) {
-    if (run.startTime != null && !run.startTime!.isBefore(startOfWeek)) {
-      runCount++;
-      final distKm = (run.distanceM ?? 0) / 1000.0;
-      totalDistance += distKm;
-      
-      // weekday: 1 = Mon, 7 = Sun
-      final dayIndex = run.startTime!.weekday - 1;
-      chartData[dayIndex] += distKm;
+  return repo.watchCompletedRuns(limit: 500).map((allRuns) {
+    if (allRuns.isEmpty) {
+      return WeeklySummary(distanceKm: 0, runCount: 0, streakDays: 0, chartData: List.filled(7, 0.0));
     }
-  }
 
-  // Calculate Streak
-  int streak = 0;
-  DateTime currentDate = now.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
-  
-  // Create a set of distinct days the user ran
-  final runDays = <DateTime>{};
-  for (final run in allRuns) {
-    if (run.startTime != null) {
-      runDays.add(run.startTime!.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0));
-    }
-  }
+    final now = DateTime.now();
+    // Find Monday of the current week (1 = Monday, 7 = Sunday)
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1)).copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+    
+    double totalDistance = 0;
+    int runCount = 0;
+    List<double> chartData = List.filled(7, 0.0);
 
-  // Check today or yesterday first
-  if (runDays.contains(currentDate)) {
-    streak = 1;
-  } else {
-    final yesterday = currentDate.subtract(const Duration(days: 1));
-    if (runDays.contains(yesterday)) {
-      streak = 1;
-      currentDate = yesterday;
-    }
-  }
-
-  if (streak > 0) {
-    while (true) {
-      currentDate = currentDate.subtract(const Duration(days: 1));
-      if (runDays.contains(currentDate)) {
-        streak++;
-      } else {
-        break;
+    for (final run in allRuns) {
+      if (run.startTime != null && !run.startTime!.isBefore(startOfWeek)) {
+        runCount++;
+        final distKm = (run.distanceM ?? 0) / 1000.0;
+        totalDistance += distKm;
+        
+        // weekday: 1 = Mon, 7 = Sun
+        final dayIndex = run.startTime!.weekday - 1;
+        chartData[dayIndex] += distKm;
       }
     }
-  }
 
-  return WeeklySummary(
-    distanceKm: totalDistance,
-    runCount: runCount,
-    streakDays: streak,
-    chartData: chartData,
-    mostRecentRun: allRuns.first,
-  );
+    // Calculate Streak
+    int streak = 0;
+    DateTime currentDate = now.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+    
+    // Create a set of distinct days the user ran
+    final runDays = <DateTime>{};
+    for (final run in allRuns) {
+      if (run.startTime != null) {
+        runDays.add(run.startTime!.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0));
+      }
+    }
+
+    // Check today or yesterday first
+    if (runDays.contains(currentDate)) {
+      streak = 1;
+    } else {
+      final yesterday = currentDate.subtract(const Duration(days: 1));
+      if (runDays.contains(yesterday)) {
+        streak = 1;
+        currentDate = yesterday;
+      }
+    }
+
+    if (streak > 0) {
+      while (true) {
+        currentDate = currentDate.subtract(const Duration(days: 1));
+        if (runDays.contains(currentDate)) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return WeeklySummary(
+      distanceKm: totalDistance,
+      runCount: runCount,
+      streakDays: streak,
+      chartData: chartData,
+      mostRecentRun: allRuns.first,
+    );
+  });
 });

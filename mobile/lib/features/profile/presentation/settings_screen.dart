@@ -56,7 +56,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // Notify the sound service to reload settings
     await ref.read(soundServiceProvider).reloadSettings();
     if (value) {
-      await ref.read(soundServiceProvider).playNavBlip();
+      await ref.read(soundServiceProvider).playToggleSwitch();
     }
   }
 
@@ -71,6 +71,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (value) {
       await ref.read(hapticsServiceProvider).lightImpact();
     }
+    await ref.read(soundServiceProvider).playToggleSwitch();
   }
 
   Future<void> _updateWeight() async {
@@ -231,12 +232,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _logout() async {
-    await ref.read(authServiceProvider).logout();
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AuthWrapper()),
-        (route) => false,
-      );
+    final colors = Theme.of(context).extension<AppColors>()!;
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.surface,
+        title: Text('Sign Out', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to sign out?', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Sign Out', style: TextStyle(color: colors.error, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      await ref.read(authServiceProvider).logout();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          (route) => false,
+        );
+      }
     }
   }
 
@@ -425,6 +448,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     
                     final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
                     final newTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
+                    
+                    if (isDark) {
+                      ref.read(soundServiceProvider).playThemeDark();
+                    } else {
+                      ref.read(soundServiceProvider).playThemeLight();
+                    }
                     
                     ThemeSwitcher.of(context).changeTheme(theme: newTheme);
                   }

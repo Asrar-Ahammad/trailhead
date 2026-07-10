@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 import 'package:workmanager/workmanager.dart';
@@ -24,6 +26,7 @@ class RunTrackerState {
   final int? targetPaceSPerKm;
   final int? currentSplitPaceSPerKm;
   final Position? initialPosition;
+  final String activityType; // "run" or "walk"
 
   RunTrackerState({
     required this.status,
@@ -36,6 +39,7 @@ class RunTrackerState {
     this.targetPaceSPerKm,
     this.currentSplitPaceSPerKm,
     this.initialPosition,
+    this.activityType = 'run',
   });
 
   RunTrackerState copyWith({
@@ -49,6 +53,7 @@ class RunTrackerState {
     int? targetPaceSPerKm,
     int? currentSplitPaceSPerKm,
     Position? initialPosition,
+    String? activityType,
   }) {
     return RunTrackerState(
       status: status ?? this.status,
@@ -61,6 +66,7 @@ class RunTrackerState {
       targetPaceSPerKm: targetPaceSPerKm ?? this.targetPaceSPerKm,
       currentSplitPaceSPerKm: currentSplitPaceSPerKm ?? this.currentSplitPaceSPerKm,
       initialPosition: initialPosition ?? this.initialPosition,
+      activityType: activityType ?? this.activityType,
     );
   }
 }
@@ -89,8 +95,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         channelId: 'trailhead_tracking',
         channelName: 'Run Tracking',
         channelDescription: 'Shows live stats during run tracking.',
-        channelImportance: NotificationChannelImportance.HIGH,
-        priority: NotificationPriority.HIGH,
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
@@ -158,6 +164,10 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   Future<bool> requestForegroundPermission() async {
+    // Request notification and physical activity permissions sequentially
+    await Permission.notification.request();
+    await Permission.activityRecognition.request();
+
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -243,6 +253,12 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     state = state.copyWith(initialPosition: pos);
   }
 
+  void setActivityType(String type) {
+    if (state.status == 'idle') {
+      state = state.copyWith(activityType: type);
+    }
+  }
+
   Future<void> startRun() async {
     if (state.status != 'idle') return;
 
@@ -253,6 +269,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       ..clientRunId = clientRunId
       ..startTime = now
       ..status = 'running'
+      ..activityType = state.activityType
       ..distanceM = 0.0;
 
     await isarInstance.writeTxn(() async {
@@ -268,6 +285,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       permissionsGranted: state.permissionsGranted,
       initialPosition: state.initialPosition,
       targetPaceSPerKm: state.targetPaceSPerKm,
+      activityType: state.activityType,
     );
 
     // Start Foreground Service
@@ -311,11 +329,22 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   Future<RunIsar?> stopRun() async {
-    if (state.status != 'running' && state.status != 'paused') return null;
+    debugPrint('[STOP_RUN] Called. state.status=${state.status}, clientRunId=${state.clientRunId}');
+    if (state.status != 'running' && state.status != 'paused') {
+      debugPrint('[STOP_RUN] EARLY RETURN - status is ${state.status}, not running or paused');
+      return null;
+    }
 
-    await FlutterForegroundTask.stopService();
+    try {
+      await FlutterForegroundTask.stopService();
+      debugPrint('[STOP_RUN] Foreground service stopped');
+    } catch (e) {
+      debugPrint('[STOP_RUN] Error stopping foreground service: $e');
+    }
 
     final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(state.clientRunId).findFirst();
+    debugPrint('[STOP_RUN] Found activeRun in Isar: ${activeRun != null}, id=${activeRun?.clientRunId}');
+    
     if (activeRun != null) {
       activeRun.status = 'completed';
       activeRun.endTime = DateTime.now();
@@ -337,6 +366,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
           await isarInstance.syncJobIsars.put(syncJob);
         }
       });
+      debugPrint('[STOP_RUN] Isar write completed successfully');
 
       // Schedule immediate sync attempt
       if (activeRun.clientRunId != null) {
@@ -354,6 +384,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       initialPosition: state.initialPosition,
       targetPaceSPerKm: state.targetPaceSPerKm,
     );
+    _refreshLocationAfterRun();
+    debugPrint('[STOP_RUN] Returning activeRun: ${activeRun?.clientRunId}');
     return activeRun;
   }
 
@@ -378,7 +410,22 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     state = RunTrackerState(
       status: 'idle',
       permissionsGranted: state.permissionsGranted,
+      initialPosition: state.initialPosition,
+      targetPaceSPerKm: state.targetPaceSPerKm,
     );
+    _refreshLocationAfterRun();
+  }
+
+  void _refreshLocationAfterRun() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+      if (state.status == 'idle') {
+        state = state.copyWith(initialPosition: pos);
+      }
+    } catch (_) {}
   }
 
   @override

@@ -79,6 +79,7 @@ class SyncService {
         'durationS': run.durationS ?? 0,
         'avgPaceSPerKm': run.avgPaceSPerKm ?? 0,
         'title': run.title,
+        'activityType': run.activityType,
       });
 
       if (metadataResponse.statusCode != 200 && metadataResponse.statusCode != 409) {
@@ -153,12 +154,13 @@ class SyncService {
                 final run = RunIsar()
                   ..clientRunId = detailData['id']
                   ..title = detailData['title']
-                  ..startTime = DateTime.parse(detailData['startTime'])
-                  ..endTime = DateTime.parse(detailData['endTime'])
+                  ..startTime = DateTime.parse(detailData['startTime']).toLocal()
+                  ..endTime = DateTime.parse(detailData['endTime']).toLocal()
                   ..distanceM = (detailData['distanceM'] as num?)?.toDouble()
                   ..durationS = detailData['durationS'] as int?
                   ..avgPaceSPerKm = (detailData['avgPaceSPerKm'] as num?)?.toDouble()
                   ..elevationGainM = (detailData['elevationGainM'] as num?)?.toDouble()
+                  ..activityType = detailData['activityType']
                   ..status = 'completed'
                   ..synced = true
                   ..syncedAt = DateTime.now();
@@ -169,7 +171,7 @@ class SyncService {
                   ..lat = (p['lat'] as num).toDouble()
                   ..lng = (p['lng'] as num).toDouble()
                   ..elevation = (p['elevation'] as num?)?.toDouble()
-                  ..timestamp = DateTime.parse(p['timestamp'])
+                  ..timestamp = DateTime.parse(p['timestamp']).toLocal()
                   ..cadence = p['cadence'] as int?
                   ..sequence = p['sequence'] as int
                 ).toList();
