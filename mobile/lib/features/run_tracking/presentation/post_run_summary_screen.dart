@@ -360,7 +360,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
           children: [
             _buildStatItem('TIME', duration, 1600, (val) => RunFormatUtils.formatDuration(val.toInt()), colors),
             Container(height: 40, width: 1, color: colors.border),
-            _buildStatItem('PACE /KM', pace, 1700, (val) => RunFormatUtils.formatPace(0, val.toInt()), colors),
+            _buildStatItem('PACE /KM', pace, 1700, (val) => RunFormatUtils.formatPace(1000, val.toInt()), colors),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),

@@ -52,7 +52,7 @@ class HomeScreen extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('WEEKLY SUMMARY', style: AppTextStyles.headline(color: retroColors.textPrimary).copyWith(fontSize: 26)),
+            Text('WEEKLY SUMMARY', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 26, letterSpacing: 2.0)),
             if (summary.streakDays > 0)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
