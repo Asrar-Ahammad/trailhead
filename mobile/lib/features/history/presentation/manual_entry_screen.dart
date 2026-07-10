@@ -107,7 +107,8 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       ..durationS = 3600 // placeholder
       ..avgPaceSPerKm = 3600 / distance
       ..title = "Manual Run"
-      ..isSynced = false
+      ..synced = false
+      ..status = "completed"
       ..subjectiveEffort = _effortController.text.isNotEmpty ? _effortController.text : null
       ..conditions = _conditionsController.text.isNotEmpty ? _conditionsController.text : null;
       

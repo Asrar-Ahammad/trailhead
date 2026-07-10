@@ -169,16 +169,17 @@ class YouScreen extends ConsumerWidget {
         loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
         error: (err, stack) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
       ),
-        floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ref.read(hapticsServiceProvider).mediumImpact();
-          ref.read(soundServiceProvider).playFabAddRun();
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManualEntryScreen()));
-        },
-        backgroundColor: retroColors.accent,
-        child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
-      ),
-        child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 120.0, right: 8.0),
+        child: FloatingActionButton(
+          onPressed: () {
+            ref.read(hapticsServiceProvider).mediumImpact();
+            ref.read(soundServiceProvider).playFabAddRun();
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManualEntryScreen()));
+          },
+          backgroundColor: retroColors.accent,
+          child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
+        ),
       ),
     ));
   }
