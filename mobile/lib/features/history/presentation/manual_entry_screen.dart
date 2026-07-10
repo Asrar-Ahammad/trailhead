@@ -7,6 +7,7 @@ import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/nl_logging_service.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 
 class ManualEntryScreen extends ConsumerStatefulWidget {
@@ -29,28 +30,92 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   final TextEditingController _durationController = TextEditingController(); // Just as an extra
 
   bool _isParsing = false;
+  
+  String _textBeforeCursor = '';
+  String _textAfterCursor = '';
+  
+  bool _hasInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _initSpeech();
   }
-
-  void _initSpeech() async {
-    await _speech.initialize();
+  
+  Future<bool> _initSpeechIfNeeded() async {
+    if (_hasInitialized) return true;
+    _hasInitialized = await _speech.initialize(
+      onStatus: (status) {
+        if (mounted && (status == 'notListening' || status == 'done')) {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (errorNotification) {
+        if (mounted) setState(() => _isListening = false);
+      },
+    );
+    return _hasInitialized;
   }
 
   void _startListening() async {
     if (!_isListening) {
       ref.read(hapticsServiceProvider).lightImpact();
-      bool available = await _speech.initialize();
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(onResult: (val) {
-          setState(() {
-            _textController.text = val.recognizedWords;
+      
+      var micStatus = await Permission.microphone.status;
+      if (micStatus.isPermanentlyDenied) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable microphone in app settings')));
+        await openAppSettings();
+        return;
+      }
+      if (!micStatus.isGranted) {
+        micStatus = await Permission.microphone.request();
+      }
+
+      var speechStatus = await Permission.speech.status;
+      if (speechStatus.isPermanentlyDenied) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable speech in app settings')));
+        await openAppSettings();
+        return;
+      }
+      if (!speechStatus.isGranted) {
+        speechStatus = await Permission.speech.request();
+      }
+      
+      if (micStatus.isGranted) {
+        bool available = await _initSpeechIfNeeded();
+        if (available) {
+          setState(() => _isListening = true);
+          
+          final int cursorPos = _textController.selection.baseOffset >= 0 
+              ? _textController.selection.baseOffset 
+              : _textController.text.length;
+          _textBeforeCursor = _textController.text.substring(0, cursorPos);
+          _textAfterCursor = _textController.text.substring(cursorPos);
+
+          _speech.listen(onResult: (val) {
+            if (mounted) {
+              setState(() {
+                final recognized = val.recognizedWords.trim();
+                final prefix = (_textBeforeCursor.isNotEmpty && !_textBeforeCursor.endsWith(' ')) ? ' ' : '';
+                final insertStr = recognized.isNotEmpty ? '$prefix$recognized ' : '';
+                
+                final newText = _textBeforeCursor + insertStr + _textAfterCursor;
+                _textController.value = TextEditingValue(
+                  text: newText,
+                  selection: TextSelection.collapsed(offset: _textBeforeCursor.length + insertStr.length),
+                );
+                
+                // Reliably reset the button when the system signals the session is completely done
+                if (val.finalResult) {
+                  _isListening = false;
+                }
+              });
+            }
           });
-        });
+        } else {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Speech recognition not available on this device')));
+        }
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Microphone permission required')));
       }
     } else {
       _stopListening();
@@ -165,12 +230,18 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isParsing ? null : _parseText,
-                    style: ElevatedButton.styleFrom(backgroundColor: colors.accent),
-                    child: _isParsing 
-                      ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2)) 
-                      : Text('Parse', style: AppTextStyles.bodyMediumBold(color: colors.surface)),
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _textController,
+                    builder: (context, value, child) {
+                      final hasText = value.text.trim().isNotEmpty;
+                      return ElevatedButton(
+                        onPressed: (_isParsing || !hasText) ? null : _parseText,
+                        style: ElevatedButton.styleFrom(backgroundColor: colors.accent),
+                        child: _isParsing 
+                          ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2)) 
+                          : Text('Parse', style: AppTextStyles.bodyMediumBold(color: colors.surface)),
+                      );
+                    },
                   ),
                 ),
               ],
