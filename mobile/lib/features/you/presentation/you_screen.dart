@@ -18,13 +18,14 @@ final historyProvider = StreamProvider<List<RunIsar>>((ref) {
   return repo.watchCompletedRuns();
 });
 
-final prsProvider = FutureProvider<List<PersonalRecord>>((ref) async {
+final prsProvider = FutureProvider<RecordGroup>((ref) async {
   final engine = ref.read(prEngineProvider);
-  return engine.calculatePRs();
+  return engine.getRecords();
 });
 
 final selectedActivitiesProvider = StateProvider<Set<int>>((ref) => {});
 final isDeletingProvider = StateProvider<bool>((ref) => false);
+final recordsModeProvider = StateProvider<String>((ref) => 'best_effort');
 
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});
@@ -159,7 +160,7 @@ class YouScreen extends ConsumerWidget {
           return TabBarView(
             children: [
               _buildActivitiesTab(retroColors, runs, prsAsync, ref),
-              _buildRecordsTab(retroColors, prsAsync, ref),
+              _buildRecordsTab(retroColors, prsAsync, ref, context),
               ProgressTab(runs: runs),
             ],
           );
@@ -191,7 +192,24 @@ class YouScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecordsTab(AppColors retroColors, AsyncValue<List<PersonalRecord>> prsAsync, WidgetRef ref) {
+  String formatValue(String category, double value) {
+    if (['longest_run', 'max_elevation'].contains(category)) {
+      if (category == 'longest_run') return '${(value / 1000).toStringAsFixed(2)} km';
+      return '${value.toStringAsFixed(0)} m';
+    }
+    // Time format
+    final mins = (value / 60).floor();
+    final secs = (value % 60).floor();
+    if (mins >= 60) {
+      final hours = (mins / 60).floor();
+      final remainingMins = mins % 60;
+      return '${hours}:${remainingMins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    }
+    return '${mins}:${secs.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildRecordsTab(AppColors retroColors, AsyncValue<RecordGroup> prsAsync, WidgetRef ref, BuildContext context) {
+    final mode = ref.watch(recordsModeProvider);
     return RefreshIndicator(
       color: retroColors.accent,
       backgroundColor: retroColors.surface,
@@ -200,39 +218,103 @@ class YouScreen extends ConsumerWidget {
         ref.refresh(prsProvider);
       },
       child: prsAsync.when(
-        data: (prs) {
-          if (prs.isEmpty) return _buildEmptyState(retroColors);
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: prs.length,
-            itemBuilder: (context, index) {
-              final pr = prs[index];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: retroColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: retroColors.accent.withOpacity(0.5)),
-                ),
+        data: (group) {
+          final list = mode == 'best_effort' ? group.bestEffort : group.manual;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
+                    ChoiceChip(
+                      label: Text('Best Efforts', style: AppTextStyles.label(color: mode == 'best_effort' ? retroColors.surface : retroColors.textPrimary)),
+                      selected: mode == 'best_effort',
+                      selectedColor: retroColors.accent,
+                      onSelected: (val) {
+                        if(val) ref.read(recordsModeProvider.notifier).state = 'best_effort';
+                      },
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(pr.title, style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
-                          const SizedBox(height: 4),
-                          Text(pr.value, style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
-                        ],
-                      ),
+                    ChoiceChip(
+                      label: Text('All-Time PRs', style: AppTextStyles.label(color: mode == 'manual' ? retroColors.surface : retroColors.textPrimary)),
+                      selected: mode == 'manual',
+                      selectedColor: retroColors.accent,
+                      onSelected: (val) {
+                        if(val) ref.read(recordsModeProvider.notifier).state = 'manual';
+                      },
                     ),
                   ],
                 ),
-              );
-            },
+              ),
+              Expanded(
+                child: list.isEmpty 
+                  ? _buildEmptyState(retroColors)
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: list.length,
+                      itemBuilder: (context, index) {
+                        final pr = list[index];
+                        final formattedTitle = pr.category.toUpperCase();
+                        final formattedValue = formatValue(pr.category, pr.value);
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: retroColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: retroColors.accent.withOpacity(0.5)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(formattedTitle, style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
+                                    const SizedBox(height: 4),
+                                    Text(formattedValue, style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
+                                    if (pr.rank > 0 && mode == 'best_effort')
+                                      Text('Rank ${pr.rank}', style: AppTextStyles.label(color: retroColors.textSecondary)),
+                                    if (pr.proofUrl != null)
+                                      Text(pr.proofUrl!, style: AppTextStyles.label(color: retroColors.accent)),
+                                  ],
+                                ),
+                              ),
+                              if (mode == 'manual')
+                                IconButton(
+                                  icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
+                                  onPressed: () async {
+                                    try {
+                                      await ref.read(prEngineProvider).deleteManualRecord(pr.id);
+                                      // ignore: unused_result
+                                      ref.refresh(prsProvider);
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete PR')));
+                                    }
+                                  },
+                                )
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+              ),
+              if (mode == 'manual')
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      _showAddPRDialog(context, retroColors, ref);
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: retroColors.accent),
+                    child: Text('Add PR', style: AppTextStyles.bodyMediumBold(color: retroColors.surface)),
+                  ),
+                ),
+            ],
           );
         },
         loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
@@ -241,7 +323,60 @@ class YouScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActivitiesTab(AppColors retroColors, List<RunIsar> runs, AsyncValue<List<PersonalRecord>> prsAsync, WidgetRef ref) {
+  void _showAddPRDialog(BuildContext context, AppColors retroColors, WidgetRef ref) {
+    final categoryController = TextEditingController(text: '5k');
+    final valueController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: retroColors.surface,
+        title: Text('Add Manual PR', style: AppTextStyles.headline(color: retroColors.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: categoryController,
+              decoration: InputDecoration(labelText: 'Category (e.g. 5k, 10k)', labelStyle: TextStyle(color: retroColors.textSecondary)),
+              style: TextStyle(color: retroColors.textPrimary),
+            ),
+            TextField(
+              controller: valueController,
+              decoration: InputDecoration(labelText: 'Value (seconds/meters)', labelStyle: TextStyle(color: retroColors.textSecondary)),
+              keyboardType: TextInputType.number,
+              style: TextStyle(color: retroColors.textPrimary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await ref.read(prEngineProvider).addManualRecord(
+                  categoryController.text,
+                  double.parse(valueController.text),
+                  DateTime.now(),
+                  null
+                );
+                Navigator.pop(ctx);
+                // ignore: unused_result
+                ref.refresh(prsProvider);
+              } catch (e) {
+                // Ignore parsing errors for now
+              }
+            },
+            child: Text('Save', style: AppTextStyles.bodyMediumBold(color: retroColors.accent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActivitiesTab(AppColors retroColors, List<RunIsar> runs, AsyncValue<RecordGroup> prsAsync, WidgetRef ref) {
     final List<dynamic> listItems = [];
     String? currentGroupDate;
     final now = DateTime.now();
@@ -304,7 +439,7 @@ class YouScreen extends ConsumerWidget {
             );
           } else if (item is RunIsar) {
             final achievementsCount = prsAsync.maybeWhen(
-              data: (prs) => prs.where((pr) => pr.run.id == item.id).length,
+              data: (group) => group.bestEffort.where((pr) => pr.runId == item.clientRunId).length,
               orElse: () => 0,
             );
             

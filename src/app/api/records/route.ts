@@ -10,8 +10,14 @@ export async function GET(req: NextRequest) {
     }
 
     const records = await getCachedRecords(userId);
+    
+    // Group by source for easier frontend consumption
+    const grouped = {
+      best_effort: records.filter(r => r.source === 'best_effort'),
+      manual: records.filter(r => r.source === 'manual'),
+    };
 
-    return NextResponse.json(records);
+    return NextResponse.json(grouped);
   } catch (err) {
     console.error('Error fetching personal records:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

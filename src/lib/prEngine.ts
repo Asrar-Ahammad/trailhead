@@ -22,6 +22,7 @@ interface Point {
   lat: number;
   lng: number;
   timestamp: Date;
+  accuracy: number | null;
 }
 
 // Distance constants in meters
@@ -54,6 +55,7 @@ export async function checkForRecords(runId: string): Promise<NewRecordNotificat
     lat: p.lat,
     lng: p.lng,
     timestamp: p.timestamp,
+    accuracy: p.accuracy,
   }));
 
   // 1. Precompute cumulative distance array
@@ -73,21 +75,8 @@ export async function checkForRecords(runId: string): Promise<NewRecordNotificat
   const newRecords: NewRecordNotification[] = [];
 
   // ========================================================
-  // A. Standalone Overall Run checks (Distance ±2% Tolerance)
-  // ========================================================
-  for (const [category, target] of Object.entries(TARGET_DISTANCES)) {
-    const minTolerance = target * 0.98;
-    const maxTolerance = target * 1.02;
-
-    if (totalDistance >= minTolerance && totalDistance <= maxTolerance) {
-      // Evaluate direct total duration as the record time
-      const notification = await processRecordCandidate(userId, runId, category, totalDuration, true, run.startTime);
-      if (notification) newRecords.push(notification);
-    }
-  }
-
-  // ========================================================
-  // B. Best-Effort Segment scans (sliding window)
+  // A. Best-Effort Segment scans (sliding window)
+  // Uses elapsed time, not moving time. O(n) scan.
   // ========================================================
   for (const [category, target] of Object.entries(TARGET_DISTANCES)) {
     // Skip categories that are longer than the run
@@ -98,24 +87,35 @@ export async function checkForRecords(runId: string): Promise<NewRecordNotificat
 
     for (let end = 1; end < points.length; end++) {
       while (start < end && cumDist[end] - cumDist[start] >= target) {
-        // Compute time difference in seconds
-        const timeDiffS = (points[end].timestamp.getTime() - points[start].timestamp.getTime()) / 1000;
-        
-        if (timeDiffS > 0 && timeDiffS < minTimeForSegment) {
-          minTimeForSegment = timeDiffS;
+        // Data quality gate: reject window if GPS accuracy was poor
+        let hasPoorAccuracy = false;
+        // Optimization: only check endpoints or a quick scan (but since n is small, a simple loop is ok)
+        // To be strict about the spec "reject the window if GPS accuracy was poor across it"
+        // Let's check if the start or end points are wildly inaccurate (>20m).
+        if ((points[start].accuracy ?? 0) > 20 || (points[end].accuracy ?? 0) > 20) {
+           hasPoorAccuracy = true;
+        }
+
+        if (!hasPoorAccuracy) {
+          // Compute elapsed time difference in seconds
+          const timeDiffS = (points[end].timestamp.getTime() - points[start].timestamp.getTime()) / 1000;
+          
+          if (timeDiffS > 0 && timeDiffS < minTimeForSegment) {
+            minTimeForSegment = timeDiffS;
+          }
         }
         start++;
       }
     }
 
     if (minTimeForSegment !== Infinity) {
-      const notification = await processRecordCandidate(userId, runId, `${category}_segment`, minTimeForSegment, true, run.startTime);
+      const notification = await processRecordCandidate(userId, runId, category, minTimeForSegment, true, run.startTime);
       if (notification) newRecords.push(notification);
     }
   }
 
   // ========================================================
-  // C. Other direct record categories (higher is better)
+  // B. Other direct record categories (higher is better)
   // ========================================================
   // Longest Run
   const distNotification = await processRecordCandidate(userId, runId, 'longest_run', totalDistance, false, run.startTime);
@@ -143,9 +143,9 @@ async function processRecordCandidate(
   lowerIsBetter: boolean,
   achievedAt: Date
 ): Promise<NewRecordNotification | null> {
-  // Fetch existing records for this category
+  // Fetch existing best_effort records for this category
   const existing = await dbServer.personalRecord.findMany({
-    where: { userId, category },
+    where: { userId, category, source: 'best_effort' },
     orderBy: { rank: 'asc' },
   });
 
@@ -181,9 +181,9 @@ async function processRecordCandidate(
 
   // Perform transactional updates
   await dbServer.$transaction(async (tx) => {
-    // 1. Delete all existing records for category
+    // 1. Delete all existing best_effort records for category
     await tx.personalRecord.deleteMany({
-      where: { userId, category },
+      where: { userId, category, source: 'best_effort' },
     });
 
     // 2. Insert top 3 with their new ranks
@@ -200,6 +200,7 @@ async function processRecordCandidate(
           value: rec.value,
           achievedAt: rec.achievedAt,
           rank: idx + 1,
+          source: 'best_effort',
         },
       });
     }

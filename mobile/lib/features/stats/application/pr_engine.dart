@@ -1,73 +1,80 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
-import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
+import 'package:trailhead_mobile/features/sync/data/api_client.dart';
 
 final prEngineProvider = Provider((ref) {
-  return PREngine(ref.read(runHistoryRepositoryProvider));
+  return PREngine(ref.read(apiClientProvider));
 });
 
 class PersonalRecord {
-  final String title;
-  final String value;
-  final RunIsar run;
+  final String id;
+  final String category;
+  final double value;
+  final DateTime achievedAt;
+  final int rank;
+  final String source;
+  final String? runId;
+  final String? proofUrl;
 
-  PersonalRecord({required this.title, required this.value, required this.run});
+  PersonalRecord({
+    required this.id,
+    required this.category,
+    required this.value,
+    required this.achievedAt,
+    required this.rank,
+    required this.source,
+    this.runId,
+    this.proofUrl,
+  });
+
+  factory PersonalRecord.fromJson(Map<String, dynamic> json) {
+    return PersonalRecord(
+      id: json['id'],
+      category: json['category'],
+      value: (json['value'] as num).toDouble(),
+      achievedAt: DateTime.parse(json['achievedAt']),
+      rank: json['rank'],
+      source: json['source'],
+      runId: json['runId'],
+      proofUrl: json['proofUrl'],
+    );
+  }
+}
+
+class RecordGroup {
+  final List<PersonalRecord> bestEffort;
+  final List<PersonalRecord> manual;
+
+  RecordGroup({required this.bestEffort, required this.manual});
 }
 
 class PREngine {
-  final RunHistoryRepository _repository;
+  final ApiClient _apiClient;
 
-  PREngine(this._repository);
+  PREngine(this._apiClient);
 
-  Future<List<PersonalRecord>> calculatePRs() async {
-    final runs = await _repository.getCompletedRuns(limit: 1000); // Fetch all for PR calculation
+  Future<RecordGroup> getRecords() async {
+    final response = await _apiClient.client.get('/records');
     
-    if (runs.isEmpty) return [];
+    final bestEffortRaw = response.data['best_effort'] as List? ?? [];
+    final manualRaw = response.data['manual'] as List? ?? [];
 
-    List<PersonalRecord> prs = [];
+    return RecordGroup(
+      bestEffort: bestEffortRaw.map((e) => PersonalRecord.fromJson(e)).toList(),
+      manual: manualRaw.map((e) => PersonalRecord.fromJson(e)).toList(),
+    );
+  }
 
-    // 1. Longest Distance
-    RunIsar? longestRun;
-    for (var run in runs) {
-      if (longestRun == null || (run.distanceM ?? 0) > (longestRun.distanceM ?? 0)) {
-        longestRun = run;
-      }
-    }
-    
-    if (longestRun != null && (longestRun.distanceM ?? 0) > 0) {
-      prs.add(PersonalRecord(
-        title: 'Longest Run',
-        value: '${((longestRun.distanceM ?? 0) / 1000).toStringAsFixed(2)} km',
-        run: longestRun,
-      ));
-    }
+  Future<PersonalRecord> addManualRecord(String category, double value, DateTime date, String? proofUrl) async {
+    final response = await _apiClient.client.post('/records/manual', data: {
+      'category': category,
+      'value': value,
+      'achievedAt': date.toIso8601String(),
+      'proofUrl': proofUrl,
+    });
+    return PersonalRecord.fromJson(response.data);
+  }
 
-    // 2. Fastest 5k (Simple estimation based on overall avg pace if run is >= 5k)
-    // For a true sliding window over GPS points, we'd need to load RunPointIsar.
-    // For now, if they ran at least 5k, their 5k time is 5 * avgPace.
-    RunIsar? fastest5kRun;
-    double best5kTimeS = double.infinity;
-
-    for (var run in runs) {
-      if ((run.distanceM ?? 0) >= 5000 && (run.avgPaceSPerKm ?? 0) > 0) {
-        final estimated5kTime = (run.avgPaceSPerKm!) * 5;
-        if (estimated5kTime < best5kTimeS) {
-          best5kTimeS = estimated5kTime;
-          fastest5kRun = run;
-        }
-      }
-    }
-
-    if (fastest5kRun != null) {
-      final mins = (best5kTimeS / 60).floor();
-      final secs = (best5kTimeS % 60).floor();
-      prs.add(PersonalRecord(
-        title: 'Fastest 5K',
-        value: '${mins}:${secs.toString().padLeft(2, '0')}',
-        run: fastest5kRun,
-      ));
-    }
-
-    return prs;
+  Future<void> deleteManualRecord(String id) async {
+    await _apiClient.client.delete('/records/manual/$id');
   }
 }

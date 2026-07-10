@@ -16,10 +16,11 @@ import '../../navigation/presentation/main_scaffold.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'dart:math';
 
-final postRunPRProvider = FutureProvider.family<bool, int>((ref, runId) async {
+final postRunPRProvider = FutureProvider.family<bool, String?>((ref, clientRunId) async {
+  if (clientRunId == null) return false;
   final engine = ref.read(prEngineProvider);
-  final prs = await engine.calculatePRs();
-  return prs.any((pr) => pr.run.id == runId);
+  final group = await engine.getRecords();
+  return group.bestEffort.any((pr) => pr.runId == clientRunId);
 });
 
 /// The signature post-workout completion screen.
@@ -133,7 +134,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final aiSummaryAsync = ref.watch(mockAiSummaryProvider(widget.run));
-    final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.id));
+    final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.clientRunId));
 
     return Scaffold(
       backgroundColor: colors.background,

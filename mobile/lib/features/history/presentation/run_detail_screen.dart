@@ -205,8 +205,10 @@ class RunDetailScreen extends ConsumerWidget {
                 _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
                 _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
                 _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
-                _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', '${run.caloriesKcal?.toStringAsFixed(0) ?? '--'} kcal'),
-                _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Steps', '${run.stepCount ?? '--'}'),
+                _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
               ],
             ),
             
