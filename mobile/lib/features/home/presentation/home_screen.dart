@@ -52,7 +52,7 @@ class HomeScreen extends ConsumerWidget {
           left: AppSpacing.lg,
           top: AppSpacing.lg,
           right: AppSpacing.lg,
-          bottom: 160.0, // extra padding so content scrolls past FAB
+          bottom: 240.0, // extra padding so content scrolls past FAB
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,6 +69,8 @@ class HomeScreen extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: 120.0, right: 8.0),
         child: FloatingActionButton(
           heroTag: 'chat_fab',
+          elevation: 0,
+          highlightElevation: 0,
           onPressed: () {
             ref.read(hapticsServiceProvider).mediumImpact();
             ref.read(soundServiceProvider).playButtonTap();

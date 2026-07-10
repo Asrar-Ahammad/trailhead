@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/shared/network/api_client.dart';
-import 'package:trailhead_mobile/features/auth/application/auth_service.dart';
+import 'package:trailhead_mobile/features/sync/data/api_client.dart';
 
 final predictionServiceProvider = Provider<PredictionService>((ref) {
-  final auth = ref.watch(authServiceProvider);
-  return PredictionService(auth);
+  return PredictionService(ref);
 });
 
 final racePredictionsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
@@ -13,13 +11,13 @@ final racePredictionsProvider = FutureProvider<Map<String, dynamic>>((ref) async
 });
 
 class PredictionService {
-  final AuthService _authService;
+  final Ref _ref;
   
-  PredictionService(this._authService);
+  PredictionService(this._ref);
 
   Future<Map<String, dynamic>> getPredictions() async {
-    final dio = _authService.authenticatedDio;
-    final response = await dio.get('/predictions');
+    final client = _ref.read(apiClientProvider).client;
+    final response = await client.get('/predictions');
     return response.data;
   }
 }

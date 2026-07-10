@@ -70,7 +70,7 @@ class PredictionScreen extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.xl),
                 Text(
                   '* Calculated using the Peter Riegel formula based on your longest recent run. Sprint times (100m-400m) are extrapolated and may be wildly inaccurate!',
-                  style: AppTextStyles.bodySmall(color: colors.textDisabled),
+                  style: AppTextStyles.bodyMedium(color: colors.textDisabled).copyWith(fontSize: 12),
                 )
               ],
             ),

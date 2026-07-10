@@ -11,15 +11,32 @@ import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 
 final navigationProvider = StateProvider<int>((ref) => 0);
 
-class MainScaffold extends ConsumerWidget {
+class MainScaffold extends ConsumerStatefulWidget {
   const MainScaffold({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainScaffold> createState() => _MainScaffoldState();
+}
+
+class _MainScaffoldState extends ConsumerState<MainScaffold> {
+  bool _isAtBottom = false;
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(navigationProvider, (previous, next) {
+      if (previous != next && mounted) {
+        setState(() {
+          _isAtBottom = false;
+        });
+      }
+    });
+
     final currentIndex = ref.watch(navigationProvider);
     final runState = ref.watch(runTrackerProvider);
     final isRunning = runState.status != 'idle';
     final retroColors = Theme.of(context).extension<AppColors>()!;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final gradientOpacity = isDarkMode ? 0.9 : 0.5;
 
     final screens = [
       const HomeScreen(),
@@ -43,9 +60,26 @@ class MainScaffold extends ConsumerWidget {
 
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(
-        index: currentIndex,
-        children: screens,
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.metrics.axis == Axis.vertical) {
+            final isAtBottom = notification.metrics.extentAfter < 20.0;
+            if (isAtBottom != _isAtBottom) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _isAtBottom = isAtBottom;
+                  });
+                }
+              });
+            }
+          }
+          return false;
+        },
+        child: IndexedStack(
+          index: currentIndex,
+          children: screens,
+        ),
       ),
       bottomNavigationBar: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
@@ -58,22 +92,35 @@ class MainScaffold extends ConsumerWidget {
         ),
         child: isRunning
             ? const SizedBox(key: ValueKey('empty_nav'), width: double.infinity, height: 0)
-            : SafeArea(
+            : AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
                 key: const ValueKey('nav_bar'),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(72, 0, 72, 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: retroColors.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: retroColors.border, width: 1.5),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: _AnimatedNavBar(
-                        currentIndex: currentIndex,
-                        colors: retroColors,
-                        onTap: onTabTapped,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      (_isAtBottom || currentIndex == 1) ? Colors.transparent : Colors.black.withOpacity(gradientOpacity),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(72, 0, 72, 24),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: retroColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: retroColors.border, width: 1.5),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: _AnimatedNavBar(
+                          currentIndex: currentIndex,
+                          colors: retroColors,
+                          onTap: onTabTapped,
+                        ),
                       ),
                     ),
                   ),

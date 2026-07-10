@@ -18,28 +18,15 @@ import 'shared/theme/app_themes.dart';
 
 late Isar isarInstance;
 
-/// Riverpod provider for persisted theme mode.
-/// Reads/writes 'themeMode' from SharedPreferences.
+final initialThemeModeProvider = Provider<ThemeMode>((ref) => ThemeMode.system);
+
 final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  return ThemeModeNotifier();
+  final initial = ref.watch(initialThemeModeProvider);
+  return ThemeModeNotifier(initial);
 });
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.system) {
-    _load();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('themeMode');
-    if (saved == 'dark') {
-      state = ThemeMode.dark;
-    } else if (saved == 'light') {
-      state = ThemeMode.light;
-    } else {
-      state = ThemeMode.system;
-    }
-  }
+  ThemeModeNotifier(ThemeMode initial) : super(initial);
 
   Future<void> setMode(ThemeMode mode) async {
     state = mode;
@@ -88,9 +75,21 @@ void main() async {
     directory: dir.path,
   );
 
+  final prefs = await SharedPreferences.getInstance();
+  final savedTheme = prefs.getString('themeMode');
+  ThemeMode initialThemeMode = ThemeMode.system;
+  if (savedTheme == 'dark') {
+    initialThemeMode = ThemeMode.dark;
+  } else if (savedTheme == 'light') {
+    initialThemeMode = ThemeMode.light;
+  }
+
   runApp(
-    const ProviderScope(
-      child: TrailheadApp(),
+    ProviderScope(
+      overrides: [
+        initialThemeModeProvider.overrideWithValue(initialThemeMode),
+      ],
+      child: const TrailheadApp(),
     ),
   );
 }
