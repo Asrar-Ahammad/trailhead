@@ -70,6 +70,8 @@ model Streak {
   user          User     @relation(fields: [userId], references: [id])
   currentCount  Int
   longestCount  Int
-  lastRunDate   DateTime
-  restDaysUsed  Int      @default(0) // resets weekly
+  lastRunDate        DateTime
+  restDaysUsed       Int      @default(0) // resets monthly
+  restDaysLimit      Int      @default(0)
+  lastRestDaysUpdate DateTime?
 }

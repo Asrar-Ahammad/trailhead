@@ -12,6 +12,7 @@ import 'package:trailhead_mobile/features/history/presentation/widgets/run_chart
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import '../application/gpx_export_util.dart';
+import '../application/share_image_generator.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 
 final runRawPointsProvider = FutureProvider.family<List<RunPointIsar>, String>((ref, clientRunId) async {
@@ -65,6 +66,27 @@ class RunDetailScreen extends ConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: Icon(PhosphorIcons.shareNetwork(), color: retroColors.textPrimary),
+            tooltip: 'Share Activity Image',
+            onPressed: () async {
+              if (run.clientRunId == null) return;
+              final repo = ref.read(runHistoryRepositoryProvider);
+              final points = await repo.getRunPoints(run.clientRunId!);
+              if (points.isNotEmpty && context.mounted) {
+                try {
+                  final latLngPoints = points.map((p) => LatLng(p.lat ?? 0.0, p.lng ?? 0.0)).toList();
+                  await ShareImageGenerator.generateAndShareImage(run, latLngPoints);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to share image: $e')),
+                    );
+                  }
+                }
+              }
+            },
+          ),
           IconButton(
             icon: Icon(PhosphorIcons.download(), color: retroColors.textPrimary),
             tooltip: 'Export GPX',

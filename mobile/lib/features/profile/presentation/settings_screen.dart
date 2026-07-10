@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +13,7 @@ import '../../auth/application/auth_service.dart';
 import '../../auth/presentation/auth_wrapper.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import '../../../shared/theme/app_themes.dart';
+import '../../sync/data/api_client.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +25,10 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _uiSoundsEnabled = false;
   bool _hapticsEnabled = true;
+  bool _audioCuesEnabled = true;
+  double _audioCueFrequency = 1.0;
+  int _restDaysLimit = 0;
+  String? _lastRestDaysUpdate;
   double? _userWeightKg;
   String? _userName;
   String? _userDob; // ISO8601 string
@@ -39,11 +45,118 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() {
       _uiSoundsEnabled = prefs.getBool('ui_sounds_enabled') ?? false;
       _hapticsEnabled = prefs.getBool('haptics_enabled') ?? true;
+      _audioCuesEnabled = prefs.getBool('audio_cues_enabled') ?? true;
+      _audioCueFrequency = prefs.getDouble('audio_cue_frequency') ?? 1.0;
+      _restDaysLimit = prefs.getInt('rest_days_limit') ?? 0;
+      _lastRestDaysUpdate = prefs.getString('last_rest_days_update');
       _userWeightKg = prefs.getDouble('user_weight_kg');
       _userName = prefs.getString('user_name');
       _userDob = prefs.getString('user_dob');
       _userGender = prefs.getString('user_gender');
     });
+  }
+
+  Future<void> _updateRestDays() async {
+    final colors = Theme.of(context).extension<AppColors>()!;
+    
+    if (_lastRestDaysUpdate != null) {
+      final lastUpdate = DateTime.parse(_lastRestDaysUpdate!);
+      final now = DateTime.now();
+      if (lastUpdate.year == now.year && lastUpdate.month == now.month) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Rest days can only be updated once per month.',
+                style: GoogleFonts.spaceGrotesk(color: colors.background),
+              ),
+              backgroundColor: colors.textPrimary,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final controller = TextEditingController(text: _restDaysLimit.toString());
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.surface,
+        title: Text('Monthly Rest Days', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: GoogleFonts.spaceGrotesk(color: colors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'e.g. 4',
+            hintStyle: TextStyle(color: colors.textSecondary),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      final val = int.tryParse(result);
+      if (val != null && val >= 0 && val <= 31) {
+        final prefs = await SharedPreferences.getInstance();
+        final nowStr = DateTime.now().toIso8601String();
+        await prefs.setInt('rest_days_limit', val);
+        await prefs.setString('last_rest_days_update', nowStr);
+        
+        setState(() {
+          _restDaysLimit = val;
+          _lastRestDaysUpdate = nowStr;
+        });
+
+        try {
+          final api = ref.read(apiClientProvider);
+          await api.put('/streak', data: {'restDaysLimit': val});
+        } catch (e) {
+          debugPrint('Failed to sync rest days to backend: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _toggleAudioCues(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('audio_cues_enabled', value);
+    setState(() {
+      _audioCuesEnabled = value;
+    });
+    
+    await ref.read(soundServiceProvider).playToggleSwitch();
+  }
+
+  Future<void> _updateAudioCueFrequency(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('audio_cue_frequency', value);
+    setState(() {
+      _audioCueFrequency = value;
+    });
+    
+    try {
+      FlutterForegroundTask.sendDataToTask({
+        'action': 'update_settings',
+        'audioCueFrequency': value,
+      });
+    } catch (_) {}
+    
+    await ref.read(soundServiceProvider).playToggleSwitch();
   }
 
   Future<void> _toggleUiSounds(bool value) async {
@@ -382,6 +495,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           SwitchListTile(
             title: Text(
+              'Audio Cues',
+              style: GoogleFonts.spaceGrotesk(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Text(
+              'Announce distance and pace during workouts.',
+              style: GoogleFonts.spaceGrotesk(
+                color: colors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            value: _audioCuesEnabled,
+            onChanged: _toggleAudioCues,
+            activeColor: colors.accent,
+          ),
+          if (_audioCuesEnabled)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Cue Frequency',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: colors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  DropdownButton<double>(
+                    value: _audioCueFrequency,
+                    dropdownColor: colors.surface,
+                    style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
+                    underline: const SizedBox.shrink(),
+                    items: const [
+                      DropdownMenuItem(value: 1.0, child: Text('Every 1 km')),
+                      DropdownMenuItem(value: 0.5, child: Text('Every 0.5 km')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        _updateAudioCueFrequency(value);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          Divider(color: colors.border, height: 1),
+          SwitchListTile(
+            title: Text(
               'Retro UI Sounds',
               style: GoogleFonts.spaceGrotesk(
                 color: colors.textPrimary,
@@ -399,6 +565,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             value: _uiSoundsEnabled,
             onChanged: _toggleUiSounds,
             activeColor: colors.accent,
+          ),
+          Divider(color: colors.border, height: 1),
+          ListTile(
+            title: Text(
+              'Monthly Rest Days',
+              style: GoogleFonts.spaceGrotesk(
+                color: colors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Text(
+              '$_restDaysLimit days/month',
+              style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14),
+            ),
+            trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary),
+            onTap: _updateRestDays,
           ),
           Divider(color: colors.border, height: 1),
           SwitchListTile(

@@ -25,6 +25,15 @@ function getDayDiff(dateStr1: string, dateStr2: string): number {
 }
 
 export async function updateStreak(userId: string, runStartTime: Date, timezone: string = 'UTC') {
+  let restDaysLimit = 0;
+  const existingStreak = await dbServer.streak.findUnique({
+    where: { userId },
+    select: { restDaysLimit: true },
+  });
+  if (existingStreak) {
+    restDaysLimit = existingStreak.restDaysLimit;
+  }
+
   const allRuns = await dbServer.run.findMany({
     where: { userId },
     orderBy: { startTime: 'asc' },
@@ -40,6 +49,7 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
         longestCount: 0,
         lastRunDate: new Date(),
         restDaysUsed: 0,
+        restDaysLimit,
       },
       update: {
         currentCount: 0,
@@ -57,8 +67,17 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
   let currentCount = 0;
   let longestCount = 0;
   let prevDateStr: string | null = null;
+  
+  let currentMonth = '';
+  let restDaysRemaining = restDaysLimit;
 
   for (const dateStr of uniqueDates) {
+    const month = dateStr.substring(0, 7);
+    if (month !== currentMonth) {
+      currentMonth = month;
+      restDaysRemaining = restDaysLimit;
+    }
+
     if (!prevDateStr) {
       currentCount = 1;
     } else {
@@ -66,7 +85,14 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
       if (diff === 1) {
         currentCount += 1;
       } else if (diff > 1) {
-        currentCount = 1;
+        const missedDays = diff - 1;
+        if (missedDays <= restDaysRemaining) {
+          restDaysRemaining -= missedDays;
+          currentCount += 1; // Count only the days run
+        } else {
+          currentCount = 1;
+          restDaysRemaining = Math.max(0, restDaysRemaining - missedDays);
+        }
       }
     }
     if (currentCount > longestCount) {
@@ -76,18 +102,29 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
   }
 
   const todayStr = getLocalDateString(new Date(), timezone);
+  const todayMonth = todayStr.substring(0, 7);
+  if (todayMonth !== currentMonth) {
+    currentMonth = todayMonth;
+    restDaysRemaining = restDaysLimit;
+  }
+
   let activeStreak = currentCount;
   if (prevDateStr) {
     const finalDiff = getDayDiff(todayStr, prevDateStr);
     if (finalDiff > 1) {
-      activeStreak = 0;
+      const missedDays = finalDiff - 1;
+      if (missedDays > restDaysRemaining) {
+        activeStreak = 0;
+      } else {
+        restDaysRemaining -= missedDays;
+      }
     }
   } else {
     activeStreak = 0;
   }
 
-  // Find the latest runStartTime for lastRunDate
   const latestRun = allRuns[allRuns.length - 1];
+  const restDaysUsed = restDaysLimit - restDaysRemaining;
 
   await dbServer.streak.upsert({
     where: { userId },
@@ -96,12 +133,14 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
       currentCount: activeStreak,
       longestCount,
       lastRunDate: latestRun.startTime,
-      restDaysUsed: 0,
+      restDaysUsed: Math.max(0, restDaysUsed),
+      restDaysLimit,
     },
     update: {
       currentCount: activeStreak,
       longestCount,
       lastRunDate: latestRun.startTime,
+      restDaysUsed: Math.max(0, restDaysUsed),
     },
   });
 

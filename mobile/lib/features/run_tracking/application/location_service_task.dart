@@ -35,9 +35,10 @@ class LocationTaskHandler extends TaskHandler {
   Position? _lastPosition;
   Timer? _timer;
   
-  int _lastSplitKm = 0;
+  int _lastSplitIndex = 0;
   int _lastSplitTimeS = 0;
   double _lastSplitDistanceM = 0.0;
+  double _audioCueFrequency = 1.0;
   
   // Elevation smoothing
   final List<double> _altitudeBuffer = [];
@@ -69,7 +70,10 @@ class LocationTaskHandler extends TaskHandler {
     _lastPointTime = DateTime.now();
     _currentCadence = 0;
     
-    _lastSplitKm = (_distanceM / 1000).floor();
+    final prefs = await SharedPreferences.getInstance();
+    _audioCueFrequency = prefs.getDouble('audio_cue_frequency') ?? 1.0;
+
+    _lastSplitIndex = ((_distanceM / 1000.0) / _audioCueFrequency).floor();
     _lastSplitDistanceM = _distanceM;
     _lastSplitTimeS = _durationS;
 
@@ -296,20 +300,20 @@ class LocationTaskHandler extends TaskHandler {
     );
 
     // Split detection
-    final int currentKm = distanceKm.floor();
-    if (currentKm > _lastSplitKm) {
+    final int currentSplitIndex = (distanceKm / _audioCueFrequency).floor();
+    if (currentSplitIndex > _lastSplitIndex) {
       final int splitTimeS = _durationS - _lastSplitTimeS;
       final double splitDistanceKm = (_distanceM - _lastSplitDistanceM) / 1000.0;
       final int splitPaceSPerKm = splitDistanceKm > 0 ? (splitTimeS / splitDistanceKm).round() : 0;
       
       FlutterForegroundTask.sendDataToMain({
         'type': 'split_reached',
-        'km': currentKm,
+        'splitDistance': currentSplitIndex * _audioCueFrequency,
         'timeS': splitTimeS,
         'paceSPerKm': splitPaceSPerKm,
       });
       
-      _lastSplitKm = currentKm;
+      _lastSplitIndex = currentSplitIndex;
       _lastSplitTimeS = _durationS;
       _lastSplitDistanceM = _distanceM;
     }
@@ -364,12 +368,16 @@ class LocationTaskHandler extends TaskHandler {
   @pragma('vm:entry-point')
   @override
   void onReceiveData(Object data) {
-    if (data is Map<String, dynamic>) {
+    if (data is Map) {
       final action = data['action'];
       if (action == 'pause') {
         _isPaused = true;
       } else if (action == 'resume') {
         _isPaused = false;
+      } else if (action == 'update_settings') {
+        _audioCueFrequency = (data['audioCueFrequency'] as num).toDouble();
+        final double distanceKm = _distanceM / 1000.0;
+        _lastSplitIndex = (distanceKm / _audioCueFrequency).floor();
       }
     }
   }

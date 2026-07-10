@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 import 'package:workmanager/workmanager.dart';
@@ -124,20 +125,29 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         } else if (type == 'gps_weak') {
           state = state.copyWith(gpsWeak: data['weak'] as bool);
         } else if (type == 'split_reached') {
-          _handleSplitReached((data['km'] as num).toInt(), (data['timeS'] as num).toInt(), (data['paceSPerKm'] as num).toInt());
+          final double splitDist = data['splitDistance'] != null 
+              ? (data['splitDistance'] as num).toDouble() 
+              : (data['km'] as num).toDouble();
+          _handleSplitReached(splitDist, (data['timeS'] as num).toInt(), (data['paceSPerKm'] as num).toInt());
         }
       }
     });
   }
 
-  void _handleSplitReached(int km, int splitTimeS, int paceSPerKm) async {
+  void _handleSplitReached(double distance, int splitTimeS, int paceSPerKm) async {
     HapticFeedback.heavyImpact();
     
-    final int paceMin = (paceSPerKm / 60).floor();
-    final int paceSec = (paceSPerKm % 60).round();
+    final prefs = await SharedPreferences.getInstance();
+    final audioCuesEnabled = prefs.getBool('audio_cues_enabled') ?? true;
     
-    final String text = "Kilometer $km. Split pace $paceMin minutes $paceSec seconds.";
-    await _flutterTts.speak(text);
+    if (audioCuesEnabled) {
+      final int paceMin = (paceSPerKm / 60).floor();
+      final int paceSec = (paceSPerKm % 60).round();
+      
+      final String distStr = distance % 1 == 0 ? distance.toInt().toString() : distance.toStringAsFixed(1);
+      final String text = "Kilometer $distStr. Split pace $paceMin minutes $paceSec seconds.";
+      await _flutterTts.speak(text);
+    }
   }
 
   Future<void> _checkPermissionsSilently() async {
