@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
-       return NextResponse.json({ nudge: currentCount > 0 ? \`Keep your \${currentCount}-day streak alive! Run today!\` : 'Start a new streak today! Get moving!' });
+       return NextResponse.json({ nudge: currentCount > 0 ? `Keep your ${currentCount}-day streak alive! Run today!` : 'Start a new streak today! Get moving!' });
     }
 
     const aiResponse = await openai.chat.completions.create({
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
     const nudgeText = aiResponse.choices[0]?.message?.content?.trim();
 
-    return NextResponse.json({ nudge: nudgeText || (currentCount > 0 ? \`Keep your \${currentCount}-day streak alive! Run today!\` : 'Start a new streak today! Get moving!') });
+    return NextResponse.json({ nudge: nudgeText || (currentCount > 0 ? `Keep your ${currentCount}-day streak alive! Run today!` : 'Start a new streak today! Get moving!') });
   } catch (err) {
     console.error('Error generating streak nudge:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
