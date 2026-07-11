@@ -5,6 +5,7 @@ import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/daily_activities_screen.dart';
+import 'package:trailhead_mobile/features/you/presentation/weekly_reports_list_screen.dart';
 import 'package:trailhead_mobile/features/predictions/presentation/prediction_screen.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -31,6 +32,48 @@ class ProgressTab extends StatelessWidget {
           Text('THIS MONTH', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
           const SizedBox(height: 16),
           _buildMonthlyCalendar(context, retroColors),
+          
+          const SizedBox(height: 32),
+
+          Text('REPORTS', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+          const SizedBox(height: 16),
+          Card(
+            color: retroColors.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: retroColors.border),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReportsListScreen()));
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(PhosphorIcons.chartBar(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Weekly Reports', style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Historical week-by-week summaries',
+                            style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(PhosphorIcons.caretRight(), color: retroColors.textSecondary),
+                  ],
+                ),
+              ),
+            ),
+          ),
           
           const SizedBox(height: 32),
           

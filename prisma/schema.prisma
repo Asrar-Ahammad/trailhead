@@ -20,6 +20,7 @@ model User {
   runs            Run[]
   personalRecords PersonalRecord[]
   streak          Streak?
+  weeklyReports   WeeklyReport[]
 }
 
 model Run {
@@ -82,4 +83,26 @@ model Streak {
   restDaysUsed       Int      @default(0) // resets monthly
   restDaysLimit      Int      @default(0)
   lastRestDaysUpdate DateTime?
+}
+
+model WeeklyReport {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  year             Int
+  weekNumber       Int
+  startDate        DateTime
+  endDate          DateTime
+  totalDistanceM   Float
+  totalDurationS   Int
+  totalCalories    Float
+  totalSteps       Int
+  runCount         Int
+  walkCount        Int
+  avgPaceSPerKm    Float
+  avgCadenceSpm    Float
+  avgStrideLengthM Float
+  dailyStats       Json     // Stores daily averages for charts
+  
+  @@unique([userId, year, weekNumber])
 }
