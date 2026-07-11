@@ -128,6 +128,17 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
           child: LineChart(
             LineChartData(
               lineTouchData: LineTouchData(
+                getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
+                  return spotIndexes.map((index) {
+                    return TouchedSpotIndicatorData(
+                      FlLine(color: colors.textPrimary, strokeWidth: 2),
+                      FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: colors.textPrimary, strokeWidth: 0),
+                      ),
+                    );
+                  }).toList();
+                },
                 touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
                   if (touchResponse?.lineBarSpots != null && touchResponse!.lineBarSpots!.isNotEmpty) {
                     final touchedIndex = touchResponse.lineBarSpots!.first.spotIndex;
@@ -140,6 +151,8 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                   }
                 },
                 touchTooltipData: LineTouchTooltipData(
+                  showOnTopOfTheChartBoxArea: true,
+                  tooltipMargin: 8,
                   getTooltipColor: (touchedSpot) => widget.color.withOpacity(0.8),
                   getTooltipItems: (touchedSpots) {
                     return touchedSpots.map((spot) {

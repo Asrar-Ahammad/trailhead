@@ -207,7 +207,11 @@ async function processRecordCandidate(
   });
 
   if (finalRank !== -1) {
-    revalidateTag(`records-${userId}`, 'max');
+    try {
+      revalidateTag(`records-${userId}`, 'max');
+    } catch (e) {
+      // Ignore if called outside of Next.js context (e.g. from scripts)
+    }
     return {
       category,
       value,

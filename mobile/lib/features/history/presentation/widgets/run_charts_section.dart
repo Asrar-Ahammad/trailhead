@@ -5,6 +5,7 @@ import 'package:trailhead_mobile/features/history/presentation/widgets/run_metri
 import 'package:trailhead_mobile/features/run_tracking/application/tracking_calcs.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'dart:math';
 
 class RunChartsSection extends StatelessWidget {
@@ -82,6 +83,14 @@ class RunChartsSection extends StatelessWidget {
     final double avgCadence = run.avgCadenceSpm ?? 0;
     final double elevationGain = run.elevationGainM ?? 0;
     final double fastestPaceSPerKm = maxSpeed > 0 ? (1000.0 / maxSpeed) : 0;
+    
+    final int elapsedTimeS = (run.endTime != null && run.startTime != null)
+        ? run.endTime!.difference(run.startTime!).inSeconds
+        : (run.durationS ?? 0);
+        
+    final double elapsedPaceSPerKm = (run.distanceM != null && run.distanceM! > 0) 
+        ? elapsedTimeS / (run.distanceM! / 1000.0) 
+        : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -94,11 +103,16 @@ class RunChartsSection extends StatelessWidget {
             color: Colors.blueAccent, // Use a static color or theme color
             average: avgPace > 0 ? avgPace : null,
           ),
-          const SizedBox(height: 16),
-          _buildStatRow(colors, [
-            _StatItem('Avg Pace', avgPace > 0 ? _formatPace(avgPace) : '--'),
-            _StatItem('Fastest Split', fastestPaceSPerKm > 0 ? _formatPace(fastestPaceSPerKm) : '--'),
-          ]),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Avg Pace', avgPace > 0 ? _formatPace(avgPace) : '--'),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Moving Time', run.durationS != null ? RunFormatUtils.formatDuration(run.durationS!) : '--'),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Avg Elapsed Pace', elapsedPaceSPerKm > 0 ? _formatPace(elapsedPaceSPerKm) : '--'),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Elapsed Time', elapsedTimeS > 0 ? RunFormatUtils.formatDuration(elapsedTimeS) : '--'),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Fastest Split', fastestPaceSPerKm > 0 ? _formatPace(fastestPaceSPerKm) : '--'),
           const SizedBox(height: 32),
         ],
         
@@ -110,11 +124,10 @@ class RunChartsSection extends StatelessWidget {
             color: Colors.pinkAccent,
             average: avgCadence > 0 ? avgCadence : null,
           ),
-          const SizedBox(height: 16),
-          _buildStatRow(colors, [
-            _StatItem('Avg Cadence', avgCadence > 0 ? '${avgCadence.round()} spm' : '--'),
-            _StatItem('Max Cadence', maxCadence > 0 ? '${maxCadence.round()} spm' : '--'),
-          ]),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Avg Cadence', avgCadence > 0 ? '${avgCadence.round()} spm' : '--'),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Max Cadence', maxCadence > 0 ? '${maxCadence.round()} spm' : '--'),
           const SizedBox(height: 32),
         ],
         
@@ -146,6 +159,16 @@ class RunChartsSection extends StatelessWidget {
           Text(stat.value, style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
         ],
       )).toList(),
+    );
+  }
+
+  Widget _buildStatListRow(AppColors colors, String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
+        Text(value, style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+      ],
     );
   }
 

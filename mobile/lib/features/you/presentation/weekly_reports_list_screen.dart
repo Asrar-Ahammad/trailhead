@@ -43,13 +43,19 @@ class WeeklyReportsListScreen extends ConsumerWidget {
               );
             }
 
-            // Group by year
-            final Map<int, List<WeeklyReportModel>> grouped = {};
+            // Group by year, then by month
+            final Map<int, Map<int, List<WeeklyReportModel>>> grouped = {};
             for (final r in reports) {
-              if (!grouped.containsKey(r.year)) {
-                grouped[r.year] = [];
+              final year = r.year;
+              final month = r.startDate.month;
+              
+              if (!grouped.containsKey(year)) {
+                grouped[year] = {};
               }
-              grouped[r.year]!.add(r);
+              if (!grouped[year]!.containsKey(month)) {
+                grouped[year]![month] = [];
+              }
+              grouped[year]![month]!.add(r);
             }
 
             final sortedYears = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -59,7 +65,8 @@ class WeeklyReportsListScreen extends ConsumerWidget {
               itemCount: sortedYears.length,
               itemBuilder: (context, index) {
                 final year = sortedYears[index];
-                final yearReports = grouped[year]!;
+                final yearMonths = grouped[year]!;
+                final sortedMonths = yearMonths.keys.toList()..sort((a, b) => b.compareTo(a));
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,7 +75,10 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Text(year.toString(), style: AppTextStyles.headline(color: retroColors.textPrimary)),
                     ),
-                    ...yearReports.map((report) => _buildWeekCard(context, retroColors, report)),
+                    ...sortedMonths.map((month) {
+                      final monthReports = yearMonths[month]!;
+                      return _buildMonthSection(context, retroColors, month, monthReports);
+                    }),
                   ],
                 );
               },
@@ -78,6 +88,68 @@ class WeeklyReportsListScreen extends ConsumerWidget {
           error: (err, _) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
         ),
       ),
+    );
+  }
+
+  Widget _buildMonthSection(BuildContext context, AppColors retroColors, int month, List<WeeklyReportModel> monthReports) {
+    int totalSteps = 0;
+    double totalDistanceM = 0;
+    int totalDurationS = 0;
+
+    for (final r in monthReports) {
+      totalSteps += r.totalSteps;
+      totalDistanceM += r.totalDistanceM;
+      totalDurationS += r.totalDurationS;
+    }
+
+    final monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    final monthName = monthNames[month - 1];
+    
+    final hours = totalDurationS ~/ 3600;
+    final mins = (totalDurationS % 3600) ~/ 60;
+    final timeStr = hours > 0 ? '${hours}h ${mins}m' : '${mins}m';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(bottom: 16, top: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: retroColors.accent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: retroColors.accent),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(monthName.toUpperCase(), style: AppTextStyles.headline(color: retroColors.background)),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMonthStat(retroColors, PhosphorIcons.sneaker(), '$totalSteps Steps', isSolidCard: true),
+                  _buildMonthStat(retroColors, PhosphorIcons.mapPin(), '${(totalDistanceM / 1000).toStringAsFixed(1)} km', isSolidCard: true),
+                  _buildMonthStat(retroColors, PhosphorIcons.timer(), timeStr, isSolidCard: true),
+                ],
+              ),
+            ],
+          ),
+        ),
+        ...monthReports.map((report) => _buildWeekCard(context, retroColors, report)),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildMonthStat(AppColors retroColors, IconData icon, String text, {bool isSolidCard = false}) {
+    final color = isSolidCard ? retroColors.background : retroColors.accent;
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 16),
+        const SizedBox(width: 4),
+        Text(text, style: AppTextStyles.label(color: color)),
+      ],
     );
   }
 

@@ -93,26 +93,47 @@ class SyncService {
       // POST points in batches
       final points = await isar.runPointIsars.filter().clientRunIdEqualTo(job.clientRunId).sortBySequence().findAll();
       
-      const batchSize = 500;
-      for (int i = 0; i < points.length; i += batchSize) {
-        final batch = points.skip(i).take(batchSize).toList();
-        final pointsPayload = batch.map((p) => {
-          'lat': p.lat,
-          'lng': p.lng,
-          'elevation': p.elevation,
-          'timestamp': p.timestamp?.toIso8601String(),
-          'accuracy': p.accuracy,
-          'cadence': p.cadence,
-          'sequence': p.sequence,
-        }).toList();
-
+      if (points.isEmpty) {
+        final tz = DateTime.now().timeZoneName;
         final ptsResponse = await apiClient.client.post(
           '/runs/${run.clientRunId}/points',
-          data: pointsPayload,
+          queryParameters: {'done': 'true', 'tz': tz},
+          data: [],
         );
-
         if (ptsResponse.statusCode != 200) {
           return false;
+        }
+      } else {
+        const batchSize = 500;
+        for (int i = 0; i < points.length; i += batchSize) {
+          final batch = points.skip(i).take(batchSize).toList();
+          final pointsPayload = batch.map((p) => {
+            'lat': p.lat,
+            'lng': p.lng,
+            'elevation': p.elevation,
+            'timestamp': p.timestamp?.toIso8601String(),
+            'accuracy': p.accuracy,
+            'cadence': p.cadence,
+            'sequence': p.sequence,
+          }).toList();
+
+          final isFinalBatch = (i + batchSize) >= points.length;
+          final tz = DateTime.now().timeZoneName;
+          final queryParams = <String, dynamic>{};
+          if (isFinalBatch) {
+            queryParams['done'] = 'true';
+            queryParams['tz'] = tz;
+          }
+
+          final ptsResponse = await apiClient.client.post(
+            '/runs/${run.clientRunId}/points',
+            queryParameters: queryParams,
+            data: pointsPayload,
+          );
+
+          if (ptsResponse.statusCode != 200) {
+            return false;
+          }
         }
       }
 
