@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/auth_service.dart';
 import 'login_screen.dart';
 import '../../run_tracking/presentation/permission_gate_screen.dart';
+import '../../../shared/widgets/retro_loading_indicator.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
@@ -36,7 +37,7 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: RetroLoadingIndicator(text: 'BOOTING SYSTEM')),
       );
     }
 

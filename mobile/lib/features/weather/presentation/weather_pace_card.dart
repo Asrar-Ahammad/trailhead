@@ -5,6 +5,7 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/weather_service.dart';
+import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 
 class WeatherPaceCard extends ConsumerWidget {
   const WeatherPaceCard({super.key});
@@ -84,15 +85,7 @@ class WeatherPaceCard extends ConsumerWidget {
           ),
         );
       },
-      loading: () => Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: colors.surfaceRaised,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colors.border),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const RetroLoadingIndicator(text: 'FETCHING WEATHER'),
       error: (err, stack) => Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(

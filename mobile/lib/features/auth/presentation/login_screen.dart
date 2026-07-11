@@ -4,6 +4,7 @@ import '../application/auth_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
+import '../../../shared/widgets/retro_loading_indicator.dart';
 import '../../sync/application/sync_service.dart';
 import '../../sync/data/api_client.dart';
 import '../../../main.dart';
@@ -124,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading 
-                    ? SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: colors.background, strokeWidth: 2))
+                    ? RetroButtonLoadingIndicator(color: colors.background)
                     : Text(
                         _isRegister ? 'REGISTER' : 'LOGIN',
                         style: AppTextStyles.labelCaps(color: colors.background),

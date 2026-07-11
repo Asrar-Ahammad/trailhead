@@ -26,4 +26,13 @@ class ApiClient {
   }
 
   Dio get client => _dio;
+
+  Future<String?> getStreakNudge() async {
+    try {
+      final response = await _dio.get('/streak/nudge');
+      return response.data['nudge'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
 }

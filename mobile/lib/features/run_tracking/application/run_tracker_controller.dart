@@ -15,6 +15,8 @@ import '../../../main.dart'; // import global isarInstance
 import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
 import '../../sync/data/models/sync_job_isar.dart';
+import '../../sync/data/api_client.dart';
+import '../../notifications/application/notification_service.dart';
 
 class RunTrackerState {
   final String status; // 'idle', 'running', 'paused', 'stopped'
@@ -24,6 +26,7 @@ class RunTrackerState {
   final int stepCount;
   final bool gpsWeak;
   final bool permissionsGranted;
+  final bool permissionsChecked;
   final int? targetPaceSPerKm;
   final int? currentSplitPaceSPerKm;
   final Position? initialPosition;
@@ -37,6 +40,7 @@ class RunTrackerState {
     this.stepCount = 0,
     this.gpsWeak = false,
     this.permissionsGranted = false,
+    this.permissionsChecked = false,
     this.targetPaceSPerKm,
     this.currentSplitPaceSPerKm,
     this.initialPosition,
@@ -51,6 +55,7 @@ class RunTrackerState {
     int? stepCount,
     bool? gpsWeak,
     bool? permissionsGranted,
+    bool? permissionsChecked,
     int? targetPaceSPerKm,
     int? currentSplitPaceSPerKm,
     Position? initialPosition,
@@ -64,6 +69,7 @@ class RunTrackerState {
       stepCount: stepCount ?? this.stepCount,
       gpsWeak: gpsWeak ?? this.gpsWeak,
       permissionsGranted: permissionsGranted ?? this.permissionsGranted,
+      permissionsChecked: permissionsChecked ?? this.permissionsChecked,
       targetPaceSPerKm: targetPaceSPerKm ?? this.targetPaceSPerKm,
       currentSplitPaceSPerKm: currentSplitPaceSPerKm ?? this.currentSplitPaceSPerKm,
       initialPosition: initialPosition ?? this.initialPosition,
@@ -75,8 +81,9 @@ class RunTrackerState {
 class RunTrackerController extends StateNotifier<RunTrackerState> {
   StreamSubscription? _portSubscription;
   final FlutterTts _flutterTts = FlutterTts();
+  final Ref ref;
 
-  RunTrackerController() : super(RunTrackerState(status: 'idle')) {
+  RunTrackerController(this.ref) : super(RunTrackerState(status: 'idle')) {
     _initForegroundTask();
     _checkPermissionsSilently();
     _recoverOrphanedRuns();
@@ -166,11 +173,20 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     Position? pos;
     if (isGranted) {
       try {
-        pos = await Geolocator.getLastKnownPosition() ?? await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+        pos = await Geolocator.getLastKnownPosition();
+        if (pos == null) {
+          Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).then((p) {
+            state = state.copyWith(initialPosition: p);
+          }).catchError((_) {});
+        }
       } catch (_) {}
     }
 
-    state = state.copyWith(permissionsGranted: isGranted && backgroundGranted, initialPosition: pos);
+    state = state.copyWith(
+      permissionsGranted: isGranted && backgroundGranted, 
+      permissionsChecked: true,
+      initialPosition: pos
+    );
   }
 
   Future<bool> requestForegroundPermission() async {
@@ -188,7 +204,12 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     Position? pos = state.initialPosition;
     if (granted && pos == null) {
       try {
-        pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+        pos = await Geolocator.getLastKnownPosition();
+        if (pos == null) {
+          Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).then((p) {
+            state = state.copyWith(initialPosition: p);
+          }).catchError((_) {});
+        }
       } catch (_) {}
     }
     
@@ -209,7 +230,12 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     Position? pos = state.initialPosition;
     if (granted && pos == null) {
       try {
-        pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
+        pos = await Geolocator.getLastKnownPosition();
+        if (pos == null) {
+          Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).then((p) {
+            state = state.copyWith(initialPosition: p);
+          }).catchError((_) {});
+        }
       } catch (_) {}
     }
     
@@ -385,6 +411,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
           "sync_task",
           constraints: Constraints(networkType: NetworkType.connected),
         );
+        
+        _scheduleStreakNudge();
       }
     }
 
@@ -397,6 +425,23 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     _refreshLocationAfterRun();
     debugPrint('[STOP_RUN] Returning activeRun: ${activeRun?.clientRunId}');
     return activeRun;
+  }
+
+  Future<void> _scheduleStreakNudge() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final notificationService = ref.read(notificationServiceProvider);
+      
+      final nudgeMessage = await apiClient.getStreakNudge();
+      if (nudgeMessage != null && nudgeMessage.isNotEmpty) {
+        // Schedule for 24 hours from now
+        final scheduleTime = DateTime.now().add(const Duration(hours: 24));
+        await notificationService.scheduleStreakNudge(nudgeMessage, scheduleTime);
+        debugPrint('[STREAK NUDGE] Scheduled for $scheduleTime: $nudgeMessage');
+      }
+    } catch (e) {
+      debugPrint('[STREAK NUDGE] Error scheduling nudge: $e');
+    }
   }
 
   Future<void> discardRun() async {
@@ -446,5 +491,5 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 }
 
 final runTrackerProvider = StateNotifierProvider<RunTrackerController, RunTrackerState>((ref) {
-  return RunTrackerController();
+  return RunTrackerController(ref);
 });

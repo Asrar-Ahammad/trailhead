@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
+import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -149,7 +150,7 @@ class ActivityCard extends ConsumerWidget {
                   }
                   return Icon(PhosphorIcons.personSimpleRun(PhosphorIconsStyle.fill), size: 32, color: retroColors.accent);
                 },
-                loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent, strokeWidth: 2)),
+                loading: () => const Center(child: RetroLoadingIndicator(text: 'MAP')),
                 error: (_, __) => Icon(PhosphorIcons.warning(), size: 24, color: retroColors.error),
               ),
             ),

@@ -6,6 +6,7 @@ import '../../profile/presentation/settings_screen.dart';
 import '../application/run_tracker_controller.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import '../../../shared/widgets/pressable_scale.dart';
+import '../../../shared/widgets/retro_loading_indicator.dart';
 import 'package:disable_battery_optimization/disable_battery_optimization.dart';
 
 class PermissionGateScreen extends ConsumerStatefulWidget {
@@ -50,6 +51,13 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
         );
       }
     });
+
+    if (!trackerState.permissionsChecked) {
+      return const Scaffold(
+        backgroundColor: Color(0xff121212),
+        body: Center(child: RetroLoadingIndicator(text: 'INITIALIZING')),
+      );
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xff121212),
@@ -166,7 +174,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                       ),
                       alignment: Alignment.center,
                       child: _requestingForeground
-                          ? const CircularProgressIndicator(color: Colors.white)
+                          ? const RetroLoadingIndicator(text: 'REQUESTING')
                           : Text(
                               '1. Grant Location Permission',
                               style: GoogleFonts.spaceGrotesk(
@@ -189,7 +197,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                       ),
                       alignment: Alignment.center,
                       child: _requestingBackground
-                          ? const CircularProgressIndicator(color: Color(0xffff5a3c))
+                          ? const RetroLoadingIndicator(text: 'REQUESTING')
                           : Text(
                               '2. Allow all the time (Background)',
                               style: GoogleFonts.spaceGrotesk(

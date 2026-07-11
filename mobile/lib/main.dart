@@ -12,6 +12,7 @@ import 'features/sync/data/api_client.dart';
 import 'features/sync/data/models/sync_job_isar.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'features/notifications/application/notification_service.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_themes.dart';
@@ -74,6 +75,14 @@ void main() async {
     [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema],
     directory: dir.path,
   );
+
+  // Initialize Notifications
+  try {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+  } catch (e, st) {
+    debugPrint('Notification initialization error: $e\n$st');
+  }
 
   final prefs = await SharedPreferences.getInstance();
   final savedTheme = prefs.getString('themeMode');

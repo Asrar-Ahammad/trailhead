@@ -18,6 +18,7 @@ import '../../audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/chat/presentation/chat_screen.dart';
 import 'package:trailhead_mobile/features/weather/presentation/weather_pace_card.dart';
 import 'package:trailhead_mobile/features/weather/application/weather_service.dart';
+import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -45,6 +46,12 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            loading: () => Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: RetroButtonLoadingIndicator(color: retroColors.textSecondary),
+              ),
+            ),
             orElse: () => const SizedBox.shrink(),
           ),
         ],
@@ -61,7 +68,10 @@ class HomeScreen extends ConsumerWidget {
           children: [
             summaryAsync.when(
               data: (summary) => _buildContent(context, ref, retroColors, summary, aiCoachAsync),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: 40.0),
+                child: RetroLoadingIndicator(text: 'FETCHING RUNS'),
+              ),
               error: (err, stack) => Center(child: Text('Error: \$err')),
             ),
           ],
@@ -189,7 +199,7 @@ class HomeScreen extends ConsumerWidget {
           },
           loading: () => const Padding(
             padding: EdgeInsets.only(bottom: AppSpacing.xl),
-            child: Center(child: CircularProgressIndicator()),
+            child: RetroLoadingIndicator(text: 'COACH IS ANALYZING'),
           ),
           error: (err, stack) => const SizedBox.shrink(),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
+import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/nl_logging_service.dart';
@@ -245,7 +246,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: _isParsing 
-                          ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2)) 
+                          ? RetroButtonLoadingIndicator(color: colors.surface) 
                           : Text('Parse', style: AppTextStyles.bodyMediumBold(color: colors.surface)),
                       );
                     },

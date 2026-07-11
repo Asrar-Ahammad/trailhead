@@ -7,6 +7,7 @@ import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
+import '../../../shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/run_splits_table.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/run_charts_section.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
@@ -25,14 +26,22 @@ final runPointsProvider = FutureProvider.family<List<LatLng>, String>((ref, clie
   return points.map((p) => LatLng(p.lat ?? 0.0, p.lng ?? 0.0)).toList();
 });
 
-class RunDetailScreen extends ConsumerWidget {
+class RunDetailScreen extends ConsumerStatefulWidget {
   final RunIsar run;
 
   const RunDetailScreen({super.key, required this.run});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RunDetailScreen> createState() => _RunDetailScreenState();
+}
+
+class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
+  bool _isDeleting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
+    final run = widget.run;
     
     final date = run.startTime != null 
         ? '${run.startTime!.year}-${run.startTime!.month.toString().padLeft(2, '0')}-${run.startTime!.day.toString().padLeft(2, '0')}'
@@ -55,9 +64,11 @@ class RunDetailScreen extends ConsumerWidget {
     final activityStr = (run.activityType ?? 'run').toUpperCase();
     final titleText = '$activityStr DETAILS';
 
-    return Scaffold(
-      backgroundColor: retroColors.background,
-      appBar: AppBar(
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: retroColors.background,
+          appBar: AppBar(
         title: Text(titleText, style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24)),
         backgroundColor: retroColors.surface,
         elevation: 0,
@@ -110,49 +121,66 @@ class RunDetailScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             icon: Icon(PhosphorIcons.dotsThreeVertical(), color: retroColors.textPrimary),
             color: retroColors.surface,
-            onSelected: (value) async {
-              if (value == 'delete') {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: retroColors.surface,
-                    title: Text('Delete Run?', style: AppTextStyles.title(color: retroColors.textPrimary)),
-                    content: Text('This action cannot be undone.', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
+                  onSelected: (value) async {
+                    if (value == 'delete') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: retroColors.surface,
+                          title: Text('Delete Run?', style: AppTextStyles.title(color: retroColors.textPrimary)),
+                          content: Text('This action cannot be undone.', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
+                            ),
+                          ],
+                        ),
+                      );
+                      
+                      if (confirm == true && mounted) {
+                        setState(() {
+                          _isDeleting = true;
+                        });
+                        
+                        try {
+                          final repo = ref.read(runHistoryRepositoryProvider);
+                          await repo.deleteRun(run.id);
+                          ref.invalidate(historyProvider);
+                          ref.invalidate(prsProvider);
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            setState(() {
+                              _isDeleting = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to delete: $e')),
+                            );
+                          }
+                        }
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(PhosphorIcons.trash(), color: retroColors.error, size: 20),
+                          const SizedBox(width: 12),
+                          Text('Delete Run', style: AppTextStyles.bodyMedium(color: retroColors.error)),
+                        ],
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
-                      ),
-                    ],
-                  ),
-                );
-                
-                if (confirm == true && context.mounted) {
-                  final repo = ref.read(runHistoryRepositoryProvider);
-                  await repo.deleteRun(run.id);
-                  ref.invalidate(historyProvider);
-                  ref.invalidate(prsProvider);
-                  if (context.mounted) Navigator.of(context).pop();
-                }
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(PhosphorIcons.trash(), color: retroColors.error, size: 20),
-                    const SizedBox(width: 12),
-                    Text('Delete Run', style: AppTextStyles.bodyMedium(color: retroColors.error)),
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -174,7 +202,7 @@ class RunDetailScreen extends ConsumerWidget {
                   data: (points) => points.isEmpty
                       ? Center(child: Text('No route data', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)))
                       : StaticRouteMap(points: points),
-                  loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
+                  loading: () => const Center(child: RetroLoadingIndicator(text: 'LOADING MAP')),
                   error: (_, __) => Center(child: Text('Map error', style: AppTextStyles.bodyMedium(color: retroColors.error))),
                 ),
               ),
@@ -247,7 +275,7 @@ class RunDetailScreen extends ConsumerWidget {
             // Charts Section
             rawPointsAsync.when(
               data: (points) => RunChartsSection(run: run, points: points),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: RetroLoadingIndicator(text: 'LOADING LOGS')),
               error: (_, __) => const SizedBox.shrink(),
             ),
             
@@ -255,7 +283,16 @@ class RunDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ),
+    if (_isDeleting)
+      Container(
+        color: Colors.black.withOpacity(0.7),
+        child: const Center(
+          child: RetroLoadingIndicator(text: 'DELETING RUN'),
+        ),
+      ),
+  ],
+);
   }
 
   Widget _buildStatCard(AppColors colors, IconData icon, String label, String value) {

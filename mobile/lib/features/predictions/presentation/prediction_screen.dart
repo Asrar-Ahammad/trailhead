@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
+import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/prediction_service.dart';
 
@@ -76,7 +77,7 @@ class PredictionScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: colors.accent)),
+        loading: () => const Center(child: RetroLoadingIndicator(text: 'PREDICTING RACE')),
         error: (err, stack) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),

@@ -101,7 +101,7 @@ RULES:
       const jsonResponse = JSON.parse(content);
       if (jsonResponse.summary && typeof jsonResponse.summary === 'string') {
         // Strip emojis if any slipped through
-        const cleanSummary = jsonResponse.summary.replace(/[\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu, '');
+        const cleanSummary = jsonResponse.summary.replace(/[^\p{L}\p{N}\p{P}\p{Z}\p{Sc}\p{Sm}]/gu, '');
         return NextResponse.json({ summary: cleanSummary });
       }
       throw new Error("Invalid schema from OpenAI");

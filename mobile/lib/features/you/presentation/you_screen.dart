@@ -11,6 +11,8 @@ import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/features/auth/application/auth_service.dart';
+import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
 
@@ -63,7 +65,7 @@ class YouScreen extends ConsumerWidget {
                         child: SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: retroColors.error, strokeWidth: 2),
+                          child: RetroButtonLoadingIndicator(color: retroColors.error),
                         ),
                       ),
                     )
@@ -166,7 +168,7 @@ class YouScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
+        loading: () => const Center(child: RetroLoadingIndicator(text: 'FETCHING CHARTS')),
         error: (err, stack) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
       ),
       floatingActionButton: Padding(
@@ -341,7 +343,7 @@ class YouScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
+        loading: () => const Center(child: RetroLoadingIndicator(text: 'LOADING RUNS')),
         error: (err, _) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
       ),
     );
