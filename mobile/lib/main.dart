@@ -16,6 +16,8 @@ import 'features/notifications/application/notification_service.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_themes.dart';
+import 'features/audio/application/sound_service.dart';
+import 'shared/navigation/sound_navigator_observer.dart';
 
 late Isar isarInstance;
 
@@ -114,6 +116,7 @@ class TrailheadApp extends ConsumerWidget {
                    WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
                    
     final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
+    final soundService = ref.read(soundServiceProvider);
 
     return WithForegroundTask(
       child: ThemeProvider(
@@ -126,6 +129,9 @@ class TrailheadApp extends ConsumerWidget {
             theme: myTheme,
             darkTheme: AppThemes.darkTheme,
             home: const AuthWrapper(),
+            navigatorObservers: [
+              SoundNavigatorObserver(soundService: soundService),
+            ],
           );
         },
       ),

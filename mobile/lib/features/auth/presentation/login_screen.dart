@@ -8,6 +8,7 @@ import '../../../shared/widgets/retro_loading_indicator.dart';
 import '../../sync/application/sync_service.dart';
 import '../../sync/data/api_client.dart';
 import '../../../main.dart';
+import '../../../shared/widgets/pressable_scale.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -42,7 +43,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (mounted) {
       if (success) {
-        // Fetch existing remote runs in the background to avoid blocking login
         try {
           final apiClient = ref.read(apiClientProvider);
           final syncService = SyncService(isar: isarInstance, apiClient: apiClient);
@@ -53,7 +53,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           debugPrint('Error starting sync: $e');
         }
         setState(() => _isLoading = false);
-        // Pop will return back to PermissionGate (or main app flow)
         Navigator.of(context).pushReplacementNamed('/');
       } else {
         setState(() => _isLoading = false);
@@ -69,79 +68,173 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'TRAILHEAD',
-                style: AppTextStyles.displayHero(color: colors.accent),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.xxl),
-              
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: Text(
-                    _error!,
-                    style: AppTextStyles.bodyMedium(color: colors.error),
-                    textAlign: TextAlign.center,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.xxl,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: AppSpacing.xxl),
+                // Sleek Hero Text
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'TRAILHEAD',
+                      style: AppTextStyles.displayHero(color: colors.accent),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
-
-              TextField(
-                controller: _emailCtrl,
-                style: AppTextStyles.bodyLarge(color: colors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  labelStyle: AppTextStyles.bodyMedium(color: colors.textSecondary),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+                const SizedBox(height: AppSpacing.xs),
+                // Subtle Retro Badge Accent
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Text(
+                      'START YOUR JOURNEY',
+                      style: AppTextStyles.retroLabelLarge(color: colors.textSecondary),
+                    ),
+                  ),
                 ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              
-              TextField(
-                controller: _passCtrl,
-                style: AppTextStyles.bodyLarge(color: colors.textPrimary),
-                decoration: InputDecoration(
+                const SizedBox(height: AppSpacing.xxl),
+                
+                if (_error != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: colors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _error!,
+                      style: AppTextStyles.bodyMediumBold(color: colors.error),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+
+                // Sleek Email Field
+                _SleekTextField(
+                  controller: _emailCtrl,
+                  labelText: 'Email Address',
+                  colors: colors,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                
+                // Sleek Password Field
+                _SleekTextField(
+                  controller: _passCtrl,
                   labelText: 'Password',
-                  labelStyle: AppTextStyles.bodyMedium(color: colors.textSecondary),
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+                  colors: colors,
+                  obscureText: true,
                 ),
-                obscureText: true,
-              ),
-              const SizedBox(height: AppSpacing.xl),
+                const SizedBox(height: AppSpacing.xl),
 
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.accent,
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                // Sleek Pill Button
+                PressableScale(
+                  onTap: _isLoading ? () {} : _submit,
+                  child: Container(
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: colors.accent,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colors.accent.withOpacity(0.3),
+                          offset: const Offset(0, 8),
+                          blurRadius: 16,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: _isLoading 
+                          ? RetroButtonLoadingIndicator(color: colors.background)
+                          : Text(
+                              _isRegister ? 'Register' : 'Login',
+                              style: AppTextStyles.bodyLargeBold(color: colors.background),
+                            ),
+                    ),
+                  ),
                 ),
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading 
-                    ? RetroButtonLoadingIndicator(color: colors.background)
-                    : Text(
-                        _isRegister ? 'REGISTER' : 'LOGIN',
-                        style: AppTextStyles.labelCaps(color: colors.background),
-                      ),
-              ),
-              const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.xxl),
 
-              TextButton(
-                onPressed: () => setState(() => _isRegister = !_isRegister),
-                child: Text(
-                  _isRegister ? 'Already have an account? Login' : 'Need an account? Register',
-                  style: AppTextStyles.bodyMedium(color: colors.textSecondary),
+                // Subtle Text Toggle
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isRegister = !_isRegister;
+                        _error = null;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                    ),
+                    child: Text(
+                      _isRegister 
+                          ? 'Already have an account? Login' 
+                          : 'Need an account? Register',
+                      style: AppTextStyles.bodyMedium(color: colors.textSecondary),
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SleekTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String labelText;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final AppColors colors;
+
+  const _SleekTextField({
+    required this.controller,
+    required this.labelText,
+    this.obscureText = false,
+    this.keyboardType,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      style: AppTextStyles.bodyLarge(color: colors.textPrimary),
+      decoration: InputDecoration(
+        labelText: labelText,
+        labelStyle: AppTextStyles.bodyMedium(color: colors.textSecondary),
+        filled: true,
+        fillColor: colors.surface,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colors.accent, width: 2),
         ),
       ),
     );

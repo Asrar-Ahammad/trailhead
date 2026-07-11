@@ -318,4 +318,89 @@ class SoundService {
       await _actionPlayer.play(AssetSource('sounds/chat_beep.wav'), mode: PlayerMode.lowLatency);
     } catch (_) {}
   }
+
+  // ── You screen tab sounds ─────────────────────────────────────────────────
+
+  Future<void> playTabActivities() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/tab_activities.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playTabRecords() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/tab_records.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playTabProgress() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/tab_progress.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playRacePredictorTap() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/race_predictor_tap.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playActivitiesCardTap() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/activities_card_tap.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playWeekCardTap() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/week_card_tap.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playWeeklyReportsTap() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/weekly_reports_tap.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playCalendarDayTap() async {
+    if (_uiSoundsEnabled == null) await _init();
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _actionPlayer.stop();
+      await _actionPlayer.play(AssetSource('sounds/calendar_day_tap.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
+
+  Future<void> playSystemBack() async {
+    if (_uiSoundsEnabled == null) {
+      await _init();
+    }
+    if (!(_uiSoundsEnabled ?? false)) return;
+    try {
+      await _navPlayer.stop();
+      await _navPlayer.play(AssetSource('sounds/system_back.wav'), mode: PlayerMode.lowLatency);
+    } catch (_) {}
+  }
 }

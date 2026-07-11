@@ -86,7 +86,14 @@ class ActivityCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    RunFormatUtils.getRunTitle(run.title, run.startTime, activityType: run.activityType ?? 'run'),
+                    RunFormatUtils.getRunTitle(
+                      run.title, 
+                      run.startTime, 
+                      activityType: run.activityType ?? 'run',
+                      distanceM: run.distanceM,
+                      subjectiveEffort: run.subjectiveEffort,
+                      conditions: run.conditions,
+                    ),
                     style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary).copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: 4),

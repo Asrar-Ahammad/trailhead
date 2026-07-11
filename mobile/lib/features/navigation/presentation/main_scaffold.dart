@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -20,6 +21,31 @@ class MainScaffold extends ConsumerStatefulWidget {
 
 class _MainScaffoldState extends ConsumerState<MainScaffold> {
   bool _isAtBottom = false;
+  DateTime? _lastBackPressedAt;
+  OverlayEntry? _toastEntry;
+
+  void _showExitToast(BuildContext context) {
+    _toastEntry?.remove();
+    _toastEntry = null;
+
+    final colors = Theme.of(context).extension<AppColors>()!;
+    final overlayState = Overlay.of(context);
+
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => _ExitToastWidget(colors: colors),
+    );
+
+    _toastEntry = entry;
+    overlayState.insert(entry);
+
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (_toastEntry == entry) {
+        entry.remove();
+        _toastEntry = null;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +62,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     final isRunning = runState.status != 'idle';
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final gradientOpacity = isDarkMode ? 0.9 : 0.5;
+    final gradientOpacity = isDarkMode ? 0.9 : 0.1;
 
     final screens = [
       const HomeScreen(),
@@ -58,7 +84,28 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       ref.read(navigationProvider.notifier).state = index;
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final now = DateTime.now();
+        const maxDuration = Duration(seconds: 2);
+        final isFirstPress = _lastBackPressedAt == null ||
+            now.difference(_lastBackPressedAt!) > maxDuration;
+
+        // Play retro back sound on every back press
+        ref.read(soundServiceProvider).playSystemBack();
+
+        if (isFirstPress) {
+          _lastBackPressedAt = now;
+          _showExitToast(context);
+          return;
+        }
+
+        // Second press within 2 seconds — truly exit the app
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
       extendBody: true,
       body: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
@@ -127,6 +174,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 ),
               ),
       ),
+    ),
     );
   }
 }
@@ -253,6 +301,95 @@ class _NavBarItem extends StatelessWidget {
             child: PhosphorIcon(
               isSelected ? iconFill : iconRegular,
               color: isSelected ? colors.accent : colors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExitToastWidget extends StatefulWidget {
+  final AppColors colors;
+  const _ExitToastWidget({required this.colors});
+
+  @override
+  State<_ExitToastWidget> createState() => _ExitToastWidgetState();
+}
+
+class _ExitToastWidgetState extends State<_ExitToastWidget>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
+    _controller.forward();
+
+    // Fade out before removal
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) _controller.reverse();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: 80,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: FadeTransition(
+          opacity: _opacity,
+          child: SlideTransition(
+            position: _slide,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: widget.colors.accent,
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.colors.accent.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    'Press back again to exit',
+                    style: TextStyle(
+                      color: widget.colors.background,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

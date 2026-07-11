@@ -7,7 +7,9 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/week_details_screen.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
+import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
 class WeeklyReportsListScreen extends ConsumerWidget {
   const WeeklyReportsListScreen({super.key});
@@ -77,7 +79,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     ),
                     ...sortedMonths.map((month) {
                       final monthReports = yearMonths[month]!;
-                      return _buildMonthSection(context, retroColors, month, monthReports);
+                      return _buildMonthSection(context, ref, retroColors, month, monthReports);
                     }),
                   ],
                 );
@@ -91,7 +93,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMonthSection(BuildContext context, AppColors retroColors, int month, List<WeeklyReportModel> monthReports) {
+  Widget _buildMonthSection(BuildContext context, WidgetRef ref, AppColors retroColors, int month, List<WeeklyReportModel> monthReports) {
     int totalSteps = 0;
     double totalDistanceM = 0;
     int totalDurationS = 0;
@@ -136,7 +138,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
             ],
           ),
         ),
-        ...monthReports.map((report) => _buildWeekCard(context, retroColors, report)),
+        ...monthReports.map((report) => _buildWeekCard(context, ref, retroColors, report)),
         const SizedBox(height: 16),
       ],
     );
@@ -153,7 +155,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeekCard(BuildContext context, AppColors retroColors, WeeklyReportModel report) {
+  Widget _buildWeekCard(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklyReportModel report) {
     final startStr = '${report.startDate.day}/${report.startDate.month}';
     final endStr = '${report.endDate.day}/${report.endDate.month}';
 
@@ -168,6 +170,8 @@ class WeeklyReportsListScreen extends ConsumerWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
+          ref.read(soundServiceProvider).playWeekCardTap();
+          ref.read(hapticsServiceProvider).lightImpact();
           Navigator.push(context, MaterialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
         },
         child: Padding(

@@ -81,7 +81,10 @@ class RunChartsSection extends StatelessWidget {
 
     final double avgPace = run.avgPaceSPerKm ?? 0;
     final double avgCadence = run.avgCadenceSpm ?? 0;
-    final double elevationGain = run.elevationGainM ?? 0;
+    // Use stored elevation gain; fall back to computing from raw points
+    final double elevationGain = (run.elevationGainM != null && run.elevationGainM! > 0)
+        ? run.elevationGainM!
+        : _computeElevationGainFromPoints(points);
     final double fastestPaceSPerKm = maxSpeed > 0 ? (1000.0 / maxSpeed) : 0;
     
     final int elapsedTimeS = (run.endTime != null && run.startTime != null)
@@ -176,6 +179,31 @@ class RunChartsSection extends StatelessWidget {
     final m = seconds ~/ 60;
     final s = (seconds % 60).round();
     return '$m:${s.toString().padLeft(2, '0')} /km';
+  }
+
+  /// Computes elevation gain from raw GPS points using a 3-point smoothing
+  /// window — mirrors the algorithm used during live tracking.
+  double _computeElevationGainFromPoints(List<RunPointIsar> pts) {
+    final elevPoints = pts.where((p) => p.elevation != null && !p.isPaused).toList();
+    if (elevPoints.length < 3) return 0.0;
+
+    double gain = 0.0;
+    final List<double> buffer = [];
+    double? lastSmoothed;
+
+    for (final point in elevPoints) {
+      buffer.add(point.elevation!);
+      if (buffer.length > 3) buffer.removeAt(0);
+      if (buffer.length == 3) {
+        final smoothed = buffer.reduce((a, b) => a + b) / 3.0;
+        if (lastSmoothed != null) {
+          final delta = smoothed - lastSmoothed;
+          if (delta > 0) gain += delta;
+        }
+        lastSmoothed = smoothed;
+      }
+    }
+    return gain;
   }
 }
 

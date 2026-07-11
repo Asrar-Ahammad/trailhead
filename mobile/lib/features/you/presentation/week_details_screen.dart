@@ -6,11 +6,23 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
 import 'package:trailhead_mobile/features/you/presentation/weekly_activities_screen.dart';
+import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 
-class WeekDetailsScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+
+class WeekDetailsScreen extends ConsumerStatefulWidget {
   final WeeklyReportModel report;
 
   const WeekDetailsScreen({super.key, required this.report});
+
+  @override
+  ConsumerState<WeekDetailsScreen> createState() => _WeekDetailsScreenState();
+}
+
+class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
+  int? _touchedPaceSpotIndex;
+  int? _touchedCadenceSpotIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +31,7 @@ class WeekDetailsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text('WEEK ${report.weekNumber}, ${report.year}', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 22)),
+        title: Text('WEEK ${widget.report.weekNumber}, ${widget.report.year}', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 22)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -65,16 +77,16 @@ class WeekDetailsScreen extends StatelessWidget {
           Text('TOTAL DISTANCE', style: AppTextStyles.label(color: retroColors.textSecondary)),
           const SizedBox(height: 8),
           Text(
-            RunFormatUtils.formatDistanceKm(report.totalDistanceM) + ' km',
+            RunFormatUtils.formatDistanceKm(widget.report.totalDistanceM) + ' km',
             style: AppTextStyles.displayHero(color: retroColors.textPrimary).copyWith(fontSize: 48),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildPill(retroColors, PhosphorIcons.personSimpleRun(), '${report.runCount} Runs'),
+              _buildPill(retroColors, PhosphorIcons.personSimpleRun(), '${widget.report.runCount} Runs'),
               const SizedBox(width: 12),
-              _buildPill(retroColors, PhosphorIcons.personSimpleWalk(), '${report.walkCount} Walks'),
+              _buildPill(retroColors, PhosphorIcons.personSimpleWalk(), '${widget.report.walkCount} Walks'),
             ],
           )
         ],
@@ -101,16 +113,16 @@ class WeekDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildStatsGrid(AppColors retroColors) {
-    final workoutTime = RunFormatUtils.formatDuration(report.totalDurationS);
-    final avgPace = RunFormatUtils.formatPace(report.totalDistanceM, report.totalDurationS); // Using total for weighted average
+    final workoutTime = RunFormatUtils.formatDuration(widget.report.totalDurationS);
+    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS);
     
     return Column(
       children: [
         Row(
           children: [
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.fire(), 'Calories', '${report.totalCalories.round()} kcal')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.fire(), 'Calories', '${widget.report.totalCalories.round()} kcal')),
             const SizedBox(width: 16),
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Steps', '${report.totalSteps}')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Steps', '${widget.report.totalSteps}')),
           ],
         ),
         const SizedBox(height: 16),
@@ -124,9 +136,9 @@ class WeekDetailsScreen extends StatelessWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.chartLine(), 'Avg Cadence', '${report.avgCadenceSpm.round()} spm')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.chartLine(), 'Avg Cadence', '${widget.report.avgCadenceSpm.round()} spm')),
             const SizedBox(width: 16),
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Avg Stride', '${report.avgStrideLengthM.toStringAsFixed(2)} m')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Avg Stride', '${widget.report.avgStrideLengthM.toStringAsFixed(2)} m')),
           ],
         ),
       ],
@@ -169,7 +181,9 @@ class WeekDetailsScreen extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: report)));
+          ref.read(soundServiceProvider).playActivitiesCardTap();
+          ref.read(hapticsServiceProvider).lightImpact();
+          Navigator.push(context, MaterialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
         },
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -203,7 +217,7 @@ class WeekDetailsScreen extends StatelessWidget {
     // Lower pace is better (faster). So maybe we flip the Y axis or just show it as is.
     
     // Sort dailyStats to be Mon (0) to Sun (6)
-    final sortedStats = List.from(report.dailyStats)..sort((a, b) => (a as DailyStat).day.compareTo((b as DailyStat).day));
+    final sortedStats = List.from(widget.report.dailyStats)..sort((a, b) => (a as DailyStat).day.compareTo((b as DailyStat).day));
     
     double maxY = 0;
     for (DailyStat stat in sortedStats) {
@@ -224,13 +238,24 @@ class WeekDetailsScreen extends StatelessWidget {
           minY: 0,
           maxY: maxY * 1.2,
           lineTouchData: LineTouchData(
+            touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+              if (touchResponse != null && touchResponse.lineBarSpots != null && touchResponse.lineBarSpots!.isNotEmpty) {
+                final index = touchResponse.lineBarSpots![0].spotIndex;
+                if (_touchedPaceSpotIndex != index) {
+                  _touchedPaceSpotIndex = index;
+                  ref.read(hapticsServiceProvider).lightImpact();
+                }
+              } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.lineBarSpots == null)) {
+                _touchedPaceSpotIndex = null;
+              }
+            },
             getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
               return spotIndexes.map((index) {
                 return TouchedSpotIndicatorData(
-                  FlLine(color: retroColors.textPrimary, strokeWidth: 2),
+                  FlLine(color: Colors.blue, strokeWidth: 2),
                   FlDotData(
                     show: true,
-                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: retroColors.textPrimary, strokeWidth: 0),
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: Colors.blue, strokeWidth: 0),
                   ),
                 );
               }).toList();
@@ -238,14 +263,14 @@ class WeekDetailsScreen extends StatelessWidget {
             touchTooltipData: LineTouchTooltipData(
               showOnTopOfTheChartBoxArea: true,
               tooltipMargin: 8,
-              getTooltipColor: (touchedSpot) => retroColors.surfaceRaised,
+              getTooltipColor: (touchedSpot) => Colors.blue,
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((spot) {
                   final mins = spot.y.floor();
                   final secs = ((spot.y - mins) * 60).round();
                   return LineTooltipItem(
                     '${mins}:${secs.toString().padLeft(2, '0')} /km',
-                    TextStyle(color: retroColors.accent, fontWeight: FontWeight.bold),
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   );
                 }).toList();
               },
@@ -310,13 +335,13 @@ class WeekDetailsScreen extends StatelessWidget {
                 return FlSpot(index.toDouble(), stat.avgPace / 60);
               }).where((spot) => spot.y > 0).toList(),
               isCurved: true,
-              color: retroColors.accent,
+              color: Colors.blue,
               barWidth: 3,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: retroColors.accent.withOpacity(0.2),
+                color: Colors.blue.withOpacity(0.2),
               ),
             ),
           ],
@@ -326,7 +351,7 @@ class WeekDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildCadenceChart(AppColors retroColors) {
-    final sortedStats = List.from(report.dailyStats)..sort((a, b) => (a as DailyStat).day.compareTo((b as DailyStat).day));
+    final sortedStats = List.from(widget.report.dailyStats)..sort((a, b) => (a as DailyStat).day.compareTo((b as DailyStat).day));
     
     double maxY = 0;
     for (DailyStat stat in sortedStats) {
@@ -346,13 +371,24 @@ class WeekDetailsScreen extends StatelessWidget {
           minY: 0,
           maxY: maxY * 1.2,
           lineTouchData: LineTouchData(
+            touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+              if (touchResponse != null && touchResponse.lineBarSpots != null && touchResponse.lineBarSpots!.isNotEmpty) {
+                final index = touchResponse.lineBarSpots![0].spotIndex;
+                if (_touchedCadenceSpotIndex != index) {
+                  _touchedCadenceSpotIndex = index;
+                  ref.read(hapticsServiceProvider).lightImpact();
+                }
+              } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.lineBarSpots == null)) {
+                _touchedCadenceSpotIndex = null;
+              }
+            },
             getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
               return spotIndexes.map((index) {
                 return TouchedSpotIndicatorData(
-                  FlLine(color: retroColors.textPrimary, strokeWidth: 2),
+                  FlLine(color: Colors.pink, strokeWidth: 2),
                   FlDotData(
                     show: true,
-                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: retroColors.textPrimary, strokeWidth: 0),
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: Colors.pink, strokeWidth: 0),
                   ),
                 );
               }).toList();
@@ -360,12 +396,12 @@ class WeekDetailsScreen extends StatelessWidget {
             touchTooltipData: LineTouchTooltipData(
               showOnTopOfTheChartBoxArea: true,
               tooltipMargin: 8,
-              getTooltipColor: (touchedSpot) => retroColors.surfaceRaised,
+              getTooltipColor: (touchedSpot) => Colors.pink,
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((spot) {
                   return LineTooltipItem(
                     '${spot.y.round()} spm',
-                    TextStyle(color: retroColors.accent, fontWeight: FontWeight.bold),
+                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   );
                 }).toList();
               },
@@ -428,13 +464,13 @@ class WeekDetailsScreen extends StatelessWidget {
                 return FlSpot(index.toDouble(), stat.avgCadence);
               }).where((spot) => spot.y > 0).toList(),
               isCurved: true,
-              color: retroColors.accent,
+              color: Colors.pink,
               barWidth: 3,
               isStrokeCapRound: true,
               dotData: const FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: retroColors.accent.withOpacity(0.2),
+                color: Colors.pink.withOpacity(0.2),
               ),
             ),
           ],

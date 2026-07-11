@@ -158,6 +158,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   Future<void> _saveRun() async {
     final distance = double.tryParse(_distanceController.text);
     if (distance == null) {
+       ref.read(soundServiceProvider).playError();
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid distance required')));
        return;
     }

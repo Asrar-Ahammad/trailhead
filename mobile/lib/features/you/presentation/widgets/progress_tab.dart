@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/daily_activities_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/weekly_reports_list_screen.dart';
 import 'package:trailhead_mobile/features/predictions/presentation/prediction_screen.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ProgressTab extends StatelessWidget {
+class ProgressTab extends ConsumerWidget {
   final List<RunIsar> runs;
 
   const ProgressTab({super.key, required this.runs});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     
     return SingleChildScrollView(
@@ -31,7 +33,7 @@ class ProgressTab extends StatelessWidget {
           
           Text('THIS MONTH', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
           const SizedBox(height: 16),
-          _buildMonthlyCalendar(context, retroColors),
+          _buildMonthlyCalendar(context, ref, retroColors),
           
           const SizedBox(height: 32),
 
@@ -47,6 +49,8 @@ class ProgressTab extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
+                ref.read(soundServiceProvider).playWeeklyReportsTap();
+                ref.read(hapticsServiceProvider).lightImpact();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReportsListScreen()));
               },
               child: Padding(
@@ -89,6 +93,8 @@ class ProgressTab extends StatelessWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
+                ref.read(soundServiceProvider).playRacePredictorTap();
+                ref.read(hapticsServiceProvider).lightImpact();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const PredictionScreen()));
               },
               child: Padding(
@@ -221,7 +227,7 @@ class ProgressTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMonthlyCalendar(BuildContext context, AppColors retroColors) {
+  Widget _buildMonthlyCalendar(BuildContext context, WidgetRef ref, AppColors retroColors) {
     final now = DateTime.now();
     final firstDayOfMonth = DateTime(now.year, now.month, 1);
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
@@ -260,6 +266,8 @@ class ProgressTab extends StatelessWidget {
       cells.add(
         GestureDetector(
           onTap: hasRun ? () {
+            ref.read(soundServiceProvider).playCalendarDayTap();
+            ref.read(hapticsServiceProvider).lightImpact();
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => DailyActivitiesScreen(

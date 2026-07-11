@@ -15,6 +15,8 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import '../application/gpx_export_util.dart';
 import '../application/share_image_generator.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
+import 'package:trailhead_mobile/features/history/presentation/widgets/results_section.dart';
+import 'package:intl/intl.dart';
 
 final runRawPointsProvider = FutureProvider.family<List<RunPointIsar>, String>((ref, clientRunId) async {
   final repo = ref.read(runHistoryRepositoryProvider);
@@ -44,7 +46,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     final run = widget.run;
     
     final date = run.startTime != null 
-        ? '${run.startTime!.year}-${run.startTime!.month.toString().padLeft(2, '0')}-${run.startTime!.day.toString().padLeft(2, '0')}'
+        ? DateFormat('MMMM d, yyyy • h:mm a').format(run.startTime!)
         : 'Unknown Date';
     
     final distanceKm = (run.distanceM ?? 0) / 1000;
@@ -216,29 +218,83 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              RunFormatUtils.getRunTitle(run.title, run.startTime, activityType: run.activityType ?? 'run'),
+              RunFormatUtils.getRunTitle(
+                run.title, 
+                run.startTime, 
+                activityType: run.activityType ?? 'run',
+                distanceM: run.distanceM,
+                subjectiveEffort: run.subjectiveEffort,
+                conditions: run.conditions,
+              ),
               style: AppTextStyles.headline(color: retroColors.textPrimary).copyWith(fontSize: 32),
             ),
             const SizedBox(height: 24),
             
             // Stat Grid
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 2.5,
-              children: [
-                _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
-                _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
-                _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
-                _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
-                _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
-              ],
+            rawPointsAsync.when(
+              data: (rawPoints) {
+                // Compute elevation gain from raw points as fallback
+                double? elevationGain = (run.elevationGainM != null && run.elevationGainM! > 0)
+                    ? run.elevationGainM
+                    : _computeElevationGainFromPoints(rawPoints);
+                final String elevationStr = (elevationGain != null && elevationGain > 0)
+                    ? '${elevationGain.toStringAsFixed(0)} m'
+                    : '—';
+                return GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 2.5,
+                  children: [
+                    _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
+                    _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
+                    _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                    _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                    _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', elevationStr),
+                    _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                    _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                    _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                  ],
+                );
+              },
+              loading: () => GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 2.5,
+                children: [
+                  _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
+                  _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
+                  _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                  _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                ],
+              ),
+              error: (_, __) => GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 2.5,
+                children: [
+                  _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
+                  _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
+                  _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                  _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                  _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                ],
+              ),
             ),
             
             const SizedBox(height: 32),
@@ -250,6 +306,11 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
               error: (_, __) => const SizedBox.shrink(),
             ),
             
+            const SizedBox(height: 32),
+
+            // Results Section
+            ResultsSection(run: run),
+
             const SizedBox(height: 32),
             
             // AI Summary
@@ -293,6 +354,31 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
       ),
   ],
 );
+  }
+
+  /// Computes elevation gain from raw GPS points using a 3-point smoothing
+  /// window — mirrors the algorithm used during live tracking.
+  double? _computeElevationGainFromPoints(List<RunPointIsar> points) {
+    final elevPoints = points.where((p) => p.elevation != null && !p.isPaused).toList();
+    if (elevPoints.length < 3) return null;
+
+    double gain = 0.0;
+    final List<double> buffer = [];
+    double? lastSmoothed;
+
+    for (final point in elevPoints) {
+      buffer.add(point.elevation!);
+      if (buffer.length > 3) buffer.removeAt(0);
+      if (buffer.length == 3) {
+        final smoothed = buffer.reduce((a, b) => a + b) / 3.0;
+        if (lastSmoothed != null) {
+          final delta = smoothed - lastSmoothed;
+          if (delta > 0) gain += delta;
+        }
+        lastSmoothed = smoothed;
+      }
+    }
+    return gain > 0 ? gain : null;
   }
 
   Widget _buildStatCard(AppColors colors, IconData icon, String label, String value) {

@@ -64,24 +64,37 @@ class ActiveRunScreen extends ConsumerWidget {
             // Stats panel
             Expanded(
               flex: 5,
-              child: _StatPanel(trackerState: trackerState, colors: colors),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width,
+                  child: _StatPanel(trackerState: trackerState, colors: colors),
+                ),
+              ),
             ),
 
             // Controls
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.md,
-                AppSpacing.xl,
-                AppSpacing.xxl + 24.0, // Increased bottom padding
-              ),
-              child: _RunControls(
-                trackerState: trackerState,
-                colors: colors,
-                onStop: () {
-                  ref.read(runTrackerProvider.notifier).pauseRun();
-                  _showStopSheet(context, ref, colors, trackerState.activityType);
-                },
+            Flexible(
+              flex: 0,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Container(
+                  width: MediaQuery.of(context).size.width,
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.md,
+                    AppSpacing.xl,
+                    AppSpacing.xxl + 24.0, // Increased bottom padding
+                  ),
+                  child: _RunControls(
+                    trackerState: trackerState,
+                    colors: colors,
+                    onStop: () {
+                      ref.read(runTrackerProvider.notifier).pauseRun();
+                      _showStopSheet(context, ref, colors, trackerState.activityType);
+                    },
+                  ),
+                ),
               ),
             ),
           ],
@@ -249,9 +262,12 @@ class _StatPanel extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Hero distance
-          Text(
-            RunFormatUtils.formatDistanceKm(trackerState.distanceM),
-            style: AppTextStyles.displayHero(color: colors.textPrimary),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              RunFormatUtils.formatDistanceKm(trackerState.distanceM),
+              style: AppTextStyles.displayHero(color: colors.textPrimary),
+            ),
           ),
           Text(
             'KILOMETERS',
@@ -267,9 +283,12 @@ class _StatPanel extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    Text(
-                      RunFormatUtils.formatDuration(trackerState.durationS),
-                      style: AppTextStyles.displayStat(color: colors.textPrimary),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        RunFormatUtils.formatDuration(trackerState.durationS),
+                        style: AppTextStyles.displayStat(color: colors.textPrimary),
+                      ),
                     ),
                     Text(
                       'TIME',
@@ -286,12 +305,15 @@ class _StatPanel extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    Text(
-                      trackerState.currentSplitPaceSPerKm != null
-                          ? '${(trackerState.currentSplitPaceSPerKm! / 60).floor()}:${(trackerState.currentSplitPaceSPerKm! % 60).toString().padLeft(2, '0')}'
-                          : RunFormatUtils.formatPace(trackerState.distanceM, trackerState.durationS),
-                      style: AppTextStyles.displayStat(
-                        color: _getPaceColor(trackerState, colors),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        trackerState.currentSplitPaceSPerKm != null
+                            ? '${(trackerState.currentSplitPaceSPerKm! / 60).floor()}:${(trackerState.currentSplitPaceSPerKm! % 60).toString().padLeft(2, '0')}'
+                            : RunFormatUtils.formatPace(trackerState.distanceM, trackerState.durationS),
+                        style: AppTextStyles.displayStat(
+                          color: _getPaceColor(trackerState, colors),
+                        ),
                       ),
                     ),
                     Text(

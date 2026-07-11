@@ -35,22 +35,73 @@ abstract final class RunFormatUtils {
     return calories.round().toString();
   }
 
-  /// Returns the run title, or a time-based default (e.g. "Morning Run") if null.
-  static String getRunTitle(String? title, DateTime? startTime, {String activityType = 'run'}) {
-    if (title != null && title.trim().isNotEmpty) {
+  /// Returns the run title, or a context-based default (e.g. "Morning 5K", "Evening Easy Run") if null.
+  static String getRunTitle(
+    String? title, 
+    DateTime? startTime, {
+    String activityType = 'run',
+    double? distanceM,
+    String? subjectiveEffort,
+    String? conditions,
+  }) {
+    if (title != null && title.trim().isNotEmpty && title != "Manual Run" && title != "Untitled Run") {
       return title;
     }
+    
+    // Time of day
     final start = startTime?.toLocal() ?? DateTime.now();
     final hour = start.hour;
-    final activityName = activityType.toLowerCase() == 'walk' ? 'Walk' : 'Run';
+    String timeOfDayStr;
     if (hour >= 5 && hour < 12) {
-      return 'Morning $activityName';
+      timeOfDayStr = 'Morning';
     } else if (hour >= 12 && hour < 17) {
-      return 'Afternoon $activityName';
+      timeOfDayStr = 'Afternoon';
     } else if (hour >= 17 && hour < 21) {
-      return 'Evening $activityName';
+      timeOfDayStr = 'Evening';
     } else {
-      return 'Night $activityName';
+      timeOfDayStr = 'Night';
+    }
+
+    // Distance
+    String? distanceStr;
+    if (distanceM != null && distanceM > 0) {
+      final km = distanceM / 1000;
+      if (km >= 4.8 && km <= 5.2) distanceStr = '5K';
+      else if (km >= 9.8 && km <= 10.2) distanceStr = '10K';
+      else if (km >= 20.8 && km <= 21.3) distanceStr = 'Half Marathon';
+      else if (km >= 41.8 && km <= 42.4) distanceStr = 'Marathon';
+      else if (km >= 1.0) distanceStr = '${km.round()}k';
+    }
+
+    // Effort
+    String effortStr = '';
+    if (subjectiveEffort != null && subjectiveEffort.trim().isNotEmpty) {
+      // capitalize first letter
+      final eff = subjectiveEffort.trim();
+      effortStr = ' ${eff[0].toUpperCase()}${eff.substring(1)}';
+    }
+    
+    // Location Type / Conditions (e.g. Trail, Treadmill)
+    String locationStr = '';
+    if (conditions != null && conditions.trim().isNotEmpty) {
+       final lowerCond = conditions.toLowerCase();
+       if (lowerCond.contains('trail')) locationStr = ' Trail';
+       else if (lowerCond.contains('treadmill') || lowerCond.contains('indoor')) locationStr = ' Treadmill';
+       else if (lowerCond.contains('track')) locationStr = ' Track';
+    }
+
+    // Activity type
+    String activityName = activityType.toLowerCase() == 'walk' ? 'Walk' : 'Run';
+    if (distanceStr == 'Half Marathon' || distanceStr == 'Marathon') {
+       activityName = ''; // e.g. "Morning Marathon" instead of "Morning Marathon Run"
+    }
+
+    if (distanceStr != null && distanceStr.contains('Marathon')) {
+       return '$timeOfDayStr$effortStr$locationStr $distanceStr'.trim();
+    } else if (distanceStr != null) {
+       return '$timeOfDayStr$effortStr$locationStr $distanceStr $activityName'.trim();
+    } else {
+       return '$timeOfDayStr$effortStr$locationStr $activityName'.trim();
     }
   }
 }

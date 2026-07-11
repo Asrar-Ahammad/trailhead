@@ -41,7 +41,14 @@ class GpxExportUtil {
     
     // Track
     buffer.writeln('  <trk>');
-    buffer.writeln('    <name>${RunFormatUtils.getRunTitle(run.title, run.startTime, activityType: run.activityType ?? 'run')}</name>');
+    buffer.writeln('    <name>${RunFormatUtils.getRunTitle(
+      run.title, 
+      run.startTime, 
+      activityType: run.activityType ?? 'run',
+      distanceM: run.distanceM,
+      subjectiveEffort: run.subjectiveEffort,
+      conditions: run.conditions,
+    )}</name>');
     buffer.writeln('    <trkseg>');
     
     // Points

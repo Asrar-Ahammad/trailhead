@@ -15,6 +15,7 @@ import 'package:trailhead_mobile/features/auth/application/auth_service.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
+import 'package:intl/intl.dart';
 
 final historyProvider = StreamProvider<List<RunIsar>>((ref) {
   final repo = ref.read(runHistoryRepositoryProvider);
@@ -30,11 +31,60 @@ final selectedActivitiesProvider = StateProvider<Set<int>>((ref) => {});
 final isDeletingProvider = StateProvider<bool>((ref) => false);
 final recordsModeProvider = StateProvider<String>((ref) => 'best_effort');
 
-class YouScreen extends ConsumerWidget {
+class YouScreen extends ConsumerStatefulWidget {
   const YouScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<YouScreen> createState() => _YouScreenState();
+}
+
+class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  int _lastSoundIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    // Listen to the raw animation value instead of the settled index.
+    // This fires the sound the instant the swipe crosses the 50% midpoint
+    // (animation.value.round() changes) — same responsiveness as a tap.
+    _tabController.animation!.addListener(_onAnimationChanged);
+  }
+
+  void _onAnimationChanged() {
+    final anim = _tabController.animation;
+    if (anim == null) return;
+
+    // .round() flips to the new integer exactly when crossing the midpoint —
+    // no waiting for the spring animation to fully settle.
+    final perceivedIndex = anim.value.round().clamp(0, 2);
+    if (perceivedIndex == _lastSoundIndex) return;
+    _lastSoundIndex = perceivedIndex;
+
+    final soundService = ref.read(soundServiceProvider);
+    switch (perceivedIndex) {
+      case 0:
+        soundService.playTabActivities();
+        break;
+      case 1:
+        soundService.playTabRecords();
+        break;
+      case 2:
+        soundService.playTabProgress();
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.animation!.removeListener(_onAnimationChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final historyAsync = ref.watch(historyProvider);
     final prsAsync = ref.watch(prsProvider);
@@ -42,9 +92,7 @@ class YouScreen extends ConsumerWidget {
     final selectedIds = ref.watch(selectedActivitiesProvider);
     final isDeleting = ref.watch(isDeletingProvider);
 
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
+    return Scaffold(
         backgroundColor: retroColors.background,
         appBar: selectedIds.isNotEmpty
             ? AppBar(
@@ -110,6 +158,7 @@ class YouScreen extends ConsumerWidget {
                     ),
                 ],
                 bottom: TabBar(
+                  controller: _tabController,
                   indicatorColor: retroColors.accent,
                   labelColor: retroColors.accent,
                   unselectedLabelColor: retroColors.textSecondary,
@@ -137,6 +186,7 @@ class YouScreen extends ConsumerWidget {
                   ),
                 ],
           bottom: TabBar(
+            controller: _tabController,
             indicatorColor: retroColors.accent,
             labelColor: retroColors.accent,
             unselectedLabelColor: retroColors.textSecondary,
@@ -151,16 +201,30 @@ class YouScreen extends ConsumerWidget {
         body: historyAsync.when(
           data: (runs) {
           if (runs.isEmpty) {
+            Widget emptyRefreshable() => RefreshIndicator(
+              color: retroColors.accent,
+              backgroundColor: retroColors.surface,
+              onRefresh: () async {
+                // ignore: unused_result
+                ref.refresh(historyProvider);
+                // ignore: unused_result
+                ref.refresh(prsProvider);
+              },
+              child: _buildEmptyState(retroColors),
+            );
+
             return TabBarView(
+              controller: _tabController,
               children: [
-                _buildEmptyState(retroColors),
-                _buildEmptyState(retroColors),
-                _buildEmptyState(retroColors),
+                emptyRefreshable(),
+                emptyRefreshable(),
+                emptyRefreshable(),
               ],
             );
           }
 
           return TabBarView(
+            controller: _tabController,
             children: [
               _buildActivitiesTab(retroColors, runs, prsAsync, ref),
               _buildRecordsTab(retroColors, prsAsync, ref, context),
@@ -174,6 +238,8 @@ class YouScreen extends ConsumerWidget {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 120.0, right: 8.0),
         child: FloatingActionButton(
+          elevation: 0,
+          highlightElevation: 0,
           onPressed: () {
             ref.read(hapticsServiceProvider).mediumImpact();
             ref.read(soundServiceProvider).playFabAddRun();
@@ -183,27 +249,37 @@ class YouScreen extends ConsumerWidget {
           child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildEmptyState(AppColors retroColors) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(PhosphorIcons.personSimpleRun(PhosphorIconsStyle.regular), size: 64, color: retroColors.textSecondary),
-          const SizedBox(height: 16),
-          Text(
-            'No runs yet!',
-            style: AppTextStyles.headline(color: retroColors.textPrimary),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(PhosphorIcons.personSimpleRun(PhosphorIconsStyle.regular), size: 64, color: retroColors.textSecondary),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No runs yet!',
+                    style: AppTextStyles.headline(color: retroColors.textPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Head to the Record tab to get started.',
+                    style: AppTextStyles.bodyLarge(color: retroColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Head to the Record tab to get started.',
-            style: AppTextStyles.bodyLarge(color: retroColors.textSecondary),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -220,7 +296,27 @@ class YouScreen extends ConsumerWidget {
       final remainingMins = mins % 60;
       return '${hours}:${remainingMins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
     }
-    return '${mins}:${secs.toString().padLeft(2, '0')}';
+    return '${mins}m ${secs}s';
+  }
+
+  String formatPace(String category, double value) {
+    double distanceM = 0;
+    if (category == '100m') distanceM = 100;
+    else if (category == '400m') distanceM = 400;
+    else if (category == '1k') distanceM = 1000;
+    else if (category == '1 mile') distanceM = 1609.34;
+    else if (category == '5k') distanceM = 5000;
+    else if (category == '10k') distanceM = 10000;
+    else if (category == 'half') distanceM = 21097.5;
+    else if (category == 'marathon') distanceM = 42195;
+    
+    if (distanceM > 0) {
+      final paceSPerKm = value / (distanceM / 1000);
+      final paceMins = (paceSPerKm / 60).floor();
+      final paceSecs = (paceSPerKm % 60).floor().toString().padLeft(2, '0');
+      return '$paceMins:$paceSecs /km';
+    }
+    return '';
   }
 
   Widget _buildRecordsTab(AppColors retroColors, AsyncValue<RecordGroup> prsAsync, WidgetRef ref, BuildContext context) {
@@ -235,6 +331,27 @@ class YouScreen extends ConsumerWidget {
       child: prsAsync.when(
         data: (group) {
           final list = mode == 'best_effort' ? group.bestEffort : group.manual;
+          List<dynamic> displayItems = [];
+          if (list.isNotEmpty) {
+            Map<String, List<PersonalRecord>> grouped = {};
+            for (var pr in list) {
+              grouped.putIfAbsent(pr.category, () => []).add(pr);
+            }
+            final categories = ['100m', '1k', '5k', '10k', 'half', 'marathon', 'longest_run', 'longest_duration', 'max_elevation'];
+            for (var cat in categories) {
+              if (grouped.containsKey(cat)) {
+                displayItems.add(cat.toUpperCase());
+                displayItems.addAll(grouped[cat]!);
+              }
+            }
+            grouped.forEach((key, value) {
+              if (!categories.contains(key)) {
+                displayItems.add(key.toUpperCase());
+                displayItems.addAll(value);
+              }
+            });
+          }
+
           return Column(
             children: [
               Padding(
@@ -273,26 +390,52 @@ class YouScreen extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: list.isEmpty 
+                child: displayItems.isEmpty 
                   ? _buildEmptyState(retroColors)
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: list.length,
+                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 200),
+                      itemCount: displayItems.length,
                       itemBuilder: (context, index) {
-                        final pr = list[index];
+                        final item = displayItems[index];
+                        if (item is String) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 16, bottom: 8),
+                            child: Text(
+                              item,
+                              style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary),
+                            ),
+                          );
+                        }
+
+                        final pr = item as PersonalRecord;
                         final formattedTitle = pr.category.toUpperCase();
                         final formattedValue = formatValue(pr.category, pr.value);
+                        final paceStr = formatPace(pr.category, pr.value);
+                        final dateStr = DateFormat('MMM d, yyyy').format(pr.achievedAt);
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: retroColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: retroColors.accent.withOpacity(0.5)),
-                          ),
-                          child: Row(
-                            children: [
+                        return GestureDetector(
+                          onTap: () {
+                            ref.read(hapticsServiceProvider).lightImpact();
+                            if (pr.runId != null) {
+                              final runs = ref.read(historyProvider).valueOrNull ?? [];
+                              try {
+                                final run = runs.firstWhere((r) => r.clientRunId == pr.runId);
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => RunDetailScreen(run: run)));
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Run not found or not synced locally.')));
+                              }
+                            }
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: retroColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: retroColors.accent.withValues(alpha: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
                               Icon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
                               const SizedBox(width: 16),
                               Expanded(
@@ -301,9 +444,25 @@ class YouScreen extends ConsumerWidget {
                                   children: [
                                     Text(formattedTitle, style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                                     const SizedBox(height: 4),
-                                    Text(formattedValue, style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
-                                    if (pr.rank > 0 && mode == 'best_effort')
-                                      Text('Rank ${pr.rank}', style: AppTextStyles.label(color: retroColors.textSecondary)),
+                                    Row(
+                                      children: [
+                                        Text(formattedValue, style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
+                                        if (paceStr.isNotEmpty) ...[
+                                          const SizedBox(width: 8),
+                                          Text(paceStr, style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        if (pr.rank > 0 && mode == 'best_effort') ...[
+                                          Text('Rank ${pr.rank}', style: AppTextStyles.label(color: retroColors.textSecondary)),
+                                          Text(' • ', style: AppTextStyles.label(color: retroColors.textSecondary)),
+                                        ],
+                                        Text(dateStr, style: AppTextStyles.label(color: retroColors.textSecondary)),
+                                      ],
+                                    ),
                                     if (pr.proofUrl != null)
                                       Text(pr.proofUrl!, style: AppTextStyles.label(color: retroColors.accent)),
                                   ],
@@ -324,9 +483,10 @@ class YouScreen extends ConsumerWidget {
                                 )
                             ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
+                  ),
               ),
               if (mode == 'manual')
                 Padding(
@@ -444,7 +604,7 @@ class YouScreen extends ConsumerWidget {
         ref.refresh(prsProvider);
       },
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 16, bottom: 120),
+        padding: const EdgeInsets.only(top: 16, bottom: 200),
         itemCount: listItems.length,
         itemBuilder: (context, index) {
           final item = listItems[index];

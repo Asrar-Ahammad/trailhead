@@ -343,7 +343,14 @@ class HomeScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                RunFormatUtils.getRunTitle(summary.mostRecentRun!.title, summary.mostRecentRun!.startTime, activityType: summary.mostRecentRun!.activityType ?? 'run'),
+                                RunFormatUtils.getRunTitle(
+                                  summary.mostRecentRun!.title, 
+                                  summary.mostRecentRun!.startTime, 
+                                  activityType: summary.mostRecentRun!.activityType ?? 'run',
+                                  distanceM: summary.mostRecentRun!.distanceM,
+                                  subjectiveEffort: summary.mostRecentRun!.subjectiveEffort,
+                                  conditions: summary.mostRecentRun!.conditions,
+                                ),
                                 style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary),
                               ),
                               const SizedBox(height: 4),
