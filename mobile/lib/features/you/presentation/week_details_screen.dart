@@ -107,7 +107,7 @@ class WeekDetailsScreen extends StatelessWidget {
           children: [
             Expanded(child: _buildStatCard(retroColors, PhosphorIcons.fire(), 'Calories', '${report.totalCalories.round()} kcal')),
             const SizedBox(width: 16),
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.shoePrints(), 'Steps', '${report.totalSteps}')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Steps', '${report.totalSteps}')),
           ],
         ),
         const SizedBox(height: 16),
@@ -121,7 +121,7 @@ class WeekDetailsScreen extends StatelessWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.activity(), 'Avg Cadence', '${report.avgCadenceSpm.round()} spm')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.chartLine(), 'Avg Cadence', '${report.avgCadenceSpm.round()} spm')),
             const SizedBox(width: 16),
             Expanded(child: _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Avg Stride', '${report.avgStrideLengthM.toStringAsFixed(2)} m')),
           ],
@@ -254,7 +254,7 @@ class WeekDetailsScreen extends StatelessWidget {
     return _buildChartContainer(
       retroColors,
       title: 'Cadence (spm)',
-      icon: PhosphorIcons.activity(),
+      icon: PhosphorIcons.chartLine(),
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,

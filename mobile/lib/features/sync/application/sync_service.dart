@@ -78,6 +78,10 @@ class SyncService {
         'distanceM': run.distanceM ?? 0,
         'durationS': run.durationS ?? 0,
         'avgPaceSPerKm': run.avgPaceSPerKm ?? 0,
+        'avgCadenceSpm': run.avgCadenceSpm,
+        'avgStrideLengthM': run.avgStrideLengthM,
+        'caloriesKcal': run.caloriesKcal,
+        'stepCount': run.stepCount,
         'title': run.title,
         'activityType': run.activityType,
       });
@@ -159,6 +163,10 @@ class SyncService {
                   ..distanceM = (detailData['distanceM'] as num?)?.toDouble()
                   ..durationS = detailData['durationS'] as int?
                   ..avgPaceSPerKm = (detailData['avgPaceSPerKm'] as num?)?.toDouble()
+                  ..avgCadenceSpm = (detailData['avgCadenceSpm'] as num?)?.toDouble()
+                  ..avgStrideLengthM = (detailData['avgStrideLengthM'] as num?)?.toDouble()
+                  ..caloriesKcal = (detailData['caloriesKcal'] as num?)?.toDouble()
+                  ..stepCount = detailData['stepCount'] as int?
                   ..elevationGainM = (detailData['elevationGainM'] as num?)?.toDouble()
                   ..activityType = detailData['activityType']
                   ..status = 'completed'

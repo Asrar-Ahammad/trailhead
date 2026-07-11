@@ -88,16 +88,18 @@ export async function POST(req: NextRequest) {
           runCount++;
         }
 
-        // Calculate calories (rough estimate: distance in km * 65)
-        const calories = (run.distanceM / 1000) * 65;
+        // Use synced calories, or estimate if not present
+        const calories = run.caloriesKcal ?? ((run.distanceM / 1000) * 65);
         totalCalories += calories;
 
-        // Since backend Prisma Run model doesn't store cadence/stride, default to 0
-        const cadence = 0;
-        const stride = 0;
+        // Use synced cadence/stride, default to 0
+        const cadence = run.avgCadenceSpm ?? 0;
+        const stride = run.avgStrideLengthM ?? 0;
 
-        // Steps = cadence * duration in mins
-        if (cadence > 0 && run.durationS > 0) {
+        // Use synced steps, or calculate from cadence
+        if (run.stepCount) {
+          totalSteps += run.stepCount;
+        } else if (cadence > 0 && run.durationS > 0) {
           totalSteps += Math.round(cadence * (run.durationS / 60));
         }
 

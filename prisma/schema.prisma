@@ -32,6 +32,10 @@ model Run {
   distanceM     Float      // meters
   durationS     Int        // seconds, excludes paused time
   avgPaceSPerKm Float
+  avgCadenceSpm Float?
+  avgStrideLengthM Float?
+  caloriesKcal  Float?
+  stepCount     Int?
   elevationGainM Float?
   title         String?
   aiSummary     String?
