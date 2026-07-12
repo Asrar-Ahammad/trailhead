@@ -4,17 +4,12 @@ import { getUserIdFromRequest } from '@/lib/auth';
 import { revalidateTag } from 'next/cache';
 
 /**
- * ONE-TIME MIGRATION: Fix timestamps that were stored with a timezone offset bug.
+ * ONE-TIME MIGRATION: Fix timestamps using bulk SQL updates.
  * 
- * The bug: The mobile app sent local DateTime.toIso8601String() without a UTC
- * indicator (no 'Z' suffix). The server's new Date() treated the local time as
- * UTC, storing it shifted by the user's UTC offset.
+ * Uses raw SQL to update all rows at once instead of one-by-one,
+ * which is fast enough for serverless function time limits.
  * 
- * For IST (UTC+5:30): stored times are 5h30m AHEAD of the correct UTC value.
- * Fix: subtract 5 hours 30 minutes from all Run and RunPoint timestamps.
- * 
- * This endpoint is idempotent-ish — calling it twice would double-shift,
- * so DELETE THIS ROUTE after running it once.
+ * DELETE THIS ROUTE after running it once.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -23,123 +18,62 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // IST offset: 5 hours 30 minutes = 330 minutes = 19800000 ms
-    const OFFSET_MS = 5 * 60 * 60 * 1000 + 30 * 60 * 1000; // 19800000
+    // IST offset: 5 hours 30 minutes = '5 hours 30 minutes' in PostgreSQL interval
+    const offsetInterval = '5 hours 30 minutes';
 
-    // 1. Fix all Run timestamps for this user
-    const runs = await dbServer.run.findMany({
-      where: { userId },
-      select: { id: true, startTime: true, endTime: true },
-    });
+    // 1. Fix Run timestamps (bulk)
+    const runsResult = await dbServer.$executeRawUnsafe(
+      `UPDATE "Run" SET "startTime" = "startTime" - INTERVAL '${offsetInterval}', "endTime" = "endTime" - INTERVAL '${offsetInterval}' WHERE "userId" = $1`,
+      userId
+    );
 
-    let runsFixed = 0;
-    for (const run of runs) {
-      const correctedStartTime = new Date(run.startTime.getTime() - OFFSET_MS);
-      const correctedEndTime = new Date(run.endTime.getTime() - OFFSET_MS);
+    // 2. Fix RunPoint timestamps (bulk via JOIN)
+    const pointsResult = await dbServer.$executeRawUnsafe(
+      `UPDATE "RunPoint" SET "timestamp" = "timestamp" - INTERVAL '${offsetInterval}' WHERE "runId" IN (SELECT "id" FROM "Run" WHERE "userId" = $1)`,
+      userId
+    );
 
-      await dbServer.run.update({
-        where: { id: run.id },
-        data: {
-          startTime: correctedStartTime,
-          endTime: correctedEndTime,
-        },
-      });
-      runsFixed++;
-    }
+    // 3. Fix PersonalRecord achievedAt (bulk)
+    const recordsResult = await dbServer.$executeRawUnsafe(
+      `UPDATE "PersonalRecord" SET "achievedAt" = "achievedAt" - INTERVAL '${offsetInterval}' WHERE "userId" = $1`,
+      userId
+    );
 
-    // 2. Fix all RunPoint timestamps for this user's runs
-    const runIds = runs.map(r => r.id);
-    
-    let pointsFixed = 0;
-    // Process in batches to avoid memory issues
-    for (const runId of runIds) {
-      const points = await dbServer.runPoint.findMany({
-        where: { runId },
-        select: { id: true, timestamp: true },
-      });
+    // 4. Fix WeeklyReport dates (bulk)
+    const reportsResult = await dbServer.$executeRawUnsafe(
+      `UPDATE "WeeklyReport" SET "startDate" = "startDate" - INTERVAL '${offsetInterval}', "endDate" = "endDate" - INTERVAL '${offsetInterval}' WHERE "userId" = $1`,
+      userId
+    );
 
-      for (const point of points) {
-        const correctedTimestamp = new Date(point.timestamp.getTime() - OFFSET_MS);
-        await dbServer.runPoint.update({
-          where: { id: point.id },
-          data: { timestamp: correctedTimestamp },
-        });
-        pointsFixed++;
-      }
-    }
+    // 5. Fix Streak lastRunDate (bulk)
+    const streakResult = await dbServer.$executeRawUnsafe(
+      `UPDATE "Streak" SET "lastRunDate" = "lastRunDate" - INTERVAL '${offsetInterval}', "lastRestDaysUpdate" = CASE WHEN "lastRestDaysUpdate" IS NOT NULL THEN "lastRestDaysUpdate" - INTERVAL '${offsetInterval}' ELSE NULL END WHERE "userId" = $1`,
+      userId
+    );
 
-    // 3. Fix PersonalRecord achievedAt timestamps
-    const records = await dbServer.personalRecord.findMany({
-      where: { userId },
-      select: { id: true, achievedAt: true },
-    });
-
-    let recordsFixed = 0;
-    for (const record of records) {
-      const correctedAchievedAt = new Date(record.achievedAt.getTime() - OFFSET_MS);
-      await dbServer.personalRecord.update({
-        where: { id: record.id },
-        data: { achievedAt: correctedAchievedAt },
-      });
-      recordsFixed++;
-    }
-
-    // 4. Fix WeeklyReport date ranges
-    const weeklyReports = await dbServer.weeklyReport.findMany({
-      where: { userId },
-      select: { id: true, startDate: true, endDate: true },
-    });
-
-    let reportsFixed = 0;
-    for (const report of weeklyReports) {
-      const correctedStartDate = new Date(report.startDate.getTime() - OFFSET_MS);
-      const correctedEndDate = new Date(report.endDate.getTime() - OFFSET_MS);
-      await dbServer.weeklyReport.update({
-        where: { id: report.id },
-        data: {
-          startDate: correctedStartDate,
-          endDate: correctedEndDate,
-        },
-      });
-      reportsFixed++;
-    }
-
-    // 5. Fix Streak lastRunDate
-    const streak = await dbServer.streak.findUnique({
-      where: { userId },
-    });
-
-    let streakFixed = false;
-    if (streak) {
-      const updates: Record<string, Date> = {};
-      updates.lastRunDate = new Date(streak.lastRunDate.getTime() - OFFSET_MS);
-      if (streak.lastRestDaysUpdate) {
-        updates.lastRestDaysUpdate = new Date(streak.lastRestDaysUpdate.getTime() - OFFSET_MS);
-      }
-      await dbServer.streak.update({
-        where: { userId },
-        data: updates,
-      });
-      streakFixed = true;
-    }
-
-    // 6. Invalidate caches
+    // 6. Invalidate all caches for this user
     revalidateTag(`runs-${userId}`, 'max');
-    for (const runId of runIds) {
-      revalidateTag(`run-detail-${runId}`, 'max');
-    }
     revalidateTag(`records-${userId}`, 'max');
     revalidateTag(`streak-${userId}`, 'max');
 
+    // Also invalidate individual run detail caches
+    const runs = await dbServer.run.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    for (const run of runs) {
+      revalidateTag(`run-detail-${run.id}`, 'max');
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Timestamps corrected successfully',
+      message: 'All timestamps corrected successfully',
       stats: {
-        runsFixed,
-        pointsFixed,
-        recordsFixed,
-        reportsFixed,
-        streakFixed,
+        runsUpdated: runsResult,
+        pointsUpdated: pointsResult,
+        recordsUpdated: recordsResult,
+        reportsUpdated: reportsResult,
+        streakUpdated: streakResult,
         offsetApplied: '-5h30m (IST correction)',
       },
     });
