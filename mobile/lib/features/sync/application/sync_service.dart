@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import '../../run_tracking/data/models/run_isar.dart';
 import '../../run_tracking/data/models/run_point_isar.dart';
+import '../../shoes/data/models/shoe_isar.dart';
 import '../data/models/sync_job_isar.dart';
 import '../data/api_client.dart';
 import 'package:workmanager/workmanager.dart';
@@ -84,6 +85,7 @@ class SyncService {
         'stepCount': run.stepCount,
         'title': run.title,
         'activityType': run.activityType,
+        'shoeId': run.clientShoeId,
       });
 
       if (metadataResponse.statusCode != 200 && metadataResponse.statusCode != 409) {
@@ -217,6 +219,35 @@ class SyncService {
       } while (page <= totalPages);
     } catch (e) {
       print('initialSync error: $e');
+    }
+  }
+
+  Future<void> syncShoe(ShoeIsar shoe) async {
+    try {
+      final shoeModelResponse = await apiClient.client.post('/shoes', data: {
+        'id': shoe.clientShoeId,
+        'name': shoe.name,
+        'brand': shoe.brand,
+        'distanceM': shoe.distanceM,
+        'isActive': shoe.isActive,
+        'createdAt': shoe.createdAt?.toIso8601String(),
+      });
+      if (shoeModelResponse.statusCode != 200 && shoeModelResponse.statusCode != 201) {
+        throw Exception('Failed to sync shoe');
+      }
+    } catch (e) {
+      throw Exception('Failed to sync shoe: $e');
+    }
+  }
+
+  Future<void> deleteShoe(String clientShoeId) async {
+    try {
+      final response = await apiClient.client.delete('/shoes/$clientShoeId');
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete shoe from backend');
+      }
+    } catch (e) {
+      throw Exception('Failed to delete shoe: $e');
     }
   }
 }

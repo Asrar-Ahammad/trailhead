@@ -7,6 +7,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../haptics/application/haptics_service.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_text_styles.dart';
 import '../../audio/application/sound_service.dart';
 import '../../../main.dart';
 import '../../auth/application/auth_service.dart';
@@ -14,6 +15,8 @@ import '../../auth/presentation/auth_wrapper.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import '../../../shared/theme/app_themes.dart';
 import '../../sync/data/api_client.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import '../../shoes/presentation/shoe_management_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -95,7 +98,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SnackBar(
               content: Text(
                 'Rest days can only be updated once per month.',
-                style: GoogleFonts.spaceGrotesk(color: colors.background),
+                style: AppTextStyles.bodyMedium(color: colors.background),
               ),
               backgroundColor: colors.textPrimary,
             ),
@@ -111,11 +114,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Monthly Rest Days', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text('Monthly Rest Days', style: AppTextStyles.title(color: colors.textPrimary)),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          style: GoogleFonts.spaceGrotesk(color: colors.textPrimary),
+          style: AppTextStyles.bodyMedium(color: colors.textPrimary),
           decoration: InputDecoration(
             hintText: 'e.g. 4',
             hintStyle: TextStyle(color: colors.textSecondary),
@@ -222,11 +225,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Body Weight (kg)', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text('Body Weight (kg)', style: AppTextStyles.title(color: colors.textPrimary)),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: GoogleFonts.spaceGrotesk(color: colors.textPrimary),
+          style: AppTextStyles.bodyMedium(color: colors.textPrimary),
           decoration: InputDecoration(
             hintText: 'e.g. 70.5',
             hintStyle: TextStyle(color: colors.textSecondary),
@@ -274,10 +277,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Name', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text('Name', style: AppTextStyles.title(color: colors.textPrimary)),
         content: TextField(
           controller: controller,
-          style: GoogleFonts.spaceGrotesk(color: colors.textPrimary),
+          style: AppTextStyles.bodyMedium(color: colors.textPrimary),
           decoration: InputDecoration(
             hintText: 'Enter your name',
             hintStyle: TextStyle(color: colors.textSecondary),
@@ -360,12 +363,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => SimpleDialog(
         backgroundColor: colors.surface,
-        title: Text('Gender', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
+        title: Text('Gender', style: AppTextStyles.title(color: colors.textPrimary)),
         children: ['Male', 'Female', 'Prefer not to say'].map((g) => SimpleDialogOption(
           onPressed: () => Navigator.of(context).pop(g),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Text(g, style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16)),
+            child: Text(g, style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
           ),
         )).toList(),
       ),
@@ -405,8 +408,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colors.surface,
-        title: Text('Sign Out', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to sign out?', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary)),
+        title: Text('Sign Out', style: AppTextStyles.title(color: colors.textPrimary)),
+        content: Text('Are you sure you want to sign out?', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -434,15 +437,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget _buildSectionHeader(String title, AppColors colors) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, top: 24, bottom: 8),
-      child: Text(
-        title,
-        style: GoogleFonts.spaceGrotesk(
-          color: colors.textSecondary,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.5,
-        ),
-      ),
+      child: Text(title, style: AppTextStyles.labelCaps(color: colors.accent)),
     );
   }
 
@@ -451,15 +446,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     for (int i = 0; i < children.length; i++) {
       items.add(children[i]);
       if (i < children.length - 1) {
-        items.add(Divider(color: colors.border.withOpacity(0.5), height: 1, indent: 16, endIndent: 16));
+        items.add(Divider(color: colors.border.withValues(alpha: 0.5), height: 1, indent: 16, endIndent: 16));
       }
     }
 
     return Container(
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.border.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: items,
@@ -480,10 +481,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         iconTheme: IconThemeData(color: colors.textPrimary),
         title: Text(
           'Settings',
-          style: GoogleFonts.spaceGrotesk(
-            color: colors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTextStyles.title(color: colors.textPrimary),
         ),
       ),
       body: ListView(
@@ -492,31 +490,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildSectionHeader('PROFILE', colors),
           _buildSectionGroup([
             ListTile(
-              title: Text('Email', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text(_userEmail?.isNotEmpty == true ? _userEmail! : 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Email', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text(_userEmail?.isNotEmpty == true ? _userEmail! : 'Not set', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               trailing: Icon(PhosphorIcons.envelopeSimple(), color: colors.textSecondary, size: 20),
             ),
             ListTile(
-              title: Text('Name', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text(_userName?.isNotEmpty == true ? _userName! : 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Name', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text(_userName?.isNotEmpty == true ? _userName! : 'Not set', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: _updateName,
             ),
             ListTile(
-              title: Text('Date of Birth', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text(_userDob != null ? '${_userDob!.split('T').first} (${_calculateAge()} years)' : 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Date of Birth', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text(_userDob != null ? '${_userDob!.split('T').first} (${_calculateAge()} years)' : 'Not set', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: _updateDob,
             ),
             ListTile(
-              title: Text('Gender', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text(_userGender ?? 'Not set', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Gender', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text(_userGender ?? 'Not set', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: _updateGender,
             ),
             ListTile(
-              title: Text('Body Weight', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text(_userWeightKg != null ? '${_userWeightKg!.toStringAsFixed(1)} kg' : 'Not set (Required for Calories)', style: GoogleFonts.spaceGrotesk(color: _userWeightKg != null ? colors.textSecondary : colors.error, fontSize: 14)),
+              title: Text('Body Weight', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text(_userWeightKg != null ? '${_userWeightKg!.toStringAsFixed(1)} kg' : 'Not set (Required for Calories)', style: AppTextStyles.bodyMedium(color: _userWeightKg != null ? colors.textSecondary : colors.error)),
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: _updateWeight,
             ),
@@ -525,8 +523,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildSectionHeader('WORKOUT', colors),
           _buildSectionGroup([
             SwitchListTile(
-              title: Text('Audio Cues', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text('Announce distance and pace.', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Audio Cues', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text('Announce distance and pace.', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               value: _audioCuesEnabled,
               onChanged: _toggleAudioCues,
               activeColor: colors.accent,
@@ -537,15 +535,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Cue Frequency', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w500)),
+                    Text('Cue Frequency', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
                     DropdownButton<double>(
                       value: _audioCueFrequency,
                       dropdownColor: colors.surface,
-                      style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
+                      style: AppTextStyles.bodyLarge(color: colors.textPrimary),
                       underline: const SizedBox.shrink(),
-                      items: const [
-                        DropdownMenuItem(value: 1.0, child: Text('Every 1 km')),
-                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 km')),
+                      items: [
+                        DropdownMenuItem(value: 1.0, child: Text('Every 1 ${ref.watch(distanceUnitProvider) ? 'mi' : 'km'}')),
+                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 ${ref.watch(distanceUnitProvider) ? 'mi' : 'km'}')),
                       ],
                       onChanged: (value) {
                         if (value != null) _updateAudioCueFrequency(value);
@@ -555,8 +553,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ListTile(
-              title: Text('Monthly Rest Days', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text('$_restDaysLimit days/month', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Monthly Rest Days', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text('$_restDaysLimit days/month', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: _updateRestDays,
             ),
@@ -564,29 +562,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           _buildSectionHeader('APP PREFERENCES', colors),
           _buildSectionGroup([
+            ListTile(
+              title: Text('My Gear / Shoes', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
+              onTap: () {
+                ref.read(hapticsServiceProvider).lightImpact();
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ShoeManagementScreen()),
+                );
+              },
+            ),
             SwitchListTile(
-              title: Text('Retro UI Sounds', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text('Play 8-bit sound effects.', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Retro UI Sounds', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text('Play 8-bit sound effects.', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               value: _uiSoundsEnabled,
               onChanged: _toggleUiSounds,
               activeColor: colors.accent,
             ),
             SwitchListTile(
-              title: Text('Haptic Feedback', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
-              subtitle: Text('Vibrate on UI interactions.', style: GoogleFonts.spaceGrotesk(color: colors.textSecondary, fontSize: 14)),
+              title: Text('Haptic Feedback', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+              subtitle: Text('Vibrate on UI interactions.', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
               value: _hapticsEnabled,
               onChanged: _toggleHaptics,
               activeColor: colors.accent,
             ),
             ListTile(
-              title: Text('App Theme', style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16, fontWeight: FontWeight.w600)),
+              title: Text('App Theme', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
               trailing: ThemeSwitcher(
                 builder: (context) => DropdownButton<ThemeMode>(
                   value: themeMode,
                   dropdownColor: colors.surface,
-                  style: GoogleFonts.spaceGrotesk(color: colors.textPrimary, fontSize: 16),
+                  style: AppTextStyles.bodyLarge(color: colors.textPrimary),
                   underline: const SizedBox.shrink(),
-                  items: const [
+                  items: [
                     DropdownMenuItem(value: ThemeMode.system, child: Text('System')),
                     DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
                     DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
@@ -616,20 +624,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: _logout,
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: colors.surface,
+              backgroundColor: colors.error,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: colors.error.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(100),
               ),
             ),
             child: Text(
               'Sign Out',
-              style: GoogleFonts.spaceGrotesk(
-                color: colors.error,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-              ),
+              style: AppTextStyles.bodyLargeBold(color: colors.background),
             ),
           ),
           const SizedBox(height: 32),

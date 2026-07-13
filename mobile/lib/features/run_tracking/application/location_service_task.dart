@@ -6,6 +6,8 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pedometer/pedometer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import 'package:trailhead_mobile/features/shoes/data/models/shoe_isar.dart';
 import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
 import '../../sync/data/models/sync_job_isar.dart';
@@ -49,7 +51,7 @@ class LocationTaskHandler extends TaskHandler {
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     final dir = await getApplicationDocumentsDirectory();
     _isar = Isar.getInstance() ?? await Isar.open(
-      [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema],
+      [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema],
       directory: dir.path,
     );
 

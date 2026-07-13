@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -22,7 +23,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text('WEEKLY REPORTS', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary)),
+        title: Text('WEEKLY REPORTS', style: AppTextStyles.headline(color: retroColors.textPrimary)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -86,7 +87,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
               },
             );
           },
-          loading: () => const Center(child: RetroLoadingIndicator(text: 'FETCHING REPORTS')),
+          loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
           error: (err, _) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
         ),
       ),
@@ -119,13 +120,19 @@ class WeeklyReportsListScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: retroColors.accent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: retroColors.accent),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(monthName.toUpperCase(), style: AppTextStyles.headline(color: retroColors.background)),
+              Text(monthName.toUpperCase(), style: AppTextStyles.headline(color: retroColors.surface)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -159,24 +166,31 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     final startStr = '${report.startDate.day}/${report.startDate.month}';
     final endStr = '${report.endDate.day}/${report.endDate.month}';
 
-    return Card(
-      color: retroColors.surface,
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: retroColors.border),
+      decoration: BoxDecoration(
+        color: retroColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          ref.read(soundServiceProvider).playWeekCardTap();
-          ref.read(hapticsServiceProvider).lightImpact();
-          Navigator.push(context, MaterialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            ref.read(soundServiceProvider).playWeekCardTap();
+            ref.read(hapticsServiceProvider).lightImpact();
+            Navigator.push(context, MaterialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
@@ -193,7 +207,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        RunFormatUtils.formatDistanceKm(report.totalDistanceM) + ' km',
+                        RunFormatUtils.formatDistance(report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
                         style: AppTextStyles.bodyLargeBold(color: retroColors.accent),
                       ),
                       const SizedBox(height: 4),
@@ -210,6 +224,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../data/models/run_isar.dart';
@@ -142,6 +143,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
 
   @override
   Widget build(BuildContext context) {
+    final useMiles = ref.watch(distanceUnitProvider);
     final colors = Theme.of(context).extension<AppColors>()!;
     final aiSummaryAsync = ref.watch(aiSummaryProvider(widget.run));
     final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.clientRunId));
@@ -192,7 +194,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                   // 2. Fading/Counting Stats
                   FadeTransition(
                     opacity: _statsFade,
-                    child: _buildStatsGrid(colors),
+                    child: _buildStatsGrid(colors, useMiles),
                   ),
                   
                   const SizedBox(height: AppSpacing.xl),
@@ -212,9 +214,8 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                                 margin: const EdgeInsets.only(bottom: AppSpacing.xl),
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: colors.accent.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: colors.accent),
+                                  color: colors.accent.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(24),
                                 ),
                                 child: Row(
                                   children: [
@@ -249,8 +250,14 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                       padding: const EdgeInsets.all(AppSpacing.lg),
                       decoration: BoxDecoration(
                         color: colors.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colors.border),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,7 +306,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                 color: colors.surface,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, -5)),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5)),
                 ],
               ),
               child: SafeArea(
@@ -312,7 +319,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                       backgroundColor: colors.accent,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                     ),
                     child: Text('SAVE RUN', style: AppTextStyles.bodyLargeBold(color: Colors.white)),
                   ),
@@ -325,7 +332,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
     );
   }
 
-  Widget _buildStatsGrid(AppColors colors) {
+  Widget _buildStatsGrid(AppColors colors, bool useMiles) {
     final distance = widget.run.distanceM ?? 0.0;
     final duration = (widget.run.durationS ?? 0).toDouble();
     final pace = widget.run.avgPaceSPerKm ?? 0.0;
@@ -344,7 +351,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
             targetValue: distance,
             duration: const Duration(milliseconds: 1500),
             builder: (ctx, val, _) => Text(
-              RunFormatUtils.formatDistanceKm(val),
+              RunFormatUtils.formatDistance(val, useMiles),
               style: AppTextStyles.displayHero(color: colors.textPrimary),
             ),
           )
@@ -360,7 +367,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
           children: [
             _buildStatItem('TIME', duration, 1600, (val) => RunFormatUtils.formatDuration(val.toInt()), colors),
             Container(height: 40, width: 1, color: colors.border),
-            _buildStatItem('PACE /KM', pace, 1700, (val) => RunFormatUtils.formatPace(1000, val.toInt()), colors),
+            _buildStatItem('PACE /${RunFormatUtils.getUnitStringUpper(useMiles)}', pace, 1700, (val) => RunFormatUtils.formatPace(1000, val.toInt(), useMiles), colors),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),

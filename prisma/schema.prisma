@@ -21,12 +21,27 @@ model User {
   personalRecords PersonalRecord[]
   streak          Streak?
   weeklyReports   WeeklyReport[]
+  shoes           Shoe[]
+}
+
+model Shoe {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  brand     String?
+  distanceM Float    @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  runs      Run[]
 }
 
 model Run {
   id            String     @id @default(cuid())
   userId        String
   user          User       @relation(fields: [userId], references: [id])
+  shoeId        String?
+  shoe          Shoe?      @relation(fields: [shoeId], references: [id])
   startTime     DateTime
   endTime       DateTime
   distanceM     Float      // meters

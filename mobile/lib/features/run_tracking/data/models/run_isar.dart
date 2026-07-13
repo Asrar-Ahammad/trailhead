@@ -9,6 +9,8 @@ class RunIsar {
   @Index(unique: true)
   String? clientRunId; // UUID generated on client side
 
+  String? clientShoeId; // UUID of the shoe used for this run
+
   String? title;
   
   @Index()

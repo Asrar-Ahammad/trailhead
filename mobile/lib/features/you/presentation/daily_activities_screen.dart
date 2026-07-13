@@ -26,7 +26,7 @@ class DailyActivitiesScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text(dateStr, style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 20)),
+        title: Text(dateStr, style: AppTextStyles.title(color: retroColors.textPrimary)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(

@@ -1,14 +1,17 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/run_metric_chart.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/tracking_calcs.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'dart:math';
 
-class RunChartsSection extends StatelessWidget {
+class RunChartsSection extends ConsumerWidget {
   final RunIsar run;
   final List<RunPointIsar> points;
 
@@ -19,7 +22,8 @@ class RunChartsSection extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final useMiles = ref.watch(distanceUnitProvider);
     if (points.isEmpty) return const SizedBox.shrink();
 
     final colors = Theme.of(context).extension<AppColors>()!;
@@ -107,15 +111,15 @@ class RunChartsSection extends StatelessWidget {
             average: avgPace > 0 ? avgPace : null,
           ),
           const SizedBox(height: 24),
-          _buildStatListRow(colors, 'Avg Pace', avgPace > 0 ? _formatPace(avgPace) : '--'),
+          _buildStatListRow(colors, 'Avg Pace', avgPace > 0 ? _formatPace(avgPace, useMiles) : '--'),
           const SizedBox(height: 24),
           _buildStatListRow(colors, 'Moving Time', run.durationS != null ? RunFormatUtils.formatDuration(run.durationS!) : '--'),
           const SizedBox(height: 24),
-          _buildStatListRow(colors, 'Avg Elapsed Pace', elapsedPaceSPerKm > 0 ? _formatPace(elapsedPaceSPerKm) : '--'),
+          _buildStatListRow(colors, 'Avg Elapsed Pace', elapsedPaceSPerKm > 0 ? _formatPace(elapsedPaceSPerKm, useMiles) : '--'),
           const SizedBox(height: 24),
           _buildStatListRow(colors, 'Elapsed Time', elapsedTimeS > 0 ? RunFormatUtils.formatDuration(elapsedTimeS) : '--'),
           const SizedBox(height: 24),
-          _buildStatListRow(colors, 'Fastest Split', fastestPaceSPerKm > 0 ? _formatPace(fastestPaceSPerKm) : '--'),
+          _buildStatListRow(colors, 'Fastest Split', fastestPaceSPerKm > 0 ? _formatPace(fastestPaceSPerKm, useMiles) : '--'),
           const SizedBox(height: 32),
         ],
         
@@ -175,10 +179,11 @@ class RunChartsSection extends StatelessWidget {
     );
   }
 
-  String _formatPace(double seconds) {
+  String _formatPace(double seconds, bool useMiles) {
+    if (useMiles) seconds *= 1.60934;
     final m = seconds ~/ 60;
     final s = (seconds % 60).round();
-    return '$m:${s.toString().padLeft(2, '0')} /km';
+    return '$m:${s.toString().padLeft(2, '0')} /${RunFormatUtils.getUnitString(useMiles)}';
   }
 
   /// Computes elevation gain from raw GPS points using a 3-point smoothing

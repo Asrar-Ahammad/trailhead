@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
+import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/active_run_screen.dart';
@@ -155,18 +157,31 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(72, 0, 72, 24),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: retroColors.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: retroColors.border, width: 1.5),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: _AnimatedNavBar(
-                          currentIndex: currentIndex,
-                          colors: retroColors,
-                          onTap: onTabTapped,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: retroColors.surface.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(32),
+                            border: Border.all(
+                              color: retroColors.border.withOpacity(0.4), 
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: _AnimatedNavBar(
+                            currentIndex: currentIndex,
+                            colors: retroColors,
+                            onTap: onTabTapped,
+                          ),
                         ),
                       ),
                     ),
@@ -198,55 +213,38 @@ class _AnimatedNavBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final itemWidth = constraints.maxWidth / 3;
-          final dotLeft = (currentIndex * itemWidth) + (itemWidth / 2) - 2;
-
-          return Stack(
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _NavBarItem(
-                    index: 0,
-                    currentIndex: currentIndex,
-                    iconRegular: PhosphorIconsRegular.house,
-                    iconFill: PhosphorIconsFill.house,
-                    colors: colors,
-                    width: itemWidth,
-                    onTap: () => onTap(0),
-                  ),
-                  _NavBarItem(
-                    index: 1,
-                    currentIndex: currentIndex,
-                    iconRegular: PhosphorIconsRegular.personSimpleRun,
-                    iconFill: PhosphorIconsFill.personSimpleRun,
-                    colors: colors,
-                    width: itemWidth,
-                    onTap: () => onTap(1),
-                  ),
-                  _NavBarItem(
-                    index: 2,
-                    currentIndex: currentIndex,
-                    iconRegular: PhosphorIconsRegular.user,
-                    iconFill: PhosphorIconsFill.user,
-                    colors: colors,
-                    width: itemWidth,
-                    onTap: () => onTap(2),
-                  ),
-                ],
+              _NavBarItem(
+                index: 0,
+                currentIndex: currentIndex,
+                label: 'HOME',
+                iconRegular: PhosphorIconsRegular.house,
+                iconFill: PhosphorIconsFill.house,
+                colors: colors,
+                width: itemWidth,
+                onTap: () => onTap(0),
               ),
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                bottom: 12,
-                left: dotLeft,
-                child: Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.accent,
-                    shape: BoxShape.rectangle,
-                  ),
-                ),
+              _NavBarItem(
+                index: 1,
+                currentIndex: currentIndex,
+                label: 'RECORD',
+                iconRegular: PhosphorIconsRegular.personSimpleRun,
+                iconFill: PhosphorIconsFill.personSimpleRun,
+                colors: colors,
+                width: itemWidth,
+                onTap: () => onTap(1),
+              ),
+              _NavBarItem(
+                index: 2,
+                currentIndex: currentIndex,
+                label: 'YOU',
+                iconRegular: PhosphorIconsRegular.user,
+                iconFill: PhosphorIconsFill.user,
+                colors: colors,
+                width: itemWidth,
+                onTap: () => onTap(2),
               ),
             ],
           );
@@ -260,6 +258,7 @@ class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
     required this.index,
     required this.currentIndex,
+    required this.label,
     required this.iconRegular,
     required this.iconFill,
     required this.colors,
@@ -269,6 +268,7 @@ class _NavBarItem extends StatelessWidget {
 
   final int index;
   final int currentIndex;
+  final String label;
   final IconData iconRegular;
   final IconData iconFill;
   final AppColors colors;
@@ -285,24 +285,37 @@ class _NavBarItem extends StatelessWidget {
       child: SizedBox(
         width: width,
         height: 64,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return ScaleTransition(
-              scale: animation,
-              child: child,
-            );
-          },
-          child: Padding(
-            key: ValueKey<bool>(isSelected),
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: PhosphorIcon(
-              isSelected ? iconFill : iconRegular,
-              color: isSelected ? colors.accent : colors.textSecondary,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOutBack,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return ScaleTransition(scale: animation, child: child);
+              },
+              child: PhosphorIcon(
+                isSelected ? iconFill : iconRegular,
+                key: ValueKey<bool>(isSelected),
+                color: isSelected ? colors.accent : colors.textSecondary,
+                size: 24,
+              ),
             ),
-          ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: isSelected 
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      label, 
+                      style: AppTextStyles.labelCaps(color: colors.accent).copyWith(fontSize: 10),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity, height: 0),
+            ),
+          ],
         ),
       ),
     );

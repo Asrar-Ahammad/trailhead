@@ -33,7 +33,7 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text('Week ${report.weekNumber} Activities', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 20)),
+        title: Text('Week ${report.weekNumber} Activities', style: AppTextStyles.title(color: retroColors.textPrimary)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -75,7 +75,7 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 12),
-                    child: Text(dateStr, style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+                    child: Text(dateStr, style: AppTextStyles.labelCaps(color: retroColors.accent)),
                   ),
                   ...dayRuns.map((r) => ActivityCard(run: r)),
                   const SizedBox(height: 16),
@@ -84,7 +84,7 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const Center(child: RetroLoadingIndicator()),
+        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
         error: (e, st) => Center(child: Text('Error loading activities: $e', style: AppTextStyles.bodyMedium(color: Colors.red))),
       ),
     );

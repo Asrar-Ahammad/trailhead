@@ -20,6 +20,7 @@ const createRunSchema = z.object({
   elevationGainM: z.number().nullable().optional(),
   title: z.string().nullable().optional(),
   activityType: z.string().optional(),
+  shoeId: z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
         elevationGainM: parsed.elevationGainM !== undefined && parsed.elevationGainM !== null ? parsed.elevationGainM : null,
         title: parsed.title || null,
         activityType: parsed.activityType || 'run',
+        shoeId: parsed.shoeId || null,
       },
     });
 

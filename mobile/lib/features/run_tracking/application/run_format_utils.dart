@@ -15,19 +15,23 @@ abstract final class RunFormatUtils {
   }
 
   /// Returns current pace as "MM:SS" per km, or "-:--" if insufficient data.
-  static String formatPace(double distanceM, int durationS) {
+  static String formatPace(double distanceM, int durationS, bool useMiles) {
     if (distanceM <= 0 || durationS <= 0) return '-:--';
-    final double distanceKm = distanceM / 1000.0;
-    final double paceS      = durationS / distanceKm;
+    final double dist = useMiles ? distanceM / 1609.34 : distanceM / 1000.0;
+    final double paceS      = durationS / dist;
     final int paceMin  = (paceS / 60).floor();
     final int paceSec  = (paceS % 60).round();
     return '${paceMin.toString().padLeft(2, '0')}:${paceSec.toString().padLeft(2, '0')}';
   }
 
   /// Formats [distanceM] as a km string with 2 decimal places.
-  static String formatDistanceKm(double distanceM) {
-    return (distanceM / 1000.0).toStringAsFixed(2);
+  static String formatDistance(double distanceM, bool useMiles) {
+    final dist = useMiles ? distanceM / 1609.34 : distanceM / 1000.0;
+    return dist.toStringAsFixed(2);
   }
+  
+  static String getUnitString(bool useMiles) => useMiles ? 'mi' : 'km';
+  static String getUnitStringUpper(bool useMiles) => useMiles ? 'MI' : 'KM';
 
   /// Formats [calories] as a rounded integer string, or "--" if null/zero.
   static String formatCalories(double? calories) {

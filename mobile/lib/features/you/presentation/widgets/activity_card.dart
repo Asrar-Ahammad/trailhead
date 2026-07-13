@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -33,6 +34,7 @@ class ActivityCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final useMiles = ref.watch(distanceUnitProvider);
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final pointsAsync = run.clientRunId != null 
         ? ref.watch(runRawPointsProvider(run.clientRunId!))
@@ -76,7 +78,13 @@ class ActivityCard extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(PhosphorIcons.personSimpleRun(), size: 16, color: retroColors.textSecondary),
+                      Icon(
+                        run.activityType == 'walk' 
+                            ? PhosphorIcons.personSimpleWalk() 
+                            : PhosphorIcons.personSimpleRun(), 
+                        size: 16, 
+                        color: retroColors.textSecondary,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         formattedTime,
@@ -101,7 +109,7 @@ class ActivityCard extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          '${distanceKm.toStringAsFixed(2)} km in $durationMins min • ',
+                          (RunFormatUtils.formatDistance(run.distanceM ?? 0, useMiles)) + ' ' + RunFormatUtils.getUnitString(useMiles) + ' in $durationMins min • ',
                           style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
                         ),
                         Icon(
@@ -122,7 +130,7 @@ class ActivityCard extends ConsumerWidget {
                     )
                   else
                     Text(
-                      '${distanceKm.toStringAsFixed(2)} km in $durationMins min',
+                      (RunFormatUtils.formatDistance(run.distanceM ?? 0, useMiles)) + ' ' + RunFormatUtils.getUnitString(useMiles) + ' in $durationMins min',
                       style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
                     ),
                 ],
@@ -157,7 +165,7 @@ class ActivityCard extends ConsumerWidget {
                   }
                   return Icon(PhosphorIcons.personSimpleRun(PhosphorIconsStyle.fill), size: 32, color: retroColors.accent);
                 },
-                loading: () => const Center(child: RetroLoadingIndicator(text: 'MAP')),
+                loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent, strokeWidth: 2)),
                 error: (_, __) => Icon(PhosphorIcons.warning(), size: 24, color: retroColors.error),
               ),
             ),

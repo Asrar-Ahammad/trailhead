@@ -1,4 +1,9 @@
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:isar/isar.dart';
+import 'package:trailhead_mobile/main.dart' show isarInstance;
+import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -36,6 +41,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
+
+  Future<void> _injectSystemContextIfNeeded() async {
+    // Check if system message is already present
+    if (_messages.isNotEmpty && _messages.first['role'] == 'system') {
+      return;
+    }
+
+    final recentRuns = await isarInstance.runIsars.where().sortByStartTimeDesc().limit(10).findAll();
+    
+    if (recentRuns.isEmpty) {
+      _messages.insert(0, {
+        'role': 'system',
+        'content': 'You are an expert AI health and fitness coach for the Trailhead app. The user has no logged runs yet. Provide general fitness advice and encourage them to start running or walking.',
+      });
+      return;
+    }
+
+    final buffer = StringBuffer();
+    buffer.writeln("You are an expert AI health and fitness coach for the Trailhead app. Use the user's recent activity data to provide personalized, contextual advice. Keep responses concise and encouraging.");
+    buffer.writeln("Here is the user's recent activity data:");
+    
+    for (final run in recentRuns) {
+      final type = run.activityType ?? 'run';
+      final distKm = ((run.distanceM ?? 0) / 1000).toStringAsFixed(2);
+      final durMins = ((run.durationS ?? 0) / 60).floor();
+      final date = run.startTime != null ? '${run.startTime!.year}-${run.startTime!.month.toString().padLeft(2, '0')}-${run.startTime!.day.toString().padLeft(2, '0')}' : 'Unknown date';
+      
+      final useMiles = ref.read(distanceUnitProvider);
+      final distStr = RunFormatUtils.formatDistance(run.distanceM ?? 0, useMiles);
+      final unitStr = RunFormatUtils.getUnitString(useMiles);
+      buffer.writeln("- $date: $type, $distStr $unitStr in $durMins mins.");
+
+    }
+
+    _messages.insert(0, {
+      'role': 'system',
+      'content': buffer.toString(),
+    });
+  }
+
   Future<void> _sendMessage() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
@@ -50,7 +95,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
     _scrollToBottom();
 
+    await _injectSystemContextIfNeeded();
+
     final response = await ref.read(chatServiceProvider).sendMessage(_messages);
+
 
     setState(() {
       _isLoading = false;
@@ -100,6 +148,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
 
                 final msg = _messages[index];
+                if (msg['role'] == 'system') return const SizedBox.shrink();
                 final isUser = msg['role'] == 'user';
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,

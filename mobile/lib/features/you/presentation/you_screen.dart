@@ -7,6 +7,8 @@ import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart
 import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/profile/presentation/settings_screen.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -62,6 +64,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     if (perceivedIndex == _lastSoundIndex) return;
     _lastSoundIndex = perceivedIndex;
 
+    ref.read(hapticsServiceProvider).lightImpact();
     final soundService = ref.read(soundServiceProvider);
     switch (perceivedIndex) {
       case 0:
@@ -85,6 +88,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final historyAsync = ref.watch(historyProvider);
     final prsAsync = ref.watch(prsProvider);
@@ -96,7 +100,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
         backgroundColor: retroColors.background,
         appBar: selectedIds.isNotEmpty
             ? AppBar(
-                title: Text('${selectedIds.length} Selected', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 20)),
+                title: Text('${selectedIds.length} Selected', style: AppTextStyles.title(color: retroColors.textPrimary)),
                 backgroundColor: retroColors.surfaceRaised,
                 elevation: 0,
                 leading: IconButton(
@@ -113,7 +117,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                         child: SizedBox(
                           width: 20,
                           height: 20,
-                          child: RetroButtonLoadingIndicator(color: retroColors.error),
+                          child: CircularProgressIndicator(color: retroColors.error, strokeWidth: 2),
                         ),
                       ),
                     )
@@ -162,7 +166,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                   indicatorColor: retroColors.accent,
                   labelColor: retroColors.accent,
                   unselectedLabelColor: retroColors.textSecondary,
-                  labelStyle: AppTextStyles.retroLabelLarge().copyWith(fontSize: 16),
+                  labelStyle: AppTextStyles.labelCaps(),
                   tabs: const [
                     Tab(text: 'ACTIVITIES'),
                     Tab(text: 'RECORDS'),
@@ -171,13 +175,14 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                 ),
               )
             : AppBar(
-                title: Text('YOU', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24, fontWeight: FontWeight.bold)),
+                title: Text('YOU', style: AppTextStyles.headline(color: retroColors.textPrimary)),
                 backgroundColor: retroColors.surface,
                 elevation: 0,
                 actions: [
                   IconButton(
                     icon: Icon(PhosphorIcons.gearSix(), color: retroColors.textPrimary),
                     onPressed: () {
+                      ref.read(hapticsServiceProvider).lightImpact();
                       ref.read(soundServiceProvider).playSettingsTap();
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (context) => const SettingsScreen()),
@@ -190,7 +195,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
             indicatorColor: retroColors.accent,
             labelColor: retroColors.accent,
             unselectedLabelColor: retroColors.textSecondary,
-            labelStyle: AppTextStyles.retroLabelLarge().copyWith(fontSize: 16),
+            labelStyle: AppTextStyles.labelCaps(),
             tabs: const [
               Tab(text: 'ACTIVITIES'),
               Tab(text: 'RECORDS'),
@@ -232,7 +237,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
             ],
           );
         },
-        loading: () => const Center(child: RetroLoadingIndicator(text: 'FETCHING CHARTS')),
+        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
         error: (err, stack) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
       ),
       floatingActionButton: Padding(
@@ -299,7 +304,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     return '${mins}m ${secs}s';
   }
 
-  String formatPace(String category, double value) {
+  String formatPace(String category, double value, bool useMiles) {
     double distanceM = 0;
     if (category == '100m') distanceM = 100;
     else if (category == '400m') distanceM = 400;
@@ -314,7 +319,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
       final paceSPerKm = value / (distanceM / 1000);
       final paceMins = (paceSPerKm / 60).floor();
       final paceSecs = (paceSPerKm % 60).floor().toString().padLeft(2, '0');
-      return '$paceMins:$paceSecs /km';
+      return RunFormatUtils.formatPace(distanceM, value.toInt(), useMiles) + ' /${RunFormatUtils.getUnitString(useMiles)}';
     }
     return '';
   }
@@ -363,6 +368,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                       label: Text('Best Efforts', style: AppTextStyles.label(color: mode == 'best_effort' ? retroColors.surface : retroColors.textPrimary)),
                       selected: mode == 'best_effort',
                       selectedColor: retroColors.accent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                       showCheckmark: false,
                       onSelected: (val) {
                         if(val) {
@@ -377,6 +383,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                       label: Text('All-Time PRs', style: AppTextStyles.label(color: mode == 'manual' ? retroColors.surface : retroColors.textPrimary)),
                       selected: mode == 'manual',
                       selectedColor: retroColors.accent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                       showCheckmark: false,
                       onSelected: (val) {
                         if(val) {
@@ -410,7 +417,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                         final pr = item as PersonalRecord;
                         final formattedTitle = pr.category.toUpperCase();
                         final formattedValue = formatValue(pr.category, pr.value);
-                        final paceStr = formatPace(pr.category, pr.value);
+                        final paceStr = formatPace(pr.category, pr.value, ref.watch(distanceUnitProvider));
                         final dateStr = DateFormat('MMM d, yyyy').format(pr.achievedAt);
 
                         return GestureDetector(
@@ -431,8 +438,14 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: retroColors.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: retroColors.accent.withValues(alpha: 0.5)),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -496,14 +509,17 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                       ref.read(hapticsServiceProvider).lightImpact();
                       _showAddPRDialog(context, retroColors, ref);
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: retroColors.accent),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: retroColors.accent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                    ),
                     child: Text('Add PR', style: AppTextStyles.bodyMediumBold(color: retroColors.surface)),
                   ),
                 ),
             ],
           );
         },
-        loading: () => const Center(child: RetroLoadingIndicator(text: 'LOADING RUNS')),
+        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
         error: (err, _) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
       ),
     );
@@ -517,6 +533,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: retroColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text('Add Manual PR', style: AppTextStyles.headline(color: retroColors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,

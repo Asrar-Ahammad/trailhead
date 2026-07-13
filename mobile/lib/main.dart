@@ -10,6 +10,7 @@ import 'features/auth/presentation/auth_wrapper.dart';
 import 'features/sync/application/sync_service.dart';
 import 'features/sync/data/api_client.dart';
 import 'features/sync/data/models/sync_job_isar.dart';
+import 'package:trailhead_mobile/features/shoes/data/models/shoe_isar.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'features/notifications/application/notification_service.dart';
@@ -44,7 +45,7 @@ void callbackDispatcher() {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final isar = await Isar.open(
-        [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema],
+        [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema],
         directory: dir.path,
       );
 
@@ -74,7 +75,7 @@ void main() async {
   // Initialize Isar
   final dir = await getApplicationDocumentsDirectory();
   isarInstance = await Isar.open(
-    [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema],
+    [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema],
     directory: dir.path,
   );
 

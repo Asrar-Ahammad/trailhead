@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -26,12 +27,13 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    
     final retroColors = Theme.of(context).extension<AppColors>()!;
     
     return Scaffold(
       backgroundColor: retroColors.background,
       appBar: AppBar(
-        title: Text('WEEK ${widget.report.weekNumber}, ${widget.report.year}', style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 22)),
+        title: Text('WEEK ${widget.report.weekNumber}, ${widget.report.year}', style: AppTextStyles.title(color: retroColors.textPrimary)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -46,11 +48,11 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
           children: [
             _buildTotalDistanceHeader(retroColors),
             const SizedBox(height: 24),
-            Text('WEEKLY STATS', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+            Text('WEEKLY STATS', style: AppTextStyles.labelCaps(color: retroColors.accent)),
             const SizedBox(height: 16),
             _buildStatsGrid(retroColors),
             const SizedBox(height: 32),
-            Text('DAILY AVERAGES', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+            Text('DAILY AVERAGES', style: AppTextStyles.labelCaps(color: retroColors.accent)),
             const SizedBox(height: 16),
             _buildPaceChart(retroColors),
             const SizedBox(height: 24),
@@ -69,15 +71,21 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: retroColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: retroColors.accent.withOpacity(0.5), width: 2),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Text('TOTAL DISTANCE', style: AppTextStyles.label(color: retroColors.textSecondary)),
           const SizedBox(height: 8),
           Text(
-            RunFormatUtils.formatDistanceKm(widget.report.totalDistanceM) + ' km',
+            RunFormatUtils.formatDistance(widget.report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
             style: AppTextStyles.displayHero(color: retroColors.textPrimary).copyWith(fontSize: 48),
           ),
           const SizedBox(height: 16),
@@ -99,7 +107,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: retroColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(100),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -114,7 +122,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
 
   Widget _buildStatsGrid(AppColors retroColors) {
     final workoutTime = RunFormatUtils.formatDuration(widget.report.totalDurationS);
-    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS);
+    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS, ref.watch(distanceUnitProvider));
     
     return Column(
       children: [
@@ -150,8 +158,14 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: retroColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: retroColors.border),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,41 +185,49 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
   }
 
   Widget _buildActivitiesCard(BuildContext context, AppColors retroColors) {
-    return Card(
-      color: retroColors.surface,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: retroColors.border),
+    return Container(
+      decoration: BoxDecoration(
+        color: retroColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          ref.read(soundServiceProvider).playActivitiesCardTap();
-          ref.read(hapticsServiceProvider).lightImpact();
-          Navigator.push(context, MaterialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(PhosphorIcons.listBullets(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Activities', style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'View workouts for this week',
-                      style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
-                    ),
-                  ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            ref.read(soundServiceProvider).playActivitiesCardTap();
+            ref.read(hapticsServiceProvider).lightImpact();
+            Navigator.push(context, MaterialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(PhosphorIcons.listBullets(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Activities', style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'View workouts for this week',
+                        style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(PhosphorIcons.caretRight(), color: retroColors.textSecondary),
-            ],
+                Icon(PhosphorIcons.caretRight(), color: retroColors.textSecondary),
+              ],
+            ),
           ),
         ),
       ),
@@ -341,7 +363,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
               dotData: const FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.blue.withOpacity(0.2),
+                color: Colors.blue.withValues(alpha: 0.2),
               ),
             ),
           ],
@@ -470,7 +492,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
               dotData: const FlDotData(show: true),
               belowBarData: BarAreaData(
                 show: true,
-                color: Colors.pink.withOpacity(0.2),
+                color: Colors.pink.withValues(alpha: 0.2),
               ),
             ),
           ],
@@ -485,8 +507,14 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: retroColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: retroColors.border),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

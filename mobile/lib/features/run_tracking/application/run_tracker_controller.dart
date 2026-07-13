@@ -18,6 +18,8 @@ import '../../sync/data/models/sync_job_isar.dart';
 import '../../sync/data/api_client.dart';
 import '../../notifications/application/notification_service.dart';
 
+import '../../shoes/application/shoe_service.dart';
+
 class RunTrackerState {
   final String status; // 'idle', 'running', 'paused', 'stopped'
   final String? clientRunId;
@@ -31,6 +33,7 @@ class RunTrackerState {
   final int? currentSplitPaceSPerKm;
   final Position? initialPosition;
   final String activityType; // "run" or "walk"
+  final String? selectedShoeId;
 
   RunTrackerState({
     required this.status,
@@ -45,6 +48,7 @@ class RunTrackerState {
     this.currentSplitPaceSPerKm,
     this.initialPosition,
     this.activityType = 'run',
+    this.selectedShoeId,
   });
 
   RunTrackerState copyWith({
@@ -60,6 +64,7 @@ class RunTrackerState {
     int? currentSplitPaceSPerKm,
     Position? initialPosition,
     String? activityType,
+    String? selectedShoeId,
   }) {
     return RunTrackerState(
       status: status ?? this.status,
@@ -74,6 +79,7 @@ class RunTrackerState {
       currentSplitPaceSPerKm: currentSplitPaceSPerKm ?? this.currentSplitPaceSPerKm,
       initialPosition: initialPosition ?? this.initialPosition,
       activityType: activityType ?? this.activityType,
+      selectedShoeId: selectedShoeId ?? this.selectedShoeId,
     );
   }
 }
@@ -88,6 +94,19 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     _checkPermissionsSilently();
     _recoverOrphanedRuns();
     _initTts();
+    _initDefaultShoe();
+  }
+
+  Future<void> _initDefaultShoe() async {
+    try {
+      final shoeService = ref.read(shoeServiceProvider);
+      final activeShoes = await shoeService.getActiveShoes();
+      if (activeShoes.isNotEmpty) {
+        state = state.copyWith(selectedShoeId: activeShoes.first.clientShoeId);
+      }
+    } catch (e) {
+      debugPrint('[RUN_TRACKER] Failed to init default shoe: $e');
+    }
   }
 
   void _initTts() {
@@ -282,7 +301,20 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   void setTargetPace(int? paceS) {
-    state = state.copyWith(targetPaceSPerKm: paceS);
+    state = RunTrackerState(
+      status: state.status,
+      clientRunId: state.clientRunId,
+      distanceM: state.distanceM,
+      durationS: state.durationS,
+      stepCount: state.stepCount,
+      gpsWeak: state.gpsWeak,
+      permissionsGranted: state.permissionsGranted,
+      permissionsChecked: state.permissionsChecked,
+      targetPaceSPerKm: paceS,
+      currentSplitPaceSPerKm: state.currentSplitPaceSPerKm,
+      initialPosition: state.initialPosition,
+      activityType: state.activityType,
+    );
   }
   
   void updateInitialPosition(Position pos) {
@@ -290,9 +322,11 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   void setActivityType(String type) {
-    if (state.status == 'idle') {
-      state = state.copyWith(activityType: type);
-    }
+    state = state.copyWith(activityType: type);
+  }
+
+  void setSelectedShoe(String? shoeId) {
+    state = state.copyWith(selectedShoeId: shoeId);
   }
 
   Future<void> startRun() async {
@@ -391,6 +425,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         activeRun.avgPaceSPerKm = (activeRun.durationS ?? 0) / (activeRun.distanceM! / 1000.0);
       }
       
+      activeRun.clientShoeId = state.selectedShoeId;
+      
       await isarInstance.writeTxn(() async {
         await isarInstance.runIsars.put(activeRun);
         
@@ -403,6 +439,15 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         }
       });
       debugPrint('[STOP_RUN] Isar write completed successfully');
+      
+      if (state.selectedShoeId != null && activeRun.distanceM != null && activeRun.distanceM! > 0) {
+        try {
+          final shoeService = ref.read(shoeServiceProvider);
+          await shoeService.addDistanceToShoe(state.selectedShoeId!, activeRun.distanceM!);
+        } catch (e) {
+          debugPrint('[STOP_RUN] Failed to add distance to shoe: $e');
+        }
+      }
 
       // Schedule immediate sync attempt
       if (activeRun.clientRunId != null) {
@@ -421,6 +466,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       permissionsGranted: state.permissionsGranted,
       initialPosition: state.initialPosition,
       targetPaceSPerKm: state.targetPaceSPerKm,
+      selectedShoeId: state.selectedShoeId,
     );
     _refreshLocationAfterRun();
     debugPrint('[STOP_RUN] Returning activeRun: ${activeRun?.clientRunId}');

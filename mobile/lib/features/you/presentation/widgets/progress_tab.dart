@@ -1,3 +1,5 @@
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
@@ -18,6 +20,7 @@ class ProgressTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final useMiles = ref.watch(distanceUnitProvider);
     final retroColors = Theme.of(context).extension<AppColors>()!;
     
     return SingleChildScrollView(
@@ -25,29 +28,36 @@ class ProgressTab extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('12-WEEK PROGRESS', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+          Text('12-WEEK PROGRESS', style: AppTextStyles.labelCaps(color: retroColors.accent)),
           const SizedBox(height: 16),
-          _build12WeekChart(retroColors),
+          _build12WeekChart(retroColors, useMiles),
           
           const SizedBox(height: 32),
           
-          Text('THIS MONTH', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+          Text('THIS MONTH', style: AppTextStyles.labelCaps(color: retroColors.accent)),
           const SizedBox(height: 16),
           _buildMonthlyCalendar(context, ref, retroColors),
           
           const SizedBox(height: 32),
 
-          Text('REPORTS', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+          Text('REPORTS', style: AppTextStyles.labelCaps(color: retroColors.accent)),
           const SizedBox(height: 16),
-          Card(
-            color: retroColors.surface,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: retroColors.border),
+          Container(
+            decoration: BoxDecoration(
+              color: retroColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
               onTap: () {
                 ref.read(soundServiceProvider).playWeeklyReportsTap();
                 ref.read(hapticsServiceProvider).lightImpact();
@@ -78,20 +88,29 @@ class ProgressTab extends ConsumerWidget {
               ),
             ),
           ),
+        ),
           
+
           const SizedBox(height: 32),
           
-          Text('TOOLS', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+          Text('TOOLS', style: AppTextStyles.labelCaps(color: retroColors.accent)),
           const SizedBox(height: 16),
-          Card(
-            color: retroColors.surface,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: retroColors.border),
+          Container(
+            decoration: BoxDecoration(
+              color: retroColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
               onTap: () {
                 ref.read(soundServiceProvider).playRacePredictorTap();
                 ref.read(hapticsServiceProvider).lightImpact();
@@ -122,6 +141,7 @@ class ProgressTab extends ConsumerWidget {
               ),
             ),
           ),
+        ),
           
           const SizedBox(height: 180), // bottom padding
         ],
@@ -129,7 +149,7 @@ class ProgressTab extends ConsumerWidget {
     );
   }
 
-  Widget _build12WeekChart(AppColors retroColors) {
+  Widget _build12WeekChart(AppColors retroColors, bool useMiles) {
     // Generate 12 weeks of data
     final chartData = List.filled(12, 0.0);
     final now = DateTime.now();
@@ -154,8 +174,14 @@ class ProgressTab extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: retroColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: retroColors.border),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: BarChart(
         BarChartData(
@@ -188,7 +214,7 @@ class ProgressTab extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: Text(
-                      '${value.toInt()} km',
+                      RunFormatUtils.formatDistance(value * 1000, useMiles) + ' ' + RunFormatUtils.getUnitString(useMiles),
                       style: AppTextStyles.label(color: retroColors.textSecondary).copyWith(fontSize: 10),
                       textAlign: TextAlign.right,
                     ),
@@ -217,7 +243,7 @@ class ProgressTab extends ConsumerWidget {
                   toY: chartData[index],
                   color: retroColors.accent,
                   width: 12,
-                  borderRadius: BorderRadius.zero,
+                  borderRadius: BorderRadius.circular(100),
                 ),
               ],
             );
@@ -280,12 +306,12 @@ class ProgressTab extends ConsumerWidget {
           child: Container(
             margin: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: hasRun ? retroColors.accent.withOpacity(0.2) : retroColors.surfaceRaised,
+              color: hasRun ? retroColors.accent.withValues(alpha: 0.2) : retroColors.surfaceRaised,
               border: Border.all(
                 color: hasRun ? retroColors.accent : (isToday ? retroColors.textSecondary : Colors.transparent),
                 width: isToday ? 2 : 1,
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(100),
             ),
             child: Center(
               child: Text(
@@ -304,8 +330,14 @@ class ProgressTab extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: retroColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: retroColors.border),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: GridView.count(
         padding: EdgeInsets.zero,

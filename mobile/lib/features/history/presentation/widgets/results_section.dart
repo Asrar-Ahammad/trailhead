@@ -6,6 +6,8 @@ import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 
 class ResultsSection extends ConsumerWidget {
   final RunIsar run;
@@ -31,9 +33,9 @@ class ResultsSection extends ConsumerWidget {
     }
   }
 
-  String _formatValue(String category, double value) {
+  String _formatValue(String category, double value, bool useMiles) {
     if (category == 'longest_run') {
-      return '${(value / 1000).toStringAsFixed(2)} km';
+      return '${RunFormatUtils.formatDistance(value, useMiles)} ${RunFormatUtils.getUnitString(useMiles)}';
     } else if (category == 'max_elevation') {
       return '${value.toStringAsFixed(0)} m';
     }
@@ -48,7 +50,7 @@ class ResultsSection extends ConsumerWidget {
     return '${mins}:${secs.toString().padLeft(2, '0')}';
   }
   
-  String _formatPace(String category, double value) {
+  String _formatPace(String category, double value, bool useMiles) {
     // For distance based categories, calculate pace
     double distanceM = 0;
     if (category == '100m') distanceM = 100;
@@ -61,16 +63,14 @@ class ResultsSection extends ConsumerWidget {
     else if (category == 'marathon') distanceM = 42195;
     
     if (distanceM > 0) {
-      final paceSPerKm = value / (distanceM / 1000);
-      final paceMins = (paceSPerKm / 60).floor();
-      final paceSecs = (paceSPerKm % 60).floor().toString().padLeft(2, '0');
-      return '$paceMins:$paceSecs /km';
+      return RunFormatUtils.formatPace(distanceM, value.toInt(), useMiles) + ' /${RunFormatUtils.getUnitString(useMiles)}';
     }
     return '';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final useMiles = ref.watch(distanceUnitProvider);
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final prsAsync = ref.watch(prsProvider);
 
@@ -115,8 +115,8 @@ class ResultsSection extends ConsumerWidget {
             const SizedBox(height: 32),
             ...runPrs.map((pr) {
               final formattedTitle = pr.category.toUpperCase();
-              final timeStr = _formatValue(pr.category, pr.value);
-              final paceStr = _formatPace(pr.category, pr.value);
+              final timeStr = _formatValue(pr.category, pr.value, useMiles);
+              final paceStr = _formatPace(pr.category, pr.value, useMiles);
               final isTop3 = pr.rank <= 3 && pr.rank > 0;
 
               return Padding(

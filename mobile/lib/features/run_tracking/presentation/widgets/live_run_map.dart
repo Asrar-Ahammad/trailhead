@@ -150,33 +150,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
             ],
           ),
           
-          // Manual location fetch button
-          Positioned(
-            right: 16,
-            bottom: 32, // above attribution
-            child: FloatingActionButton(
-              heroTag: 'manual_location',
-              mini: true,
-              backgroundColor: colors.surfaceRaised,
-              onPressed: () async {
-                try {
-                  final pos = await Geolocator.getCurrentPosition(
-                    desiredAccuracy: LocationAccuracy.high,
-                    timeLimit: const Duration(seconds: 10),
-                  );
-                  ref.read(runTrackerProvider.notifier).updateInitialPosition(pos);
-                  _mapController.move(LatLng(pos.latitude, pos.longitude), _runningZoom);
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Could not fetch location')),
-                    );
-                  }
-                }
-              },
-              child: Icon(PhosphorIcons.navigationArrow(PhosphorIconsStyle.fill), color: colors.accent),
-            ),
-          ),
+
         ],
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -71,7 +72,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
         Scaffold(
           backgroundColor: retroColors.background,
           appBar: AppBar(
-        title: Text(titleText, style: AppTextStyles.retroLabelLarge(color: retroColors.textPrimary).copyWith(fontSize: 24)),
+        title: Text(titleText, style: AppTextStyles.title(color: retroColors.textPrimary)),
         backgroundColor: retroColors.surface,
         elevation: 0,
         leading: IconButton(
@@ -195,16 +196,22 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
               height: 250,
               decoration: BoxDecoration(
                 color: retroColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: retroColors.border, width: 2),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(24),
                 child: pointsAsync.when(
                   data: (points) => points.isEmpty
                       ? Center(child: Text('No route data', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)))
                       : StaticRouteMap(points: points),
-                  loading: () => const Center(child: RetroLoadingIndicator(text: 'LOADING MAP')),
+                  loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
                   error: (_, __) => Center(child: Text('Map error', style: AppTextStyles.bodyMedium(color: retroColors.error))),
                 ),
               ),
@@ -240,59 +247,128 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                 final String elevationStr = (elevationGain != null && elevationGain > 0)
                     ? '${elevationGain.toStringAsFixed(0)} m'
                     : '—';
-                return GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: 2.5,
+                return Column(
                   children: [
-                    _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
-                    _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                    _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
-                    _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
-                    _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', elevationStr),
-                    _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                    _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                    _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 2.5,
+                      children: [
+                        _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
+                        _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
+                        _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                        _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                        _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', elevationStr),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          height: 70,
+                          child: _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 70,
+                          child: _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 70,
+                          child: _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                        ),
+                      ],
+                    ),
                   ],
                 );
               },
-              loading: () => GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 2.5,
+              loading: () => Column(
                 children: [
-                  _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
-                  _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                  _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
-                  _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 2.5,
+                    children: [
+                      _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
+                      _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
+                      _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                      _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              error: (_, __) => GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 2.5,
+              error: (_, __) => Column(
                 children: [
-                  _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', '${distanceKm.toStringAsFixed(2)} km'),
-                  _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                  _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
-                  _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                  _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 2.5,
+                    children: [
+                      _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
+                      _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
+                      _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                      _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -315,14 +391,20 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             
             // AI Summary
             if (run.aiSummary != null && run.aiSummary!.isNotEmpty) ...[
-              Text('AI COACH SUMMARY', style: AppTextStyles.retroLabelLarge(color: retroColors.accent)),
+              Text('AI COACH SUMMARY', style: AppTextStyles.labelCaps(color: retroColors.accent)),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: retroColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: retroColors.accent.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Text(
                   run.aiSummary!,
@@ -336,7 +418,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             // Charts Section
             rawPointsAsync.when(
               data: (points) => RunChartsSection(run: run, points: points),
-              loading: () => const Center(child: RetroLoadingIndicator(text: 'LOADING LOGS')),
+              loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
               error: (_, __) => const SizedBox.shrink(),
             ),
             
@@ -348,8 +430,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     if (_isDeleting)
       Container(
         color: Colors.black.withOpacity(0.7),
-        child: const Center(
-          child: RetroLoadingIndicator(text: 'DELETING RUN'),
+        child: Center(
+          child: CircularProgressIndicator(color: retroColors.accent),
         ),
       ),
   ],
@@ -386,7 +468,14 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [

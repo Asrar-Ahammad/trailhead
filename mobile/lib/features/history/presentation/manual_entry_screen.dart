@@ -194,7 +194,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        title: Text('LOG RUN', style: AppTextStyles.retroLabelLarge(color: colors.textPrimary).copyWith(fontSize: 20)),
+        title: Text('LOG RUN', style: AppTextStyles.headline(color: colors.textPrimary)),
         backgroundColor: colors.surface,
         elevation: 0,
         leading: IconButton(
@@ -218,7 +218,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                 fillColor: colors.surfaceRaised,
                 hintText: 'e.g. "Ran 5k this morning, felt tired and it was humid"',
                 hintStyle: TextStyle(color: colors.textDisabled),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
               ),
             ),
             const SizedBox(height: 16),
@@ -229,7 +229,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     onPressed: _startListening,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isListening ? colors.error : colors.surfaceRaised,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                     ),
                     child: Text(_isListening ? 'Listening...' : 'Voice Input', style: AppTextStyles.bodyMediumBold(color: colors.textPrimary)),
                   ),
@@ -244,10 +244,10 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                         onPressed: (_isParsing || !hasText) ? null : _parseText,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colors.accent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                         ),
                         child: _isParsing 
-                          ? RetroButtonLoadingIndicator(color: colors.surface) 
+                          ? SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2))
                           : Text('Parse', style: AppTextStyles.bodyMediumBold(color: colors.surface)),
                       );
                     },

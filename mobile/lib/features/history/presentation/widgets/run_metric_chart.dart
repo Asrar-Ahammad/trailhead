@@ -1,3 +1,5 @@
+import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
+import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -131,10 +133,10 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                 getTouchedSpotIndicator: (LineChartBarData barData, List<int> spotIndexes) {
                   return spotIndexes.map((index) {
                     return TouchedSpotIndicatorData(
-                      FlLine(color: colors.textPrimary, strokeWidth: 2),
+                      FlLine(color: widget.color, strokeWidth: 2),
                       FlDotData(
                         show: true,
-                        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: colors.textPrimary, strokeWidth: 0),
+                        getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: widget.color, strokeWidth: 0),
                       ),
                     );
                   }).toList();
@@ -232,7 +234,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          '${value.toStringAsFixed(1)} km',
+                          RunFormatUtils.formatDistance(value * 1000, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider)),
                           style: AppTextStyles.label(color: colors.textSecondary).copyWith(fontSize: 10),
                         ),
                       );

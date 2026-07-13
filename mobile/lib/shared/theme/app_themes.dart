@@ -22,6 +22,12 @@ class AppThemes {
         onError: const Color(0xFFFFFFFF),
       ),
       extensions: [colors],
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        shape: CircleBorder(),
+      ),
+      appBarTheme: const AppBarTheme(
+        scrolledUnderElevation: 0.0,
+      ),
     );
   }
 }
