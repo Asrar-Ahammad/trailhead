@@ -262,6 +262,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
                         _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                         _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', elevationStr),
+                        if (run.weatherTemp != null && run.weatherCode != null)
+                          _buildStatCard(retroColors, _getWeatherIcon(run.weatherCode!.toInt()), 'Weather', '${run.weatherTemp!.toStringAsFixed(0)}°C'),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -439,7 +441,16 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   }
 
   /// Computes elevation gain from raw GPS points using a 3-point smoothing
-  /// window — mirrors the algorithm used during live tracking.
+  IconData _getWeatherIcon(int code) {
+    if (code == 0) return PhosphorIcons.sun();
+    if (code >= 1 && code <= 3) return PhosphorIcons.cloudSun();
+    if (code >= 45 && code <= 48) return PhosphorIcons.cloudFog();
+    if (code >= 51 && code <= 67) return PhosphorIcons.cloudRain();
+    if (code >= 71 && code <= 77) return PhosphorIcons.cloudSnow();
+    if (code >= 95 && code <= 99) return PhosphorIcons.cloudLightning();
+    return PhosphorIcons.cloud();
+  }
+
   double? _computeElevationGainFromPoints(List<RunPointIsar> points) {
     final elevPoints = points.where((p) => p.elevation != null && !p.isPaused).toList();
     if (elevPoints.length < 3) return null;

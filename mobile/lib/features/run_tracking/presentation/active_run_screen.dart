@@ -646,6 +646,7 @@ class _RunControls extends ConsumerWidget {
         if (shoes.isEmpty) {
           return GestureDetector(
             onTap: () {
+              ref.read(hapticsServiceProvider).lightImpact();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
             },
             child: Container(
@@ -672,6 +673,7 @@ class _RunControls extends ConsumerWidget {
 
         return GestureDetector(
           onTap: () {
+            ref.read(hapticsServiceProvider).lightImpact();
             showModalBottomSheet(
               context: context,
               backgroundColor: colors.surface,
@@ -1323,7 +1325,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: colors.surface,
               side: BorderSide(color: colors.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: const StadiumBorder(),
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
             onPressed: () {

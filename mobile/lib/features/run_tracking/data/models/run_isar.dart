@@ -44,6 +44,10 @@ class RunIsar {
   
   String? conditions;
   
+  double? weatherTemp;
+  
+  double? weatherCode;
+  
   bool synced = false;
   
   DateTime? lastModifiedAt;

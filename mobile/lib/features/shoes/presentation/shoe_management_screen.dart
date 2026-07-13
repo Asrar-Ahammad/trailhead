@@ -115,33 +115,47 @@ class ShoeManagementScreen extends ConsumerWidget {
                 onPressed: () {
                   showDialog(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      backgroundColor: colors.surface,
-                      title: Text('Retire Gear?', style: AppTextStyles.headline(color: colors.textPrimary)),
-                      content: Text(
-                        'Are you sure you want to retire this gear? It will no longer be available for new runs.',
-                        style: AppTextStyles.bodyMedium(color: colors.textSecondary),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: colors.error,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    barrierDismissible: false,
+                    builder: (ctx) {
+                      bool isRetiring = false;
+                      return StatefulBuilder(
+                        builder: (context, setState) => AlertDialog(
+                          backgroundColor: colors.surface,
+                          title: Text('Retire Gear?', style: AppTextStyles.headline(color: colors.textPrimary)),
+                          content: Text(
+                            'Are you sure you want to retire this gear? It will no longer be available for new runs.',
+                            style: AppTextStyles.bodyMedium(color: colors.textSecondary),
                           ),
-                          onPressed: () {
-                            ref.read(shoeServiceProvider).retireShoe(shoe.id);
-                            ref.refresh(allShoesProvider);
-                            ref.refresh(activeShoesProvider);
-                            Navigator.pop(ctx);
-                          },
-                          child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          actions: [
+                            if (!isRetiring)
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+                              ),
+                            if (isRetiring)
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                              )
+                            else
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colors.error,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () async {
+                                  setState(() => isRetiring = true);
+                                  await ref.read(shoeServiceProvider).retireShoe(shoe.id);
+                                  ref.refresh(allShoesProvider);
+                                  ref.refresh(activeShoesProvider);
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                },
+                                child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                          ],
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
               ),
@@ -150,33 +164,47 @@ class ShoeManagementScreen extends ConsumerWidget {
               onPressed: () {
                 showDialog(
                   context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: colors.surface,
-                    title: Text('Delete Gear?', style: AppTextStyles.headline(color: colors.textPrimary)),
-                    content: Text(
-                      'Are you sure you want to delete this gear permanently?',
-                      style: AppTextStyles.bodyMedium(color: colors.textSecondary),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colors.error,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  barrierDismissible: false,
+                  builder: (ctx) {
+                    bool isDeleting = false;
+                    return StatefulBuilder(
+                      builder: (context, setState) => AlertDialog(
+                        backgroundColor: colors.surface,
+                        title: Text('Delete Gear?', style: AppTextStyles.headline(color: colors.textPrimary)),
+                        content: Text(
+                          'Are you sure you want to delete this gear permanently?',
+                          style: AppTextStyles.bodyMedium(color: colors.textSecondary),
                         ),
-                        onPressed: () {
-                          ref.read(shoeServiceProvider).deleteShoe(shoe.id);
-                          ref.refresh(allShoesProvider);
-                          ref.refresh(activeShoesProvider);
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        actions: [
+                          if (!isDeleting)
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+                            ),
+                          if (isDeleting)
+                            const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                            )
+                          else
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: colors.error,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () async {
+                                setState(() => isDeleting = true);
+                                await ref.read(shoeServiceProvider).deleteShoe(shoe.id);
+                                ref.refresh(allShoesProvider);
+                                ref.refresh(activeShoesProvider);
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              },
+                              child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             ),
@@ -192,54 +220,68 @@ class ShoeManagementScreen extends ConsumerWidget {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: colors.surface,
-        title: Text('Add New Shoe', style: AppTextStyles.headline(color: colors.textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              style: TextStyle(color: colors.textPrimary),
-              decoration: InputDecoration(
-                labelText: 'Shoe Name',
-                labelStyle: TextStyle(color: colors.textSecondary),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-              ),
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            backgroundColor: colors.surface,
+            title: Text('Add New Shoe', style: AppTextStyles.headline(color: colors.textPrimary)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  style: TextStyle(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Shoe Name',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: brandController,
+                  style: TextStyle(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Brand (Optional)',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: brandController,
-              style: TextStyle(color: colors.textPrimary),
-              decoration: InputDecoration(
-                labelText: 'Brand (Optional)',
-                labelStyle: TextStyle(color: colors.textSecondary),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+            actions: [
+              if (!isSaving)
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+                ),
+              if (isSaving)
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else
+                TextButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isNotEmpty) {
+                      setState(() => isSaving = true);
+                      await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
+                      ref.refresh(allShoesProvider);
+                      ref.refresh(activeShoesProvider);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    }
+                  },
+                  child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
+                ),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              final name = nameController.text.trim();
-              if (name.isNotEmpty) {
-                await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
-                ref.refresh(allShoesProvider);
-                ref.refresh(activeShoesProvider);
-                if (ctx.mounted) Navigator.pop(ctx);
-              }
-            },
-            child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

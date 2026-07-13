@@ -121,6 +121,16 @@ const RunIsarSchema = CollectionSchema(
       id: 20,
       name: r'title',
       type: IsarType.string,
+    ),
+    r'weatherCode': PropertySchema(
+      id: 21,
+      name: r'weatherCode',
+      type: IsarType.double,
+    ),
+    r'weatherTemp': PropertySchema(
+      id: 22,
+      name: r'weatherTemp',
+      type: IsarType.double,
     )
   },
   estimateSize: _runIsarEstimateSize,
@@ -248,6 +258,8 @@ void _runIsarSerialize(
   writer.writeBool(offsets[18], object.synced);
   writer.writeDateTime(offsets[19], object.syncedAt);
   writer.writeString(offsets[20], object.title);
+  writer.writeDouble(offsets[21], object.weatherCode);
+  writer.writeDouble(offsets[22], object.weatherTemp);
 }
 
 RunIsar _runIsarDeserialize(
@@ -279,6 +291,8 @@ RunIsar _runIsarDeserialize(
   object.synced = reader.readBool(offsets[18]);
   object.syncedAt = reader.readDateTimeOrNull(offsets[19]);
   object.title = reader.readStringOrNull(offsets[20]);
+  object.weatherCode = reader.readDoubleOrNull(offsets[21]);
+  object.weatherTemp = reader.readDoubleOrNull(offsets[22]);
   return object;
 }
 
@@ -331,6 +345,10 @@ P _runIsarDeserializeProp<P>(
       return (reader.readDateTimeOrNull(offset)) as P;
     case 20:
       return (reader.readStringOrNull(offset)) as P;
+    case 21:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 22:
+      return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -2799,6 +2817,162 @@ extension RunIsarQueryFilter
       ));
     });
   }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'weatherCode',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'weatherCode',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherCodeEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'weatherCode',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherCodeGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'weatherCode',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherCodeLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'weatherCode',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherCodeBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'weatherCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherTempIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'weatherTemp',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherTempIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'weatherTemp',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherTempEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'weatherTemp',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherTempGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'weatherTemp',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherTempLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'weatherTemp',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> weatherTempBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'weatherTemp',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
 }
 
 extension RunIsarQueryObject
@@ -3057,6 +3231,30 @@ extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByWeatherCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByWeatherCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByWeatherTemp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherTemp', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByWeatherTempDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherTemp', Sort.desc);
     });
   }
 }
@@ -3326,6 +3524,30 @@ extension RunIsarQuerySortThenBy
       return query.addSortBy(r'title', Sort.desc);
     });
   }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByWeatherCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByWeatherCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByWeatherTemp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherTemp', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByWeatherTempDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'weatherTemp', Sort.desc);
+    });
+  }
 }
 
 extension RunIsarQueryWhereDistinct
@@ -3464,6 +3686,18 @@ extension RunIsarQueryWhereDistinct
       return query.addDistinctBy(r'title', caseSensitive: caseSensitive);
     });
   }
+
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByWeatherCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'weatherCode');
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByWeatherTemp() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'weatherTemp');
+    });
+  }
 }
 
 extension RunIsarQueryProperty
@@ -3597,6 +3831,18 @@ extension RunIsarQueryProperty
   QueryBuilder<RunIsar, String?, QQueryOperations> titleProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'title');
+    });
+  }
+
+  QueryBuilder<RunIsar, double?, QQueryOperations> weatherCodeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'weatherCode');
+    });
+  }
+
+  QueryBuilder<RunIsar, double?, QQueryOperations> weatherTempProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'weatherTemp');
     });
   }
 }

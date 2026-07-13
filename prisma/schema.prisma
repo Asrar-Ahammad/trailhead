@@ -56,6 +56,8 @@ model Run {
   aiSummary     String?
   subjectiveEffort String? // "easy" | "moderate" | "hard"
   conditions    String?
+  weatherTemp   Float?
+  weatherCode   Float?
   activityType  String?    @default("run")
   syncedAt      DateTime   @default(now())
   points        RunPoint[]

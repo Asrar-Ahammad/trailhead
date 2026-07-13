@@ -19,6 +19,7 @@ import '../../sync/data/api_client.dart';
 import '../../notifications/application/notification_service.dart';
 
 import '../../shoes/application/shoe_service.dart';
+import '../../weather/application/weather_service.dart';
 
 class RunTrackerState {
   final String status; // 'idle', 'running', 'paused', 'stopped'
@@ -340,7 +341,20 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       ..startTime = now
       ..status = 'running'
       ..activityType = state.activityType
+      ..clientShoeId = state.selectedShoeId
       ..distanceM = 0.0;
+
+    // Fetch weather if possible
+    try {
+      final weatherRepo = ref.read(weatherRepositoryProvider);
+      final weatherData = await weatherRepo.getCurrentWeather();
+      if (weatherData != null) {
+        newRun.weatherTemp = (weatherData['temperature'] as num?)?.toDouble();
+        newRun.weatherCode = (weatherData['weathercode'] as num?)?.toDouble();
+      }
+    } catch (_) {
+      // Ignore weather fetch errors
+    }
 
     await isarInstance.writeTxn(() async {
       await isarInstance.runIsars.put(newRun);

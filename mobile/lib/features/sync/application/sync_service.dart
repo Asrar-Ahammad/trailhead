@@ -86,6 +86,8 @@ class SyncService {
         'title': run.title,
         'activityType': run.activityType,
         'shoeId': run.clientShoeId,
+        'weatherTemp': run.weatherTemp,
+        'weatherCode': run.weatherCode,
       });
 
       if (metadataResponse.statusCode != 200 && metadataResponse.statusCode != 409) {
@@ -192,6 +194,8 @@ class SyncService {
                   ..stepCount = detailData['stepCount'] as int?
                   ..elevationGainM = (detailData['elevationGainM'] as num?)?.toDouble()
                   ..activityType = detailData['activityType']
+                  ..weatherTemp = (detailData['weatherTemp'] as num?)?.toDouble()
+                  ..weatherCode = (detailData['weatherCode'] as num?)?.toDouble()
                   ..status = 'completed'
                   ..synced = true
                   ..syncedAt = DateTime.now();
