@@ -46,12 +46,31 @@ final weeklySummaryProvider = StreamProvider<WeeklySummary>((ref) {
     final prefs = await SharedPreferences.getInstance();
     final restDaysLimit = prefs.getInt('rest_days_limit') ?? 0;
 
+    final dMetric = prefs.getString('dailyGoalMetric') ?? 'steps';
+    final dTarget = prefs.getDouble('dailyGoalTarget') ?? 5000.0;
+
+    final Map<DateTime, double> dailyAggregates = {};
+    for (final run in allRuns) {
+      if (run.startTime != null) {
+        final date = run.startTime!.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
+        double value = 0.0;
+        if (dMetric == 'steps') {
+          value = (run.stepCount ?? 0).toDouble();
+        } else if (dMetric == 'distance') {
+          value = (run.distanceM ?? 0) / 1000.0;
+        } else if (dMetric == 'duration') {
+          value = (run.durationS ?? 0) / 60.0;
+        }
+        dailyAggregates[date] = (dailyAggregates[date] ?? 0.0) + value;
+      }
+    }
+
     int streak = 0;
     
     final runDays = <DateTime>{};
-    for (final run in allRuns) {
-      if (run.startTime != null) {
-        runDays.add(run.startTime!.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0));
+    for (final entry in dailyAggregates.entries) {
+      if (entry.value >= dTarget) {
+        runDays.add(entry.key);
       }
     }
 

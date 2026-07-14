@@ -344,17 +344,25 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       ..clientShoeId = state.selectedShoeId
       ..distanceM = 0.0;
 
-    // Fetch weather if possible
-    try {
-      final weatherRepo = ref.read(weatherRepositoryProvider);
-      final weatherData = await weatherRepo.getCurrentWeather();
-      if (weatherData != null) {
-        newRun.weatherTemp = (weatherData['temperature'] as num?)?.toDouble();
-        newRun.weatherCode = (weatherData['weathercode'] as num?)?.toDouble();
+    // Fetch weather asynchronously so it doesn't block starting the run
+    Future.microtask(() async {
+      try {
+        final weatherRepo = ref.read(weatherRepositoryProvider);
+        final weatherData = await weatherRepo.getCurrentWeather();
+        if (weatherData != null) {
+          await isarInstance.writeTxn(() async {
+            final existingRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+            if (existingRun != null) {
+              existingRun.weatherTemp = (weatherData['temperature'] as num?)?.toDouble();
+              existingRun.weatherCode = (weatherData['weathercode'] as num?)?.toDouble();
+              await isarInstance.runIsars.put(existingRun);
+            }
+          });
+        }
+      } catch (_) {
+        // Ignore weather fetch errors
       }
-    } catch (_) {
-      // Ignore weather fetch errors
-    }
+    });
 
     await isarInstance.writeTxn(() async {
       await isarInstance.runIsars.put(newRun);

@@ -19,6 +19,10 @@ export async function GET(req: NextRequest) {
         gender: true,
         weightKg: true,
         createdAt: true,
+        dailyGoalMetric: true,
+        dailyGoalTarget: true,
+        monthlyGoalMetric: true,
+        monthlyGoalTarget: true,
       },
     });
 
@@ -41,7 +45,10 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { name, dob, gender, weightKg } = body;
+    const { 
+      name, dob, gender, weightKg,
+      dailyGoalMetric, dailyGoalTarget, monthlyGoalMetric, monthlyGoalTarget 
+    } = body;
 
     // Validate gender if provided
     if (gender && !['Male', 'Female', 'Prefer not to say'].includes(gender)) {
@@ -55,6 +62,10 @@ export async function PUT(req: NextRequest) {
         ...(dob !== undefined && { dob }),
         ...(gender !== undefined && { gender }),
         ...(weightKg !== undefined && { weightKg }),
+        ...(dailyGoalMetric !== undefined && { dailyGoalMetric }),
+        ...(dailyGoalTarget !== undefined && { dailyGoalTarget }),
+        ...(monthlyGoalMetric !== undefined && { monthlyGoalMetric }),
+        ...(monthlyGoalTarget !== undefined && { monthlyGoalTarget }),
       },
       select: {
         id: true,
@@ -63,6 +74,10 @@ export async function PUT(req: NextRequest) {
         dob: true,
         gender: true,
         weightKg: true,
+        dailyGoalMetric: true,
+        dailyGoalTarget: true,
+        monthlyGoalMetric: true,
+        monthlyGoalTarget: true,
       },
     });
 

@@ -16,6 +16,8 @@ import '../../haptics/application/haptics_service.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import '../../audio/application/sound_service.dart';
 
+import 'package:trailhead_mobile/features/shoes/presentation/shoe_management_screen.dart';
+import 'package:trailhead_mobile/features/home/presentation/widgets/goals_progress_card.dart';
 import 'package:trailhead_mobile/features/chat/presentation/chat_screen.dart';
 import 'package:trailhead_mobile/features/weather/presentation/weather_pace_card.dart';
 import 'package:trailhead_mobile/features/weather/application/weather_service.dart';
@@ -220,6 +222,14 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
             
+        SmoothFadeIn(
+          delayMs: 250,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+            child: GoalsProgressCard(retroColors: retroColors),
+          ),
+        ),
+
         SmoothFadeIn(
           delayMs: 300,
           child: Column(

@@ -494,7 +494,7 @@ class _PaceComparisonBadge extends ConsumerWidget {
 
 
 
-class _RunControls extends ConsumerWidget {
+class _RunControls extends ConsumerStatefulWidget {
   const _RunControls({
     required this.trackerState,
     required this.colors,
@@ -506,18 +506,27 @@ class _RunControls extends ConsumerWidget {
   final VoidCallback onStop;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_RunControls> createState() => _RunControlsState();
+}
+
+class _RunControlsState extends ConsumerState<_RunControls> {
+  bool _isStarting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final useMiles = ref.watch(distanceUnitProvider);
-    return Consumer(
-      builder: (ctx, ref, _) {
-        final notifier = ref.read(runTrackerProvider.notifier);
-        final status = trackerState.status;
-        final isIdle = status == 'idle';
-        final isPaused = status == 'paused';
+    final trackerState = widget.trackerState;
+    final colors = widget.colors;
+    final onStop = widget.onStop;
 
-        final isRun = trackerState.activityType == 'run';
+    final notifier = ref.read(runTrackerProvider.notifier);
+    final status = trackerState.status;
+    final isIdle = status == 'idle';
+    final isPaused = status == 'paused';
 
-        return Container(
+    final isRun = trackerState.activityType == 'run';
+
+    return Container(
           margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
@@ -572,10 +581,18 @@ class _RunControls extends ConsumerWidget {
 
                   // Center Action (Start / Pause / Resume)
                   PressableScale(
-                    onTap: () {
+                    onTap: _isStarting ? null : () async {
                       if (isIdle) {
+                        setState(() {
+                          _isStarting = true;
+                        });
                         ref.read(soundServiceProvider).playRunStart();
-                        notifier.startRun();
+                        await notifier.startRun();
+                        if (mounted) {
+                          setState(() {
+                            _isStarting = false;
+                          });
+                        }
                       } else if (isPaused) {
                         ref.read(soundServiceProvider).playPauseResume();
                         notifier.resumeRun();
@@ -598,11 +615,22 @@ class _RunControls extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Icon(
-                        isIdle || isPaused ? PhosphorIcons.play(PhosphorIconsStyle.fill) : PhosphorIcons.pause(PhosphorIconsStyle.fill),
-                        color: Colors.white,
-                        size: 56,
-                      ),
+                      child: _isStarting
+                          ? const Center(
+                              child: SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              isIdle || isPaused ? PhosphorIcons.play(PhosphorIconsStyle.fill) : PhosphorIcons.pause(PhosphorIconsStyle.fill),
+                              color: Colors.white,
+                              size: 56,
+                            ),
                     ),
                   ),
 
@@ -631,13 +659,11 @@ class _RunControls extends ConsumerWidget {
               ),
             ],
           ),
-          ),
-          ),
-          ),
-        );
-      },
-    );
-  }
+        ),
+      ),
+    ),
+  );
+}
 
   Widget _buildShoeSelector(BuildContext context, WidgetRef ref, AppColors colors, RunTrackerState state) {
     final activeShoesAsync = ref.watch(activeShoesProvider);

@@ -16,6 +16,10 @@ model User {
   dob             String?          // ISO8601 Date String
   gender          String?          // "Male", "Female", "Prefer not to say"
   weightKg        Float?
+  dailyGoalMetric String?          // "steps", "distance", "duration"
+  dailyGoalTarget Float?
+  monthlyGoalMetric String?
+  monthlyGoalTarget Float?
   createdAt       DateTime         @default(now())
   runs            Run[]
   personalRecords PersonalRecord[]
