@@ -88,7 +88,7 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
         const missedDays = diff - 1;
         if (missedDays <= restDaysRemaining) {
           restDaysRemaining -= missedDays;
-          currentCount += 1; // Count only the days run
+          currentCount += diff; // Include the rest days in the streak!
         } else {
           currentCount = 1;
           restDaysRemaining = Math.max(0, restDaysRemaining - missedDays);
@@ -117,6 +117,7 @@ export async function updateStreak(userId: string, runStartTime: Date, timezone:
         activeStreak = 0;
       } else {
         restDaysRemaining -= missedDays;
+        activeStreak += missedDays; // Include the used rest days in the active streak
       }
     }
   } else {

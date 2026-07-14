@@ -208,15 +208,16 @@ class ProgressTab extends ConsumerWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 56, // Increased to prevent wrapping
                 getTitlesWidget: (value, meta) {
                   if (value == meta.max || value == meta.min || value == 0) return const SizedBox.shrink();
                   return Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: Text(
-                      RunFormatUtils.formatDistance(value * 1000, useMiles) + ' ' + RunFormatUtils.getUnitString(useMiles),
+                      '${RunFormatUtils.formatDistance(value * 1000, useMiles)} ${RunFormatUtils.getUnitString(useMiles)}',
                       style: AppTextStyles.label(color: retroColors.textSecondary).copyWith(fontSize: 10),
                       textAlign: TextAlign.right,
+                      maxLines: 1,
                     ),
                   );
                 },

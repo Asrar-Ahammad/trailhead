@@ -17,16 +17,22 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Permission for auto-start on boot (background step counter) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Permission for health foreground service (step counter) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+
     <application
         android:label="Trailhead"
         android:name="${applicationName}"
         android:usesCleartextTraffic="true"
         android:icon="@mipmap/launcher_icon">
 
-        <!-- Foreground Service declaration for flutter_foreground_task -->
+        <!-- Foreground Service declaration for flutter_foreground_task (run tracking) -->
         <service
             android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
-            android:foregroundServiceType="location"
+            android:foregroundServiceType="location|health"
             android:exported="false" />
         <activity
             android:name=".MainActivity"

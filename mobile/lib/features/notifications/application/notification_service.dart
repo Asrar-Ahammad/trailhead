@@ -48,7 +48,7 @@ class NotificationService {
       body: message,
       scheduledDate: tz.TZDateTime.from(scheduledTime, tz.local),
       notificationDetails: notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 }

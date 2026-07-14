@@ -11,6 +11,8 @@ import 'features/sync/application/sync_service.dart';
 import 'features/sync/data/api_client.dart';
 import 'features/sync/data/models/sync_job_isar.dart';
 import 'package:trailhead_mobile/features/shoes/data/models/shoe_isar.dart';
+import 'features/run_tracking/data/models/daily_steps_isar.dart';
+import 'features/run_tracking/application/background_step_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'features/notifications/application/notification_service.dart';
@@ -19,6 +21,7 @@ import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_themes.dart';
 import 'features/audio/application/sound_service.dart';
 import 'shared/navigation/sound_navigator_observer.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 late Isar isarInstance;
 
@@ -45,7 +48,7 @@ void callbackDispatcher() {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final isar = await Isar.open(
-        [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema],
+        [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema, DailyStepsIsarSchema],
         directory: dir.path,
       );
 
@@ -75,7 +78,7 @@ void main() async {
   // Initialize Isar
   final dir = await getApplicationDocumentsDirectory();
   isarInstance = await Isar.open(
-    [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema],
+    [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema, DailyStepsIsarSchema],
     directory: dir.path,
   );
 
@@ -85,6 +88,46 @@ void main() async {
     await notificationService.initialize();
   } catch (e, st) {
     debugPrint('Notification initialization error: $e\n$st');
+  }
+
+  // Start background step counter service
+  try {
+    FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: 'trailhead_steps',
+        channelName: 'Step Counter',
+        channelDescription: 'Counts your steps in the background.',
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: false,
+        playSound: false,
+      ),
+      foregroundTaskOptions: ForegroundTaskOptions(
+        eventAction: ForegroundTaskEventAction.repeat(60000), // Update notification every 60s
+        autoRunOnBoot: false,
+        autoRunOnMyPackageReplaced: false,
+        allowWakeLock: true,
+      ),
+    );
+
+    // Only start if not already running (e.g. run tracker service is active)
+    final isRunning = await FlutterForegroundTask.isRunningService;
+    if (!isRunning) {
+      final status = await Permission.activityRecognition.status;
+      if (status.isGranted) {
+        FlutterForegroundTask.startService(
+          notificationTitle: 'Trailhead',
+          notificationText: '0 steps today',
+          callback: backgroundStepCallback,
+        );
+      } else {
+        debugPrint('Activity recognition permission not granted. Skipping background step counter.');
+      }
+    }
+  } catch (e, st) {
+    debugPrint('Background step counter init error: $e\n$st');
   }
 
   final prefs = await SharedPreferences.getInstance();

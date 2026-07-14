@@ -5,6 +5,7 @@ import '../../shoes/data/models/shoe_isar.dart';
 import '../data/models/sync_job_isar.dart';
 import '../data/api_client.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SyncService {
   final Isar isar;
@@ -157,8 +158,15 @@ class SyncService {
     }
   }
 
-  /// Fetch existing runs from the server (used on first login)
+  /// Fetch existing runs and shoes from the server (used on first login)
   Future<void> fetchInitialData() async {
+    // Fetch shoes from server
+    await _fetchShoesFromServer();
+
+    // Fetch streak and rest days from server
+    await _fetchStreakFromServer();
+
+    // Fetch runs from server
     try {
       int page = 1;
       int totalPages = 1;
@@ -223,6 +231,79 @@ class SyncService {
       } while (page <= totalPages);
     } catch (e) {
       print('initialSync error: $e');
+    }
+  }
+
+  /// Fetch shoes from the server and store them in local Isar DB
+  Future<void> _fetchShoesFromServer() async {
+    try {
+      final response = await apiClient.client.get('/shoes');
+      if (response.statusCode == 200) {
+        final shoesList = response.data as List<dynamic>;
+
+        for (final shoeJson in shoesList) {
+          final serverShoeId = shoeJson['id'] as String;
+
+          // Check if this shoe already exists locally by clientShoeId
+          final existingShoe = await isar.shoeIsars.filter()
+              .clientShoeIdEqualTo(serverShoeId)
+              .findFirst();
+
+          if (existingShoe == null) {
+            // Insert new shoe from server
+            final shoe = ShoeIsar()
+              ..clientShoeId = serverShoeId
+              ..name = shoeJson['name'] as String?
+              ..brand = shoeJson['brand'] as String?
+              ..distanceM = (shoeJson['distanceM'] as num?)?.toDouble() ?? 0
+              ..isActive = shoeJson['isActive'] as bool? ?? true
+              ..createdAt = shoeJson['createdAt'] != null
+                  ? DateTime.parse(shoeJson['createdAt'] as String).toLocal()
+                  : DateTime.now();
+
+            await isar.writeTxn(() async {
+              await isar.shoeIsars.put(shoe);
+            });
+          } else {
+            // Update existing shoe with latest server data
+            existingShoe
+              ..name = shoeJson['name'] as String?
+              ..brand = shoeJson['brand'] as String?
+              ..distanceM = (shoeJson['distanceM'] as num?)?.toDouble() ?? 0
+              ..isActive = shoeJson['isActive'] as bool? ?? true;
+
+            await isar.writeTxn(() async {
+              await isar.shoeIsars.put(existingShoe);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('fetchShoesFromServer error: $e');
+    }
+  }
+
+  /// Fetch streak from the server and store in SharedPreferences
+  Future<void> _fetchStreakFromServer() async {
+    try {
+      final response = await apiClient.client.get('/streak');
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data != null && data['error'] == null) {
+          final prefs = await SharedPreferences.getInstance();
+          if (data['restDaysLimit'] != null) {
+            await prefs.setInt('rest_days_limit', data['restDaysLimit'] as int);
+          }
+          if (data['restDaysUsed'] != null) {
+            await prefs.setInt('rest_days_used', data['restDaysUsed'] as int);
+          }
+          if (data['lastRestDaysUpdate'] != null) {
+            await prefs.setString('last_rest_days_update', data['lastRestDaysUpdate'] as String);
+          }
+        }
+      }
+    } catch (e) {
+      print('fetchStreakFromServer error: $e');
     }
   }
 

@@ -247,9 +247,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                 final String elevationStr = (elevationGain != null && elevationGain > 0)
                     ? '${elevationGain.toStringAsFixed(0)} m'
                     : '—';
-                return Column(
-                  children: [
-                    GridView.count(
+                return GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -262,38 +260,15 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
                         _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                         _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', elevationStr),
+                        _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                        _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                        _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
                         if (run.weatherTemp != null && run.weatherCode != null)
                           _buildStatCard(retroColors, _getWeatherIcon(run.weatherCode!.toInt()), 'Weather', '${run.weatherTemp!.toStringAsFixed(0)}°C'),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-                    Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          height: 70,
-                          child: _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 70,
-                          child: _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 70,
-                          child: _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
-                        ),
-                      ],
-                    ),
-                  ],
                 );
               },
-              loading: () => Column(
-                children: [
-                  GridView.count(
+              loading: () => GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -306,35 +281,12 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                       _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
                       _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                       _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 70,
-                        child: _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 70,
-                        child: _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 70,
-                        child: _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
-                      ),
-                    ],
-                  ),
-                ],
               ),
-              error: (_, __) => Column(
-                children: [
-                  GridView.count(
+              error: (_, __) => GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -347,31 +299,10 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                       _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
                       _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                       _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
+                      _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 70,
-                        child: _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 70,
-                        child: _buildStatCard(retroColors, PhosphorIcons.arrowsOutLineHorizontal(), 'Stride', run.avgStrideLengthM != null && run.avgStrideLengthM! > 0 ? '${run.avgStrideLengthM!.toStringAsFixed(2)} m' : '—'),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 70,
-                        child: _buildStatCard(retroColors, PhosphorIcons.personSimpleWalk(), 'Total Steps', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${(run.avgCadenceSpm! * ((run.durationS ?? 0) / 60)).round()}' : '—'),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
             

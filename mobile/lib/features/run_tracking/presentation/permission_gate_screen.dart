@@ -119,13 +119,13 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        PhosphorIcons.mapPin(PhosphorIconsStyle.bold),
+                        PhosphorIcons.shieldCheck(PhosphorIconsStyle.bold),
                         color: const Color(0xffff5a3c),
                         size: 64,
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Location Access Required',
+                        'Permissions Required',
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -135,13 +135,13 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Trailhead is a native GPS tracker. To record your run route, duration, and distance accurately when the screen is locked or the app is backgrounded, background location access is mandatory.',
+                        'Trailhead requires these permissions to work perfectly:\n\n• Location: To accurately map your route and calculate your pace.\n• Background Location: To keep tracking even when your screen is locked.\n• Physical Activity: To count your steps and track your cadence.\n• Notifications: To send you important milestone alerts and audio cues.',
                         style: GoogleFonts.spaceGrotesk(
-                          fontSize: 15,
+                          fontSize: 14,
                           color: const Color(0xffa0a0a3),
                           height: 1.5,
                         ),
-                        textAlign: TextAlign.center,
+                        textAlign: TextAlign.left,
                       ),
                       if (_errorMsg.isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -176,7 +176,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                       child: _requestingForeground
                           ? const RetroLoadingIndicator(text: 'REQUESTING')
                           : Text(
-                              '1. Grant Location Permission',
+                              '1. Grant Required Permissions',
                               style: GoogleFonts.spaceGrotesk(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -199,7 +199,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                       child: _requestingBackground
                           ? const RetroLoadingIndicator(text: 'REQUESTING')
                           : Text(
-                              '2. Allow all the time (Background)',
+                              '2. Allow Background Tracking',
                               style: GoogleFonts.spaceGrotesk(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,

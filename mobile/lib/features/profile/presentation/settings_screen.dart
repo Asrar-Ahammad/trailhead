@@ -142,21 +142,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (result != null) {
       final val = int.tryParse(result);
       if (val != null && val >= 0 && val <= 31) {
-        final prefs = await SharedPreferences.getInstance();
-        final nowStr = DateTime.now().toIso8601String();
-        await prefs.setInt('rest_days_limit', val);
-        await prefs.setString('last_rest_days_update', nowStr);
-        
-        setState(() {
-          _restDaysLimit = val;
-          _lastRestDaysUpdate = nowStr;
-        });
-
         try {
           final api = ref.read(apiClientProvider);
           await api.client.put('/streak', data: {'restDaysLimit': val});
+          
+          final prefs = await SharedPreferences.getInstance();
+          final nowStr = DateTime.now().toIso8601String();
+          await prefs.setInt('rest_days_limit', val);
+          await prefs.setString('last_rest_days_update', nowStr);
+          
+          if (mounted) {
+            setState(() {
+              _restDaysLimit = val;
+              _lastRestDaysUpdate = nowStr;
+            });
+          }
         } catch (e) {
           debugPrint('Failed to sync rest days to backend: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Failed to update: Rest days can only be changed once per month.')),
+            );
+          }
         }
       }
     }

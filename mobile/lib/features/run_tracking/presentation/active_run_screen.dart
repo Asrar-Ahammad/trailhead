@@ -36,6 +36,10 @@ class ActiveRunScreen extends ConsumerWidget {
     final trackerState = ref.watch(runTrackerProvider);
     final colors = Theme.of(context).extension<AppColors>()!;
 
+    if (!trackerState.permissionsChecked) {
+      return const SizedBox.shrink();
+    }
+
     if (!trackerState.permissionsGranted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushReplacement(
@@ -49,11 +53,17 @@ class ActiveRunScreen extends ConsumerWidget {
       backgroundColor: colors.background,
       body: Stack(
         children: [
-          // Background Map (Full Screen)
-          LiveRunMap(
-            initialLocation: trackerState.initialPosition != null 
-                ? LatLng(trackerState.initialPosition!.latitude, trackerState.initialPosition!.longitude)
-                : null,
+          // Background Map (Shifted up to center point above cards)
+          Positioned(
+            top: -300,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: LiveRunMap(
+              initialLocation: trackerState.initialPosition != null 
+                  ? LatLng(trackerState.initialPosition!.latitude, trackerState.initialPosition!.longitude)
+                  : null,
+            ),
           ),
           
           // Floating Elements overlay
@@ -510,7 +520,6 @@ class _RunControls extends ConsumerStatefulWidget {
 }
 
 class _RunControlsState extends ConsumerState<_RunControls> {
-  bool _isStarting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -581,18 +590,10 @@ class _RunControlsState extends ConsumerState<_RunControls> {
 
                   // Center Action (Start / Pause / Resume)
                   PressableScale(
-                    onTap: _isStarting ? null : () async {
+                    onTap: () {
                       if (isIdle) {
-                        setState(() {
-                          _isStarting = true;
-                        });
                         ref.read(soundServiceProvider).playRunStart();
-                        await notifier.startRun();
-                        if (mounted) {
-                          setState(() {
-                            _isStarting = false;
-                          });
-                        }
+                        notifier.startRun();
                       } else if (isPaused) {
                         ref.read(soundServiceProvider).playPauseResume();
                         notifier.resumeRun();
@@ -615,18 +616,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                           ),
                         ],
                       ),
-                      child: _isStarting
-                          ? const Center(
-                              child: SizedBox(
-                                width: 40,
-                                height: 40,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 3,
-                                ),
-                              ),
-                            )
-                          : Icon(
+                      child: Icon(
                               isIdle || isPaused ? PhosphorIcons.play(PhosphorIconsStyle.fill) : PhosphorIcons.pause(PhosphorIconsStyle.fill),
                               color: Colors.white,
                               size: 56,

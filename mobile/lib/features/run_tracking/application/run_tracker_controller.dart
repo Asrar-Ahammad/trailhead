@@ -11,6 +11,8 @@ import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 import 'package:workmanager/workmanager.dart';
 import 'location_service_task.dart';
+import 'background_step_service.dart';
+import '../data/models/daily_steps_isar.dart';
 import '../../../main.dart'; // import global isarInstance
 import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
@@ -44,7 +46,7 @@ class RunTrackerState {
     this.stepCount = 0,
     this.gpsWeak = false,
     this.permissionsGranted = false,
-    this.permissionsChecked = false,
+    this.permissionsChecked = true,
     this.targetPaceSPerKm,
     this.currentSplitPaceSPerKm,
     this.initialPosition,
@@ -90,7 +92,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   final FlutterTts _flutterTts = FlutterTts();
   final Ref ref;
 
-  RunTrackerController(this.ref) : super(RunTrackerState(status: 'idle')) {
+  RunTrackerController(this.ref) : super(RunTrackerState(status: 'idle', permissionsChecked: true)) {
     _initForegroundTask();
     _checkPermissionsSilently();
     _recoverOrphanedRuns();
@@ -178,35 +180,42 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   Future<void> _checkPermissionsSilently() async {
-    final hasLocation = await Geolocator.checkPermission();
-    final isGranted = hasLocation == LocationPermission.always ||
-        hasLocation == LocationPermission.whileInUse;
-    
-    // Also check background if Android 10+
-    bool backgroundGranted = true;
-    if (isGranted) {
-      // In a real app we might verify if it is specifically 'always' for background location.
-      // But for simplicity of check, we align with isGranted.
-      backgroundGranted = hasLocation == LocationPermission.always;
-    }
+    try {
+      final hasLocation = await Geolocator.checkPermission();
+      final isGranted = hasLocation == LocationPermission.always ||
+          hasLocation == LocationPermission.whileInUse;
+      
+      // Also check background if Android 10+
+      bool backgroundGranted = true;
+      if (isGranted) {
+        backgroundGranted = hasLocation == LocationPermission.always;
+      }
 
-    Position? pos;
-    if (isGranted) {
-      try {
-        pos = await Geolocator.getLastKnownPosition();
-        if (pos == null) {
-          Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).then((p) {
-            state = state.copyWith(initialPosition: p);
-          }).catchError((_) {});
-        }
-      } catch (_) {}
-    }
+      // Update permissions immediately — don't wait for position
+      state = state.copyWith(
+        permissionsGranted: isGranted && backgroundGranted,
+        permissionsChecked: true,
+      );
 
-    state = state.copyWith(
-      permissionsGranted: isGranted && backgroundGranted, 
-      permissionsChecked: true,
-      initialPosition: pos
-    );
+      // Fetch position in background — never block
+      if (isGranted) {
+        Future.microtask(() async {
+          try {
+            final pos = await Geolocator.getLastKnownPosition();
+            if (pos != null) {
+              state = state.copyWith(initialPosition: pos);
+            } else {
+              Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low).then((p) {
+                state = state.copyWith(initialPosition: p);
+              }).catchError((_) {});
+            }
+          } catch (_) {}
+        });
+      }
+    } catch (e) {
+      debugPrint('[PERMISSIONS] Error checking permissions: $e');
+      state = state.copyWith(permissionsChecked: true);
+    }
   }
 
   Future<bool> requestForegroundPermission() async {
@@ -333,19 +342,54 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   Future<void> startRun() async {
     if (state.status != 'idle') return;
 
+    // Set run_active flag to prevent background step counter double-counting
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('run_active', true);
+
+    // Stop background step counter and re-init foreground task for run tracking
+    try {
+      await FlutterForegroundTask.stopService();
+    } catch (_) {}
+    _initForegroundTask();
+
     final String clientRunId = const Uuid().v4();
     final DateTime now = DateTime.now();
 
-    final newRun = RunIsar()
-      ..clientRunId = clientRunId
-      ..startTime = now
-      ..status = 'running'
-      ..activityType = state.activityType
-      ..clientShoeId = state.selectedShoeId
-      ..distanceM = 0.0;
+    // Update state IMMEDIATELY so UI responds instantly
+    state = RunTrackerState(
+      status: 'running',
+      clientRunId: clientRunId,
+      distanceM: 0.0,
+      durationS: 0,
+      stepCount: 0,
+      permissionsGranted: state.permissionsGranted,
+      initialPosition: state.initialPosition,
+      targetPaceSPerKm: state.targetPaceSPerKm,
+      activityType: state.activityType,
+    );
 
-    // Fetch weather asynchronously so it doesn't block starting the run
+    // All I/O happens in the background — no awaits blocking the UI
+    final activityType = state.activityType;
+    final selectedShoeId = state.selectedShoeId;
+
     Future.microtask(() async {
+      try {
+        final newRun = RunIsar()
+          ..clientRunId = clientRunId
+          ..startTime = now
+          ..status = 'running'
+          ..activityType = activityType
+          ..clientShoeId = selectedShoeId
+          ..distanceM = 0.0;
+
+        await isarInstance.writeTxn(() async {
+          await isarInstance.runIsars.put(newRun);
+        });
+      } catch (e) {
+        debugPrint('[START_RUN] Isar write error: $e');
+      }
+
+      // Fetch weather in the background
       try {
         final weatherRepo = ref.read(weatherRepositoryProvider);
         final weatherData = await weatherRepo.getCurrentWeather();
@@ -359,29 +403,11 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
             }
           });
         }
-      } catch (_) {
-        // Ignore weather fetch errors
-      }
+      } catch (_) {}
     });
 
-    await isarInstance.writeTxn(() async {
-      await isarInstance.runIsars.put(newRun);
-    });
-
-    state = RunTrackerState(
-      status: 'running',
-      clientRunId: clientRunId,
-      distanceM: 0.0,
-      durationS: 0,
-      stepCount: 0,
-      permissionsGranted: state.permissionsGranted,
-      initialPosition: state.initialPosition,
-      targetPaceSPerKm: state.targetPaceSPerKm,
-      activityType: state.activityType,
-    );
-
-    // Start Foreground Service
-    await FlutterForegroundTask.startService(
+    // Start Foreground Service — fire and forget
+    FlutterForegroundTask.startService(
       notificationTitle: 'Trailhead',
       notificationText: 'Tracking your run...',
       callback: startCallback,
@@ -391,33 +417,51 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   Future<void> pauseRun() async {
     if (state.status != 'running') return;
 
+    // Update state IMMEDIATELY
+    state = state.copyWith(status: 'paused');
+
     FlutterForegroundTask.sendDataToTask({'action': 'pause'});
     
-    final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(state.clientRunId).findFirst();
-    if (activeRun != null) {
-      activeRun.status = 'paused';
-      await isarInstance.writeTxn(() async {
-        await isarInstance.runIsars.put(activeRun);
-      });
-    }
-
-    state = state.copyWith(status: 'paused');
+    // Persist to Isar in background
+    final clientRunId = state.clientRunId;
+    Future.microtask(() async {
+      try {
+        final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+        if (activeRun != null) {
+          activeRun.status = 'paused';
+          await isarInstance.writeTxn(() async {
+            await isarInstance.runIsars.put(activeRun);
+          });
+        }
+      } catch (e) {
+        debugPrint('[PAUSE_RUN] Isar write error: $e');
+      }
+    });
   }
 
   Future<void> resumeRun() async {
     if (state.status != 'paused') return;
 
+    // Update state IMMEDIATELY
+    state = state.copyWith(status: 'running');
+
     FlutterForegroundTask.sendDataToTask({'action': 'resume'});
 
-    final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(state.clientRunId).findFirst();
-    if (activeRun != null) {
-      activeRun.status = 'running';
-      await isarInstance.writeTxn(() async {
-        await isarInstance.runIsars.put(activeRun);
-      });
-    }
-
-    state = state.copyWith(status: 'running');
+    // Persist to Isar in background
+    final clientRunId = state.clientRunId;
+    Future.microtask(() async {
+      try {
+        final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+        if (activeRun != null) {
+          activeRun.status = 'running';
+          await isarInstance.writeTxn(() async {
+            await isarInstance.runIsars.put(activeRun);
+          });
+        }
+      } catch (e) {
+        debugPrint('[RESUME_RUN] Isar write error: $e');
+      }
+    });
   }
 
   Future<RunIsar?> stopRun() async {
@@ -427,15 +471,18 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       return null;
     }
 
+    // Stop foreground service — fire and forget
     try {
-      await FlutterForegroundTask.stopService();
-      debugPrint('[STOP_RUN] Foreground service stopped');
+      FlutterForegroundTask.stopService();
     } catch (e) {
       debugPrint('[STOP_RUN] Error stopping foreground service: $e');
     }
 
+    // Clear run_active flag and restart background step counter
+    _clearRunFlagAndRestartStepCounter();
+
+    // Read the run from Isar — this is the only await we need before returning
     final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(state.clientRunId).findFirst();
-    debugPrint('[STOP_RUN] Found activeRun in Isar: ${activeRun != null}, id=${activeRun?.clientRunId}');
     
     if (activeRun != null) {
       activeRun.status = 'completed';
@@ -448,41 +495,15 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       }
       
       activeRun.clientShoeId = state.selectedShoeId;
-      
+
+      // Critical Isar write — must complete before we return the run
       await isarInstance.writeTxn(() async {
         await isarInstance.runIsars.put(activeRun);
-        
-        if (activeRun.clientRunId != null) {
-          final syncJob = SyncJobIsar()
-            ..clientRunId = activeRun.clientRunId!
-            ..status = 'pending'
-            ..attempts = 0;
-          await isarInstance.syncJobIsars.put(syncJob);
-        }
       });
-      debugPrint('[STOP_RUN] Isar write completed successfully');
-      
-      if (state.selectedShoeId != null && activeRun.distanceM != null && activeRun.distanceM! > 0) {
-        try {
-          final shoeService = ref.read(shoeServiceProvider);
-          await shoeService.addDistanceToShoe(state.selectedShoeId!, activeRun.distanceM!);
-        } catch (e) {
-          debugPrint('[STOP_RUN] Failed to add distance to shoe: $e');
-        }
-      }
-
-      // Schedule immediate sync attempt
-      if (activeRun.clientRunId != null) {
-        Workmanager().registerOneOffTask(
-          "sync_${activeRun.clientRunId}",
-          "sync_task",
-          constraints: Constraints(networkType: NetworkType.connected),
-        );
-        
-        _scheduleStreakNudge();
-      }
     }
 
+    // Update state IMMEDIATELY after the essential write
+    final selectedShoeId = state.selectedShoeId;
     state = RunTrackerState(
       status: 'idle',
       permissionsGranted: state.permissionsGranted,
@@ -490,6 +511,45 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       targetPaceSPerKm: state.targetPaceSPerKm,
       selectedShoeId: state.selectedShoeId,
     );
+
+    // All secondary tasks run in the background — no blocking the UI
+    Future.microtask(() async {
+      try {
+        // Create sync job
+        if (activeRun?.clientRunId != null) {
+          await isarInstance.writeTxn(() async {
+            final syncJob = SyncJobIsar()
+              ..clientRunId = activeRun!.clientRunId!
+              ..status = 'pending'
+              ..attempts = 0;
+            await isarInstance.syncJobIsars.put(syncJob);
+          });
+        }
+
+        // Update shoe distance
+        if (selectedShoeId != null && activeRun?.distanceM != null && activeRun!.distanceM! > 0) {
+          try {
+            final shoeService = ref.read(shoeServiceProvider);
+            await shoeService.addDistanceToShoe(selectedShoeId, activeRun.distanceM!);
+          } catch (e) {
+            debugPrint('[STOP_RUN] Failed to add distance to shoe: $e');
+          }
+        }
+
+        // Schedule sync and streak nudge
+        if (activeRun?.clientRunId != null) {
+          Workmanager().registerOneOffTask(
+            "sync_${activeRun!.clientRunId}",
+            "sync_task",
+            constraints: Constraints(networkType: NetworkType.connected),
+          );
+          _scheduleStreakNudge();
+        }
+      } catch (e) {
+        debugPrint('[STOP_RUN] Background tasks error: $e');
+      }
+    });
+
     _refreshLocationAfterRun();
     debugPrint('[STOP_RUN] Returning activeRun: ${activeRun?.clientRunId}');
     return activeRun;
@@ -515,27 +575,44 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   Future<void> discardRun() async {
     if (state.clientRunId == null) return;
 
-    await FlutterForegroundTask.stopService();
-
     final clientRunId = state.clientRunId!;
-    await isarInstance.writeTxn(() async {
-      final run = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
-      if (run != null) {
-        await isarInstance.runIsars.delete(run.id);
-      }
-      // Delete points
-      final points = await isarInstance.runPointIsars.filter().clientRunIdEqualTo(clientRunId).findAll();
-      for (final p in points) {
-        await isarInstance.runPointIsars.delete(p.id);
-      }
-    });
 
+    // Update state IMMEDIATELY so UI responds instantly
     state = RunTrackerState(
       status: 'idle',
       permissionsGranted: state.permissionsGranted,
       initialPosition: state.initialPosition,
       targetPaceSPerKm: state.targetPaceSPerKm,
     );
+
+    // All cleanup happens in the background
+    Future.microtask(() async {
+      try {
+        FlutterForegroundTask.stopService();
+      } catch (e) {
+        debugPrint('[DISCARD_RUN] Error stopping foreground service: $e');
+      }
+
+      // Clear run_active flag and restart background step counter
+      _clearRunFlagAndRestartStepCounter();
+
+      try {
+        await isarInstance.writeTxn(() async {
+          final run = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+          if (run != null) {
+            await isarInstance.runIsars.delete(run.id);
+          }
+          // Delete points
+          final points = await isarInstance.runPointIsars.filter().clientRunIdEqualTo(clientRunId).findAll();
+          for (final p in points) {
+            await isarInstance.runPointIsars.delete(p.id);
+          }
+        });
+      } catch (e) {
+        debugPrint('[DISCARD_RUN] Isar cleanup error: $e');
+      }
+    });
+
     _refreshLocationAfterRun();
   }
 
@@ -549,6 +626,48 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         state = state.copyWith(initialPosition: pos);
       }
     } catch (_) {}
+  }
+
+  /// Clear the run_active flag and restart the background step counter service
+  void _clearRunFlagAndRestartStepCounter() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('run_active', false);
+    } catch (_) {}
+
+    // Small delay to let the run service fully stop
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    try {
+      // Re-init foreground task for step counting
+      FlutterForegroundTask.init(
+        androidNotificationOptions: AndroidNotificationOptions(
+          channelId: 'trailhead_steps',
+          channelName: 'Step Counter',
+          channelDescription: 'Counts your steps in the background.',
+          channelImportance: NotificationChannelImportance.LOW,
+          priority: NotificationPriority.LOW,
+        ),
+        iosNotificationOptions: const IOSNotificationOptions(
+          showNotification: false,
+          playSound: false,
+        ),
+        foregroundTaskOptions: ForegroundTaskOptions(
+          eventAction: ForegroundTaskEventAction.repeat(60000),
+          autoRunOnBoot: false,
+          autoRunOnMyPackageReplaced: false,
+          allowWakeLock: true,
+        ),
+      );
+
+      FlutterForegroundTask.startService(
+        notificationTitle: 'Trailhead',
+        notificationText: '0 steps today',
+        callback: backgroundStepCallback,
+      );
+    } catch (e) {
+      debugPrint('[STEP_COUNTER] Error restarting step counter: $e');
+    }
   }
 
   @override

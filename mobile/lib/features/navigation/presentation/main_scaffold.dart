@@ -139,7 +139,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
           axisAlignment: -1.0, // Expand/collapse from top
           child: child,
         ),
-        child: isRunning
+        child: (isRunning && currentIndex == 1)
             ? const SizedBox(key: ValueKey('empty_nav'), width: double.infinity, height: 0)
             : AnimatedContainer(
                 duration: const Duration(milliseconds: 250),

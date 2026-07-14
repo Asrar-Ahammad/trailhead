@@ -192,6 +192,21 @@ export async function POST(req: NextRequest) {
       reports.push(reportData);
     }
 
+    // 4. Delete orphaned WeeklyReports (weeks that no longer have any runs)
+    const activeKeys = Array.from(groupedRuns.keys());
+    const existingReports = await dbServer.weeklyReport.findMany({
+      where: { userId }
+    });
+    
+    for (const report of existingReports) {
+      const key = `${report.year}-${report.weekNumber}`;
+      if (!activeKeys.includes(key)) {
+        await dbServer.weeklyReport.delete({
+          where: { id: report.id }
+        });
+      }
+    }
+
     return NextResponse.json({ success: true, count: reports.length });
 
   } catch (err) {

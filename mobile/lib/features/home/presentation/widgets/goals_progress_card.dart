@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import '../../../run_tracking/data/models/run_isar.dart';
+import '../../../run_tracking/data/models/daily_steps_isar.dart';
 import '../../../goals/application/goals_provider.dart';
 import '../../../goals/presentation/set_goals_sheet.dart';
+import '../../../haptics/application/haptics_service.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 import '../../../../main.dart'; // for isarInstance
@@ -26,6 +28,7 @@ final goalProgressProvider = StreamProvider.autoDispose<GoalProgressData>((ref) 
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final startOfMonth = DateTime(now.year, now.month, 1);
+    final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     
     double dailyTotal = 0;
     double monthlyTotal = 0;
@@ -63,6 +66,31 @@ final goalProgressProvider = StreamProvider.autoDispose<GoalProgressData>((ref) 
       if (isToday) dailyTotal += dailyVal;
       monthlyTotal += monthlyVal;
     }
+
+    // Add background steps from DailyStepsIsar
+    if (goals.dailyGoalMetric == 'steps') {
+      final todayRecord = await isarInstance.dailyStepsIsars
+          .filter()
+          .dateKeyEqualTo(todayKey)
+          .findFirst();
+      if (todayRecord != null) {
+        dailyTotal += todayRecord.steps.toDouble();
+      }
+    }
+
+    if (goals.monthlyGoalMetric == 'steps') {
+      // Sum background steps for the entire month
+      final monthStartKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+      final allMonthSteps = await isarInstance.dailyStepsIsars
+          .filter()
+          .dateKeyGreaterThan(monthStartKey, include: true)
+          .and()
+          .dateKeyLessThan('${now.year}-${(now.month + 1).toString().padLeft(2, '0')}-01')
+          .findAll();
+      for (final record in allMonthSteps) {
+        monthlyTotal += record.steps.toDouble();
+      }
+    }
     
     yield GoalProgressData(dailyTotal, monthlyTotal);
   }
@@ -96,6 +124,7 @@ class GoalsProgressCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () {
+        ref.read(hapticsServiceProvider).lightImpact();
         showModalBottomSheet(
           context: context,
           backgroundColor: retroColors.surface,

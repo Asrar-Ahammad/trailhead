@@ -9,6 +9,7 @@ import '../../sync/application/sync_service.dart';
 import '../../sync/data/api_client.dart';
 import '../../../main.dart';
 import '../../../shared/widgets/pressable_scale.dart';
+import '../../shoes/application/shoe_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -46,9 +47,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         try {
           final apiClient = ref.read(apiClientProvider);
           final syncService = SyncService(isar: isarInstance, apiClient: apiClient);
-          syncService.fetchInitialData().catchError((e) {
-            debugPrint('Failed to fetch initial data: $e');
-          });
+          await syncService.fetchInitialData();
+          // Invalidate shoe providers so they re-read from updated Isar
+          ref.invalidate(allShoesProvider);
+          ref.invalidate(activeShoesProvider);
         } catch (e) {
           debugPrint('Error starting sync: $e');
         }

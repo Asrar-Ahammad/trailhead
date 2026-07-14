@@ -108,7 +108,7 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
                   style: AppTextStyles.bodyMedium(color: widget.retroColors.textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Target',
-                    labelStyle: AppTextStyles.bodySmall(color: widget.retroColors.textSecondary),
+                    labelStyle: AppTextStyles.label(color: widget.retroColors.textSecondary),
                     filled: true,
                     fillColor: widget.retroColors.surfaceRaised,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
@@ -147,7 +147,7 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
                   style: AppTextStyles.bodyMedium(color: widget.retroColors.textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Target',
-                    labelStyle: AppTextStyles.bodySmall(color: widget.retroColors.textSecondary),
+                    labelStyle: AppTextStyles.label(color: widget.retroColors.textSecondary),
                     filled: true,
                     fillColor: widget.retroColors.surfaceRaised,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),

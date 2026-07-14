@@ -7,6 +7,7 @@ import '../../../shared/widgets/retro_loading_indicator.dart';
 import '../../sync/application/sync_service.dart';
 import '../../sync/data/api_client.dart';
 import '../../../main.dart';
+import '../../shoes/application/shoe_service.dart';
 
 class AuthWrapper extends ConsumerStatefulWidget {
   const AuthWrapper({super.key});
@@ -33,9 +34,10 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       try {
         final apiClient = ref.read(apiClientProvider);
         final syncService = SyncService(isar: isarInstance, apiClient: apiClient);
-        syncService.fetchInitialData().catchError((e) {
-          debugPrint('Failed to fetch initial data on boot: $e');
-        });
+        await syncService.fetchInitialData();
+        // Invalidate shoe providers so they re-read from updated Isar
+        ref.invalidate(allShoesProvider);
+        ref.invalidate(activeShoesProvider);
       } catch (e) {
         debugPrint('Error starting sync on boot: $e');
       }

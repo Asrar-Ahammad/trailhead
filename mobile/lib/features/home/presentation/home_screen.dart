@@ -280,15 +280,16 @@ class HomeScreen extends ConsumerWidget {
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 40,
+                          reservedSize: 56, // Increased to prevent wrapping
                           getTitlesWidget: (value, meta) {
                             if (value == meta.max || value == meta.min || value == 0) return const SizedBox.shrink();
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: Text(
-                                RunFormatUtils.formatDistance(value * 1000, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider)),
+                                '${RunFormatUtils.formatDistance(value * 1000, ref.watch(distanceUnitProvider))} ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
                                 style: AppTextStyles.label(color: retroColors.textSecondary),
                                 textAlign: TextAlign.right,
+                                maxLines: 1,
                               ),
                             );
                           },
