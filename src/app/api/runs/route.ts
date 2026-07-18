@@ -23,6 +23,7 @@ const createRunSchema = z.object({
   shoeId: z.string().nullable().optional(),
   weatherTemp: z.number().nullable().optional(),
   weatherCode: z.number().nullable().optional(),
+  aiAnalysis: z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
         shoeId: parsed.shoeId || null,
         weatherTemp: parsed.weatherTemp !== undefined && parsed.weatherTemp !== null ? parsed.weatherTemp : null,
         weatherCode: parsed.weatherCode !== undefined && parsed.weatherCode !== null ? parsed.weatherCode : null,
+        aiAnalysis: parsed.aiAnalysis || null,
       },
     });
 

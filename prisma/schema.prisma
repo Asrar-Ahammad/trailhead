@@ -20,6 +20,8 @@ model User {
   dailyGoalTarget Float?
   monthlyGoalMetric String?
   monthlyGoalTarget Float?
+  performanceSummary String?
+  performanceUpdatedAt DateTime?
   createdAt       DateTime         @default(now())
   runs            Run[]
   personalRecords PersonalRecord[]
@@ -60,6 +62,7 @@ model Run {
   elevationGainM Float?
   title         String?
   aiSummary     String?
+  aiAnalysis    String?
   subjectiveEffort String? // "easy" | "moderate" | "hard"
   conditions    String?
   weatherTemp   Float?
