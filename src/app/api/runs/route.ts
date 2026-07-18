@@ -81,6 +81,43 @@ export async function POST(req: NextRequest) {
     // Invalidate cached runs
     revalidateTag(`runs-${userId}`, 'max');
 
+    // Also update DailySteps in Postgres with the run's steps
+    if (parsed.stepCount && parsed.stepCount > 0) {
+      try {
+        const dateKey = startTime.toISOString().split('T')[0];
+        const hour = startTime.getUTCHours();
+        
+        const existingDaily = await dbServer.dailySteps.findUnique({
+          where: { userId_dateKey: { userId, dateKey } }
+        });
+        
+        let newHourly = Array(24).fill(0);
+        if (existingDaily && Array.isArray(existingDaily.hourlySteps) && existingDaily.hourlySteps.length === 24) {
+          newHourly = [...existingDaily.hourlySteps];
+        }
+        
+        newHourly[hour] += parsed.stepCount;
+        
+        await dbServer.dailySteps.upsert({
+          where: { userId_dateKey: { userId, dateKey } },
+          create: {
+            userId,
+            dateKey,
+            steps: parsed.stepCount,
+            hourlySteps: newHourly,
+            lastUpdated: new Date()
+          },
+          update: {
+            steps: { increment: parsed.stepCount },
+            hourlySteps: newHourly,
+            lastUpdated: new Date()
+          }
+        });
+      } catch (stepErr) {
+        console.error('Failed to update daily steps from run (non-fatal):', stepErr);
+      }
+    }
+
     const { searchParams } = new URL(req.url);
     const tz = searchParams.get('tz') || 'UTC';
     try {
