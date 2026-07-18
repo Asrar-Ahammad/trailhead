@@ -7,6 +7,7 @@ const createShoeSchema = z.object({
   id: z.string(),
   name: z.string(),
   brand: z.string().nullable().optional(),
+  imageUrl: z.string().nullable().optional(),
   distanceM: z.number().nonnegative().optional(),
   isActive: z.boolean().optional(),
   createdAt: z.string().or(z.number()).optional(),
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
       update: {
         name: parsed.name,
         brand: parsed.brand || null,
+        imageUrl: parsed.imageUrl || null,
         distanceM: parsed.distanceM ?? 0,
         isActive: parsed.isActive ?? true,
       },
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
         userId,
         name: parsed.name,
         brand: parsed.brand || null,
+        imageUrl: parsed.imageUrl || null,
         distanceM: parsed.distanceM ?? 0,
         isActive: parsed.isActive ?? true,
         createdAt,

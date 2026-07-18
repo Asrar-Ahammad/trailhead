@@ -35,6 +35,7 @@ model Shoe {
   user      User     @relation(fields: [userId], references: [id])
   name      String
   brand     String?
+  imageUrl  String?
   distanceM Float    @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
