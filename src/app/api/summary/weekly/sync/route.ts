@@ -33,34 +33,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 1. Fetch all runs for the user
+    // 1. Fetch all runs and daily steps for the user
     const allRuns = await dbServer.run.findMany({
       where: { userId },
       orderBy: { startTime: 'asc' }
     });
 
+    const allDailySteps = await dbServer.dailySteps.findMany({
+      where: { userId },
+      orderBy: { dateKey: 'asc' }
+    });
+
     // 2. Group by ISO Year & Week
-    const groupedRuns = new Map<string, {
+    const weeklyData = new Map<string, {
       year: number;
       weekNumber: number;
       startDate: Date;
       endDate: Date;
       runs: typeof allRuns;
+      dailySteps: typeof allDailySteps;
     }>();
 
     for (const run of allRuns) {
       const { year, weekNumber, startDate, endDate } = getISOWeekInfo(run.startTime);
       const key = `${year}-${weekNumber}`;
-      if (!groupedRuns.has(key)) {
-        groupedRuns.set(key, { year, weekNumber, startDate, endDate, runs: [] });
+      if (!weeklyData.has(key)) {
+        weeklyData.set(key, { year, weekNumber, startDate, endDate, runs: [], dailySteps: [] });
       }
-      groupedRuns.get(key)!.runs.push(run);
+      weeklyData.get(key)!.runs.push(run);
+    }
+
+    for (const ds of allDailySteps) {
+      const dsDate = new Date(`${ds.dateKey}T12:00:00Z`);
+      const { year, weekNumber, startDate, endDate } = getISOWeekInfo(dsDate);
+      const key = `${year}-${weekNumber}`;
+      if (!weeklyData.has(key)) {
+        weeklyData.set(key, { year, weekNumber, startDate, endDate, runs: [], dailySteps: [] });
+      }
+      weeklyData.get(key)!.dailySteps.push(ds);
     }
 
     // 3. Process each week and upsert WeeklyReport
     const reports = [];
 
-    for (const [key, group] of groupedRuns.entries()) {
+    for (const [key, group] of weeklyData.entries()) {
       let totalDistanceM = 0;
       let totalDurationS = 0;
       let totalCalories = 0;
@@ -77,6 +93,8 @@ export async function POST(req: NextRequest) {
 
       // Group by day for daily charts (0 = Monday, 6 = Sunday)
       const dailyMap = new Map<number, { paceSum: number; paceCount: number; cadenceSum: number; cadenceCount: number }>();
+
+      const runStepsByDate = new Map<string, number>();
 
       for (const run of group.runs) {
         totalDistanceM += run.distanceM;
@@ -96,12 +114,14 @@ export async function POST(req: NextRequest) {
         const cadence = run.avgCadenceSpm ?? 0;
         const stride = run.avgStrideLengthM ?? 0;
 
-        // Use synced steps, or calculate from cadence
+        const dateKey = run.startTime.toISOString().split('T')[0];
+        let stepsForRun = 0;
         if (run.stepCount) {
-          totalSteps += run.stepCount;
+          stepsForRun = run.stepCount;
         } else if (cadence > 0 && run.durationS > 0) {
-          totalSteps += Math.round(cadence * (run.durationS / 60));
+          stepsForRun = Math.round(cadence * (run.durationS / 60));
         }
+        runStepsByDate.set(dateKey, (runStepsByDate.get(dateKey) || 0) + stepsForRun);
 
         if (run.avgPaceSPerKm > 0) {
           sumPace += run.avgPaceSPerKm;
@@ -130,6 +150,19 @@ export async function POST(req: NextRequest) {
           daily.cadenceSum += cadence;
           daily.cadenceCount++;
         }
+      }
+
+      const bgStepsByDate = new Map<string, number>();
+      for (const ds of group.dailySteps) {
+        bgStepsByDate.set(ds.dateKey, ds.steps);
+      }
+
+      let totalSteps = 0;
+      const allDates = new Set([...runStepsByDate.keys(), ...bgStepsByDate.keys()]);
+      for (const d of allDates) {
+        const rs = runStepsByDate.get(d) || 0;
+        const bs = bgStepsByDate.get(d) || 0;
+        totalSteps += Math.max(rs, bs);
       }
 
       const avgPaceSPerKm = paceCount > 0 ? sumPace / paceCount : 0;
@@ -192,8 +225,8 @@ export async function POST(req: NextRequest) {
       reports.push(reportData);
     }
 
-    // 4. Delete orphaned WeeklyReports (weeks that no longer have any runs)
-    const activeKeys = Array.from(groupedRuns.keys());
+    // 4. Delete orphaned WeeklyReports (weeks that no longer have any runs or steps)
+    const activeKeys = Array.from(weeklyData.keys());
     const existingReports = await dbServer.weeklyReport.findMany({
       where: { userId }
     });

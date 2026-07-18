@@ -26,6 +26,7 @@ model User {
   streak          Streak?
   weeklyReports   WeeklyReport[]
   shoes           Shoe[]
+  dailySteps      DailySteps[]
 }
 
 model Shoe {
@@ -130,4 +131,16 @@ model WeeklyReport {
   dailyStats       Json     // Stores daily averages for charts
   
   @@unique([userId, year, weekNumber])
+}
+
+model DailySteps {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  dateKey     String   // "YYYY-MM-DD"
+  steps       Int
+  hourlySteps Int[]    // array of 24 integers
+  lastUpdated DateTime @default(now())
+
+  @@unique([userId, dateKey])
 }
