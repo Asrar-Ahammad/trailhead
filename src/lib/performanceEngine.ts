@@ -9,6 +9,7 @@ export interface TopStat {
 export interface PerformanceSummary {
   topStats: TopStat[];
   narrative: string;
+  trendMessage: string;
   totalRuns: number;
   totalDistanceKm: number;
   avgPaceSPerKm: number;
@@ -29,6 +30,7 @@ export async function generateUserPerformanceSummary(userId: string): Promise<Pe
     return {
       topStats: [],
       narrative: "You haven't completed any runs yet. Get out there and start your journey!",
+      trendMessage: "Ready to start your running journey?",
       totalRuns: 0,
       totalDistanceKm: 0,
       avgPaceSPerKm: 0
@@ -88,20 +90,24 @@ export async function generateUserPerformanceSummary(userId: string): Promise<Pe
   const prevDistance = prevRuns.reduce((sum, r) => sum + r.distanceM, 0) / 1000;
 
   let narrative = `You have completed ${totalRuns} runs, covering a total distance of ${totalDistanceKm} km with an average pace of ${Math.floor(avgPaceSPerKm/60)}:${Math.floor(avgPaceSPerKm%60).toString().padStart(2,'0')}/km. `;
+  let trendMessage = "You are maintaining a steady and consistent running routine.";
 
   if (recentDistance > prevDistance * 1.2) {
-    narrative += "You've been increasing your mileage recently, keep up the great momentum! ";
+    trendMessage = "You've been increasing your mileage recently, keep up the great momentum!";
   } else if (recentRuns.length > 0 && prevRuns.length === 0) {
-    narrative += "You've just started building consistency this month. ";
+    trendMessage = "You've just started building consistency this month. Great start!";
   } else if (recentRuns.length === 0 && runs.length > 0) {
-    narrative += "It looks like it's been a while since your last run. Ready to get back out there? ";
-  } else {
-    narrative += "You are maintaining a steady and consistent running routine. ";
+    trendMessage = "It looks like it's been a while since your last run. Ready to get back out there?";
+  } else if (runs.length === 0) {
+    trendMessage = "Ready to start your running journey?";
   }
+
+  narrative += trendMessage;
 
   return {
     topStats,
     narrative,
+    trendMessage,
     totalRuns,
     totalDistanceKm,
     avgPaceSPerKm
