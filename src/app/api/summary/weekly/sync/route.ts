@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
         bgStepsByDate.set(ds.dateKey, ds.steps);
       }
 
-      let totalSteps = 0;
+      totalSteps = 0;
       const allDates = new Set([...runStepsByDate.keys(), ...bgStepsByDate.keys()]);
       for (const d of allDates) {
         const rs = runStepsByDate.get(d) || 0;
