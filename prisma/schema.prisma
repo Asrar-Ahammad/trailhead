@@ -55,6 +55,7 @@ model Run {
   distanceM     Float      // meters
   durationS     Int        // seconds, excludes paused time
   avgPaceSPerKm Float
+  avgGapSPerKm  Float?
   avgCadenceSpm Float?
   avgStrideLengthM Float?
   caloriesKcal  Float?

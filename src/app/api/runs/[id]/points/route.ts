@@ -76,14 +76,33 @@ export async function POST(
     if (done) {
       // 1. Run Personal Record calculations
       prsAchieved = await checkForRecords(runId);
-      // 2. Update Streak
+      // 2. Compute GAP
+      const allPoints = await dbServer.runPoint.findMany({
+        where: { runId },
+        orderBy: { sequence: 'asc' },
+      });
+      const { computeGap } = await import('@/lib/gap/computeGap');
+      const computedGap = computeGap(allPoints.map(p => ({
+        lat: p.lat,
+        lng: p.lng,
+        elevation: p.elevation,
+        timestamp: p.timestamp,
+      })));
+      if (computedGap !== null) {
+        await dbServer.run.update({
+          where: { id: runId },
+          data: { avgGapSPerKm: computedGap },
+        });
+      }
+      // 3. Update Streak
       await updateStreak(userId, run.startTime, tz);
     }
 
     return NextResponse.json({ 
       count: pointsData.length, 
       success: true, 
-      prs: prsAchieved 
+      prs: prsAchieved,
+      computedGap: done ? (await dbServer.run.findUnique({ where: { id: runId }, select: { avgGapSPerKm: true } }))?.avgGapSPerKm : undefined
     });
   } catch (err) {
     console.error('Error inserting run points:', err);
