@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
 import { generateRunAiAnalysis, RunStats } from '@/lib/aiAnalysisEngine';
+import { generateUserPerformanceSummary } from '@/lib/performanceEngine';
 import { z } from 'zod';
 
 const analysisSchema = z.object({
@@ -11,7 +12,7 @@ const analysisSchema = z.object({
   caloriesKcal: z.number().nullable().optional(),
   stepCount: z.number().nullable().optional(),
   activityType: z.string().nullable().optional(),
-  performanceSummary: z.string().nullable().optional(),
+  // performanceSummary from client is intentionally ignored; we always fetch fresh data server-side
 });
 
 export async function POST(req: NextRequest) {
@@ -34,7 +35,20 @@ export async function POST(req: NextRequest) {
       activityType: parsed.activityType ?? undefined,
     };
 
-    const analysis = await generateRunAiAnalysis(runStats, parsed.performanceSummary ?? null);
+    // Always fetch a fresh performance summary from the DB server-side.
+    // Do NOT rely on the stale client-provided cache — it may be outdated or empty.
+    let performanceSummary = null;
+    try {
+      performanceSummary = await generateUserPerformanceSummary(userId);
+      // If the user has no runs yet (totalRuns === 0), treat as null so the AI acknowledges it's a first run.
+      if (performanceSummary.totalRuns === 0) {
+        performanceSummary = null;
+      }
+    } catch (summaryErr) {
+      console.warn('[runs/analysis] Failed to fetch performance summary (non-fatal):', summaryErr);
+    }
+
+    const analysis = await generateRunAiAnalysis(runStats, performanceSummary);
 
     return NextResponse.json({ analysis });
 
@@ -45,3 +59,4 @@ export async function POST(req: NextRequest) {
     });
   }
 }
+
