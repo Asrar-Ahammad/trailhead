@@ -50,11 +50,10 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
         ? DateFormat('MMMM d, yyyy • h:mm a').format(run.startTime!)
         : 'Unknown Date';
     
-    final distanceKm = (run.distanceM ?? 0) / 1000;
     final durationMins = ((run.durationS ?? 0) / 60).floor();
     final durationSecs = ((run.durationS ?? 0) % 60).toString().padLeft(2, '0');
-    final paceMins = ((run.avgPaceSPerKm ?? 0) / 60).floor();
-    final paceSecs = ((run.avgPaceSPerKm ?? 0) % 60).floor().toString().padLeft(2, '0');
+    final useMiles = ref.watch(distanceUnitProvider);
+    final pace = RunFormatUtils.formatPace(1000, run.avgPaceSPerKm?.toInt() ?? 0, useMiles);
 
     final rawPointsAsync = run.clientRunId != null
         ? ref.watch(runRawPointsProvider(run.clientRunId!))
@@ -257,7 +256,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                       children: [
                         _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
                         _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                        _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                        _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '$pace /${RunFormatUtils.getUnitString(useMiles)}'),
                         _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                         _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', elevationStr),
                         _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
@@ -278,7 +277,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                     children: [
                       _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
                       _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                      _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                      _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '$pace /${RunFormatUtils.getUnitString(useMiles)}'),
                       _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                       _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
                       _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),
@@ -296,7 +295,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                     children: [
                       _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
                       _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
-                      _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '${paceMins}:${paceSecs} /km'),
+                      _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '$pace /${RunFormatUtils.getUnitString(useMiles)}'),
                       _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
                       _buildStatCard(retroColors, PhosphorIcons.trendUp(), 'Elevation', run.elevationGainM != null && run.elevationGainM! > 0 ? '${run.elevationGainM!.toStringAsFixed(0)} m' : '—'),
                       _buildStatCard(retroColors, PhosphorIcons.footprints(), 'Cadence', run.avgCadenceSpm != null && run.avgCadenceSpm! > 0 ? '${run.avgCadenceSpm!.toStringAsFixed(0)} spm' : '—'),

@@ -55,6 +55,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
+    final useMiles = ref.watch(distanceUnitProvider);
     
     if (widget.data.isEmpty) {
       return const SizedBox.shrink();
@@ -163,7 +164,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                         final seconds = (-spot.y).round();
                         final m = seconds ~/ 60;
                         final s = seconds % 60;
-                        valStr = '$m:${s.toString().padLeft(2, '0')} /km';
+                        valStr = '$m:${s.toString().padLeft(2, '0')} /${RunFormatUtils.getUnitString(useMiles)}';
                       } else if (widget.type == MetricType.cadence) {
                         valStr = '${spot.y.round()} spm';
                       } else {

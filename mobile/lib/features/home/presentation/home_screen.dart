@@ -99,6 +99,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildContent(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklySummary summary, AsyncValue<AiCoachData> aiCoachAsync) {
+    final useMiles = ref.watch(distanceUnitProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -137,8 +138,8 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: _StatCard(
                   title: 'DISTANCE',
-                  value: summary.distanceKm.toStringAsFixed(1),
-                  unit: 'KM',
+                  value: RunFormatUtils.formatDistance(summary.distanceKm * 1000, useMiles),
+                  unit: RunFormatUtils.getUnitStringUpper(useMiles),
                   icon: PhosphorIcons.ruler(),
                   colors: retroColors,
                 ),

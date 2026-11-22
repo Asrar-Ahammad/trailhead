@@ -15,6 +15,20 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 
+    project.plugins.withId("com.android.library") {
+        if (project.name == "isar_flutter_libs") {
+            val androidExt = project.extensions.findByName("android")
+                ?: throw GradleException("Android extension missing for isar_flutter_libs")
+            val namespaceSetter = androidExt.javaClass.methods.find {
+                it.name == "setNamespace" &&
+                    it.parameterTypes.size == 1 &&
+                    it.parameterTypes[0] == String::class.java
+            } ?: throw GradleException("Could not set namespace for isar_flutter_libs")
+
+            namespaceSetter.invoke(androidExt, "dev.isar.isar_flutter_libs")
+        }
+    }
+
     afterEvaluate {
         val androidExt = project.extensions.findByName("android")
         if (androidExt != null) {

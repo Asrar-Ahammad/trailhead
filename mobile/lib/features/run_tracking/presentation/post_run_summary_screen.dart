@@ -358,7 +358,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
         else
           Text('0.00', style: AppTextStyles.displayHero(color: colors.textPrimary)),
         
-        Text('KILOMETERS', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
+        Text(useMiles ? 'MILES' : 'KILOMETERS', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
         const SizedBox(height: AppSpacing.xl),
         
         // Time & Pace
