@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -11,12 +12,10 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../../shared/widgets/count_up_text.dart';
-import '../../history/data/run_history_repository.dart';
 import '../../stats/application/pr_engine.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'dart:math';
 
 final postRunPRProvider = FutureProvider.family<bool, String?>((ref, clientRunId) async {
   if (clientRunId == null) return false;
@@ -138,7 +137,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   void _saveRun() {
     ref.read(hapticsServiceProvider).mediumImpact();
     ref.read(navigationProvider.notifier).state = 0; // Go to home
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    AppRouter.popUntilFirst(context);
   }
 
   @override

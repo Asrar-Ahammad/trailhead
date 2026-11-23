@@ -10,6 +10,7 @@ import 'package:trailhead_mobile/features/you/presentation/weekly_activities_scr
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
 class WeekDetailsScreen extends ConsumerStatefulWidget {
@@ -204,7 +205,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
           onTap: () {
             ref.read(soundServiceProvider).playActivitiesCardTap();
             ref.read(hapticsServiceProvider).lightImpact();
-            Navigator.push(context, MaterialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
+            AppRouter.push(context, WeeklyActivitiesScreen(report: widget.report));
           },
           child: Padding(
             padding: const EdgeInsets.all(16),

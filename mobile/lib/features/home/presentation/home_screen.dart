@@ -7,6 +7,7 @@ import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 import 'package:trailhead_mobile/features/stats/application/ai_coach_provider.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
@@ -16,7 +17,6 @@ import '../../haptics/application/haptics_service.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import '../../audio/application/sound_service.dart';
 
-import 'package:trailhead_mobile/features/shoes/presentation/shoe_management_screen.dart';
 import 'package:trailhead_mobile/features/home/presentation/widgets/goals_progress_card.dart';
 import 'package:trailhead_mobile/features/chat/presentation/chat_screen.dart';
 import 'package:trailhead_mobile/features/weather/presentation/weather_pace_card.dart';
@@ -75,7 +75,7 @@ class HomeScreen extends ConsumerWidget {
                 padding: EdgeInsets.only(top: 40.0),
                 child: RetroLoadingIndicator(text: 'FETCHING RUNS'),
               ),
-              error: (err, stack) => Center(child: Text('Error: \$err')),
+              error: (err, stack) => const Center(child: Text('Error: \$err')),
             ),
           ],
         ),
@@ -89,7 +89,7 @@ class HomeScreen extends ConsumerWidget {
           onPressed: () {
             ref.read(hapticsServiceProvider).mediumImpact();
             ref.read(soundServiceProvider).playButtonTap();
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen()));
+            AppRouter.push(context, const ChatScreen());
           },
           backgroundColor: retroColors.accent,
           child: Icon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill), color: retroColors.background),
@@ -399,10 +399,9 @@ class HomeScreen extends ConsumerWidget {
                       onTap: () {
                         ref.read(hapticsServiceProvider).lightImpact();
                         ref.read(soundServiceProvider).playActivityTap();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => RunDetailScreen(run: summary.mostRecentRun!),
-                          ),
+                        AppRouter.push(
+                          context,
+                          RunDetailScreen(run: summary.mostRecentRun!),
                         );
                       },
                       child: Padding(

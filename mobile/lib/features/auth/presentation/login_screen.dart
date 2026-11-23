@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../shared/navigation/app_router.dart';
+import '../../run_tracking/presentation/permission_gate_screen.dart';
 import '../application/auth_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
@@ -55,7 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           debugPrint('Error starting sync: $e');
         }
         setState(() => _isLoading = false);
-        Navigator.of(context).pushReplacementNamed('/');
+        AppRouter.replaceAll(context, const PermissionGateScreen());
       } else {
         setState(() => _isLoading = false);
         _error = 'Authentication failed. Please check your credentials.';

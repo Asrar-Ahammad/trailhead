@@ -1,11 +1,11 @@
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -59,11 +59,7 @@ class ActivityCard extends ConsumerWidget {
         }
         ref.read(hapticsServiceProvider).lightImpact();
         ref.read(soundServiceProvider).playActivityTap();
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => RunDetailScreen(run: run),
-          ),
-        );
+        AppRouter.push(context, RunDetailScreen(run: run));
       },
       child: Container(
         color: isSelected ? retroColors.accent.withOpacity(0.2) : Colors.transparent,

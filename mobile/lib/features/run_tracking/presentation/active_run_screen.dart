@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/run_tracker_controller.dart';
 import '../application/run_format_utils.dart';
 import '../application/route_provider.dart';
-import '../application/location_service_task.dart';
 import '../../audio/application/sound_service.dart';
 import 'permission_gate_screen.dart';
 import 'post_run_summary_screen.dart';
-import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -42,9 +41,7 @@ class ActiveRunScreen extends ConsumerWidget {
 
     if (!trackerState.permissionsGranted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PermissionGateScreen()),
-        );
+        AppRouter.replace(context, const PermissionGateScreen());
       });
       return const SizedBox.shrink();
     }
@@ -154,12 +151,11 @@ class ActiveRunScreen extends ConsumerWidget {
         debugPrint('[SAVE_DEBUG] stopRun returned: ${savedRun?.clientRunId}, status=${savedRun?.status}');
         debugPrint('[SAVE_DEBUG] context.mounted after stopRun: ${context.mounted}');
         if (savedRun != null && context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => PostRunSummaryScreen(
-                run: savedRun,
-                points: points,
-              ),
+          AppRouter.push(
+            context,
+            PostRunSummaryScreen(
+              run: savedRun,
+              points: points,
             ),
           );
         } else {
@@ -663,7 +659,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
           return GestureDetector(
             onTap: () {
               ref.read(hapticsServiceProvider).lightImpact();
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
+              AppRouter.push(context, const ShoeManagementScreen());
             },
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -1346,7 +1342,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
             ),
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
+              AppRouter.push(context, const ShoeManagementScreen());
             },
             child: Text('Manage Gear', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
           ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/shoe_service.dart';
 import '../data/models/shoe_isar.dart';
@@ -87,10 +88,7 @@ class ShoeManagementScreen extends ConsumerWidget {
       child: ListTile(
         onTap: () {
           ref.read(hapticsServiceProvider).lightImpact();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ShoeDashboardScreen(shoe: shoe)),
-          );
+          AppRouter.push(context, ShoeDashboardScreen(shoe: shoe));
         },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Container(

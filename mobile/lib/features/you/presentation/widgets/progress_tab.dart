@@ -12,6 +12,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 
 class ProgressTab extends ConsumerWidget {
   final List<RunIsar> runs;
@@ -61,7 +62,7 @@ class ProgressTab extends ConsumerWidget {
               onTap: () {
                 ref.read(soundServiceProvider).playWeeklyReportsTap();
                 ref.read(hapticsServiceProvider).lightImpact();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReportsListScreen()));
+                AppRouter.push(context, const WeeklyReportsListScreen());
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -114,7 +115,7 @@ class ProgressTab extends ConsumerWidget {
               onTap: () {
                 ref.read(soundServiceProvider).playRacePredictorTap();
                 ref.read(hapticsServiceProvider).lightImpact();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PredictionScreen()));
+                AppRouter.push(context, const PredictionScreen());
               },
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -295,12 +296,11 @@ class ProgressTab extends ConsumerWidget {
           onTap: hasRun ? () {
             ref.read(soundServiceProvider).playCalendarDayTap();
             ref.read(hapticsServiceProvider).lightImpact();
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => DailyActivitiesScreen(
-                  date: DateTime(now.year, now.month, day),
-                  runs: dayRuns,
-                ),
+            AppRouter.push(
+              context,
+              DailyActivitiesScreen(
+                date: DateTime(now.year, now.month, day),
+                runs: dayRuns,
               ),
             );
           } : null,

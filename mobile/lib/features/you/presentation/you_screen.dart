@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
@@ -13,8 +14,6 @@ import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/auth/application/auth_service.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
 import 'package:intl/intl.dart';
@@ -184,9 +183,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                     onPressed: () {
                       ref.read(hapticsServiceProvider).lightImpact();
                       ref.read(soundServiceProvider).playSettingsTap();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
-                      );
+                      AppRouter.push(context, const SettingsScreen());
                     },
                   ),
                 ],
@@ -248,7 +245,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
           onPressed: () {
             ref.read(hapticsServiceProvider).mediumImpact();
             ref.read(soundServiceProvider).playFabAddRun();
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManualEntryScreen()));
+            AppRouter.push(context, const ManualEntryScreen());
           },
           backgroundColor: retroColors.accent,
           child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
@@ -427,7 +424,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                               final runs = ref.read(historyProvider).valueOrNull ?? [];
                               try {
                                 final run = runs.firstWhere((r) => r.clientRunId == pr.runId);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => RunDetailScreen(run: run)));
+                                AppRouter.push(context, RunDetailScreen(run: run));
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Run not found or not synced locally.')));
                               }

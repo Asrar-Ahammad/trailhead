@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../shared/navigation/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../haptics/application/haptics_service.dart';
@@ -433,10 +433,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (shouldLogout == true) {
       await ref.read(authServiceProvider).logout();
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AuthWrapper()),
-          (route) => false,
-        );
+        AppRouter.replaceAll(context, const AuthWrapper());
       }
     }
   }
@@ -574,9 +571,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: () {
                 ref.read(hapticsServiceProvider).lightImpact();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ShoeManagementScreen()),
-                );
+                AppRouter.push(context, const ShoeManagementScreen());
               },
             ),
             SwitchListTile(

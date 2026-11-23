@@ -1,12 +1,12 @@
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/stats/data/weekly_report_api_client.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/week_details_screen.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
@@ -186,7 +186,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
           onTap: () {
             ref.read(soundServiceProvider).playWeekCardTap();
             ref.read(hapticsServiceProvider).lightImpact();
-            Navigator.push(context, MaterialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
+            AppRouter.push(context, WeekDetailsScreen(report: report));
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
