@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -8,11 +7,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
+import 'package:trailhead_mobile/features/weather/data/weather_repository.dart';
 import 'package:uuid/uuid.dart';
 import 'package:workmanager/workmanager.dart';
 import 'location_service_task.dart';
 import 'background_step_service.dart';
-import '../data/models/daily_steps_isar.dart';
 import '../../../main.dart'; // import global isarInstance
 import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
@@ -21,7 +20,7 @@ import '../../sync/data/api_client.dart';
 import '../../notifications/application/notification_service.dart';
 
 import '../../shoes/application/shoe_service.dart';
-import '../../weather/application/weather_service.dart';
+import '../../../shared/state/app_cubits.dart';
 
 class RunTrackerState {
   final String status; // 'idle', 'running', 'paused', 'stopped'
@@ -87,12 +86,24 @@ class RunTrackerState {
   }
 }
 
-class RunTrackerController extends StateNotifier<RunTrackerState> {
+class RunTrackerCubit extends MutableCubit<RunTrackerState> {
   StreamSubscription? _portSubscription;
   final FlutterTts _flutterTts = FlutterTts();
-  final Ref ref;
+  final ShoeService _shoeService;
+  final WeatherRepository _weatherRepository;
+  final ApiClient _apiClient;
+  final NotificationService _notificationService;
 
-  RunTrackerController(this.ref) : super(RunTrackerState(status: 'idle', permissionsChecked: true)) {
+  RunTrackerCubit({
+    required ShoeService shoeService,
+    required WeatherRepository weatherRepository,
+    required ApiClient apiClient,
+    required NotificationService notificationService,
+  })  : _shoeService = shoeService,
+        _weatherRepository = weatherRepository,
+        _apiClient = apiClient,
+        _notificationService = notificationService,
+        super(RunTrackerState(status: 'idle', permissionsChecked: true)) {
     _initForegroundTask();
     _checkPermissionsSilently();
     _recoverOrphanedRuns();
@@ -102,8 +113,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 
   Future<void> _initDefaultShoe() async {
     try {
-      final shoeService = ref.read(shoeServiceProvider);
-      final activeShoes = await shoeService.getActiveShoes();
+      final activeShoes = await _shoeService.getActiveShoes();
       if (activeShoes.isNotEmpty) {
         state = state.copyWith(selectedShoeId: activeShoes.first.clientShoeId);
       }
@@ -391,8 +401,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 
       // Fetch weather in the background
       try {
-        final weatherRepo = ref.read(weatherRepositoryProvider);
-        final weatherData = await weatherRepo.getCurrentWeather();
+        final weatherData = await _weatherRepository.getCurrentWeather();
         if (weatherData != null) {
           await isarInstance.writeTxn(() async {
             final existingRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
@@ -529,8 +538,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         // Update shoe distance
         if (selectedShoeId != null && activeRun?.distanceM != null && activeRun!.distanceM! > 0) {
           try {
-            final shoeService = ref.read(shoeServiceProvider);
-            await shoeService.addDistanceToShoe(selectedShoeId, activeRun.distanceM!);
+            await _shoeService.addDistanceToShoe(selectedShoeId, activeRun.distanceM!);
           } catch (e) {
             debugPrint('[STOP_RUN] Failed to add distance to shoe: $e');
           }
@@ -557,8 +565,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 
   Future<void> _scheduleStreakNudge() async {
     try {
-      final apiClient = ref.read(apiClientProvider);
-      final notificationService = ref.read(notificationServiceProvider);
+      final apiClient = _apiClient;
+      final notificationService = _notificationService;
       
       final nudgeMessage = await apiClient.getStreakNudge();
       if (nudgeMessage != null && nudgeMessage.isNotEmpty) {
@@ -671,12 +679,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   @override
-  void dispose() {
-    _portSubscription?.cancel();
-    super.dispose();
+  Future<void> close() async {
+    await _portSubscription?.cancel();
+    await super.close();
   }
 }
-
-final runTrackerProvider = StateNotifierProvider<RunTrackerController, RunTrackerState>((ref) {
-  return RunTrackerController(ref);
-});

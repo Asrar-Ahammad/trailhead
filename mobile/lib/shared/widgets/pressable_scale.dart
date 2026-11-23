@@ -1,8 +1,8 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
-class PressableScale extends ConsumerStatefulWidget {
+class PressableScale extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
 
@@ -13,10 +13,10 @@ class PressableScale extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<PressableScale> createState() => _PressableScaleState();
+  State<PressableScale> createState() => _PressableScaleState();
 }
 
-class _PressableScaleState extends ConsumerState<PressableScale>
+class _PressableScaleState extends State<PressableScale>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
@@ -38,7 +38,7 @@ class _PressableScaleState extends ConsumerState<PressableScale>
 
   void _onTapDown(TapDownDetails _) {
     if (widget.onTap == null) return;
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<HapticsService>().lightImpact();
     _controller.animateTo(
       1.0,
       duration: const Duration(milliseconds: 80),

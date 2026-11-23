@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../sync/data/api_client.dart';
 
 class ParsedRunLog {
@@ -24,14 +23,12 @@ class ParsedRunLog {
   }
 }
 
-final nlLoggingProvider = Provider((ref) => NlLoggingService(ref));
-
 class NlLoggingService {
-  final Ref _ref;
-  NlLoggingService(this._ref);
+  final ApiClient _apiClient;
+  NlLoggingService(this._apiClient);
 
   Future<ParsedRunLog?> parseLog(String text) async {
-    final apiClient = _ref.read(apiClientProvider);
+    final apiClient = _apiClient;
     try {
       final response = await apiClient.client.post(
         '/runs/parse-log',

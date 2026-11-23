@@ -1,6 +1,6 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/stats/data/weekly_report_api_client.dart';
@@ -12,13 +12,13 @@ import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
-class WeeklyReportsListScreen extends ConsumerWidget {
+class WeeklyReportsListScreen extends StatelessWidget {
   const WeeklyReportsListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final reportsAsync = ref.watch(weeklyReportsProvider);
+    final reportsAsync = context.watch<WeeklyReportsCubit>().state;
 
     return Scaffold(
       backgroundColor: retroColors.background,
@@ -35,8 +35,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
         color: retroColors.accent,
         backgroundColor: retroColors.surface,
         onRefresh: () async {
-          // ignore: unused_result
-          ref.refresh(weeklyReportsProvider);
+          await context.read<WeeklyReportsCubit>().load();
         },
         child: reportsAsync.when(
           data: (reports) {
@@ -80,7 +79,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     ),
                     ...sortedMonths.map((month) {
                       final monthReports = yearMonths[month]!;
-                      return _buildMonthSection(context, ref, retroColors, month, monthReports);
+                      return _buildMonthSection(context,  retroColors, month, monthReports);
                     }),
                   ],
                 );
@@ -94,7 +93,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMonthSection(BuildContext context, WidgetRef ref, AppColors retroColors, int month, List<WeeklyReportModel> monthReports) {
+  Widget _buildMonthSection(BuildContext context, AppColors retroColors, int month, List<WeeklyReportModel> monthReports) {
     int totalSteps = 0;
     double totalDistanceM = 0;
     int totalDurationS = 0;
@@ -145,7 +144,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
             ],
           ),
         ),
-        ...monthReports.map((report) => _buildWeekCard(context, ref, retroColors, report)),
+        ...monthReports.map((report) => _buildWeekCard(context,  retroColors, report)),
         const SizedBox(height: 16),
       ],
     );
@@ -162,7 +161,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeekCard(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklyReportModel report) {
+  Widget _buildWeekCard(BuildContext context, AppColors retroColors, WeeklyReportModel report) {
     final startStr = '${report.startDate.day}/${report.startDate.month}';
     final endStr = '${report.endDate.day}/${report.endDate.month}';
 
@@ -184,8 +183,8 @@ class WeeklyReportsListScreen extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: () {
-            ref.read(soundServiceProvider).playWeekCardTap();
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<SoundService>().playWeekCardTap();
+            context.read<HapticsService>().lightImpact();
             AppRouter.push(context, WeekDetailsScreen(report: report));
           },
           child: Padding(
@@ -207,7 +206,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        RunFormatUtils.formatDistance(report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+                        RunFormatUtils.formatDistance(report.totalDistanceM, context.watch<DistanceUnitCubit>().state) + ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
                         style: AppTextStyles.bodyLargeBold(color: retroColors.accent),
                       ),
                       const SizedBox(height: 4),

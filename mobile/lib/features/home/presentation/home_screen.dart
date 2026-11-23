@@ -1,4 +1,5 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -6,10 +7,9 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
-import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
-import 'package:trailhead_mobile/features/stats/application/ai_coach_provider.dart';
+import 'package:trailhead_mobile/features/stats/application/weekly_summary_cubit.dart';
+import 'package:trailhead_mobile/features/stats/application/ai_coach_cubit.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import '../../run_tracking/application/run_format_utils.dart';
 
@@ -23,14 +23,14 @@ import 'package:trailhead_mobile/features/weather/presentation/weather_pace_card
 import 'package:trailhead_mobile/features/weather/application/weather_service.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final summaryAsync = ref.watch(weeklySummaryProvider);
-    final aiCoachAsync = ref.watch(aiCoachProvider);
+    final summaryAsync = context.watch<WeeklySummaryCubit>().state;
+    final aiCoachAsync = context.watch<AiCoachCubit>().state;
     
     return Scaffold(
       backgroundColor: retroColors.background,
@@ -39,7 +39,7 @@ class HomeScreen extends ConsumerWidget {
         backgroundColor: retroColors.surface,
         elevation: 0,
         actions: [
-          ref.watch(weatherPacingProvider).maybeWhen(
+          context.watch<WeatherPacingCubit>().state.maybeWhen(
             data: (data) => Padding(
               padding: const EdgeInsets.only(right: 16.0),
               child: Center(
@@ -70,7 +70,7 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             summaryAsync.when(
-              data: (summary) => _buildContent(context, ref, retroColors, summary, aiCoachAsync),
+              data: (summary) => _buildContent(context,  retroColors, summary, aiCoachAsync),
               loading: () => const Padding(
                 padding: EdgeInsets.only(top: 40.0),
                 child: RetroLoadingIndicator(text: 'FETCHING RUNS'),
@@ -87,8 +87,8 @@ class HomeScreen extends ConsumerWidget {
           elevation: 0,
           highlightElevation: 0,
           onPressed: () {
-            ref.read(hapticsServiceProvider).mediumImpact();
-            ref.read(soundServiceProvider).playButtonTap();
+            context.read<HapticsService>().mediumImpact();
+            context.read<SoundService>().playButtonTap();
             AppRouter.push(context, const ChatScreen());
           },
           backgroundColor: retroColors.accent,
@@ -98,8 +98,8 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklySummary summary, AsyncValue<AiCoachData> aiCoachAsync) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget _buildContent(BuildContext context, AppColors retroColors, WeeklySummary summary, AsyncState<AiCoachData> aiCoachAsync) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -287,7 +287,7 @@ class HomeScreen extends ConsumerWidget {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: Text(
-                                '${RunFormatUtils.formatDistance(value * 1000, ref.watch(distanceUnitProvider))} ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+                                '${RunFormatUtils.formatDistance(value * 1000, context.watch<DistanceUnitCubit>().state)} ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
                                 style: AppTextStyles.label(color: retroColors.textSecondary),
                                 textAlign: TextAlign.right,
                                 maxLines: 1,
@@ -351,9 +351,9 @@ class HomeScreen extends ConsumerWidget {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(100),
                           onTap: () {
-                            ref.read(hapticsServiceProvider).lightImpact();
-                            ref.read(soundServiceProvider).playButtonTap();
-                            ref.read(navigationProvider.notifier).state = 1; // Jump to record tab
+                            context.read<HapticsService>().lightImpact();
+                            context.read<SoundService>().playButtonTap();
+                            context.read<NavigationCubit>().selectTab(1); // Jump to record tab
                           },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -397,8 +397,8 @@ class HomeScreen extends ConsumerWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(24),
                       onTap: () {
-                        ref.read(hapticsServiceProvider).lightImpact();
-                        ref.read(soundServiceProvider).playActivityTap();
+                        context.read<HapticsService>().lightImpact();
+                        context.read<SoundService>().playActivityTap();
                         AppRouter.push(
                           context,
                           RunDetailScreen(run: summary.mostRecentRun!),
@@ -435,7 +435,7 @@ class HomeScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    RunFormatUtils.formatDistance(summary.mostRecentRun!.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider)),
+                                    RunFormatUtils.formatDistance(summary.mostRecentRun!.distanceM ?? 0, context.watch<DistanceUnitCubit>().state) + ' ' + RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state),
                                     style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
                                   ),
                                 ],

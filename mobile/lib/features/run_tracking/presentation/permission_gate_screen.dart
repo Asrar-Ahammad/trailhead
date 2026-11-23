@@ -1,5 +1,6 @@
+import 'dart:async';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -10,15 +11,16 @@ import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/retro_loading_indicator.dart';
 import 'package:disable_battery_optimization/disable_battery_optimization.dart';
 
-class PermissionGateScreen extends ConsumerStatefulWidget {
+class PermissionGateScreen extends StatefulWidget {
   const PermissionGateScreen({super.key});
 
   @override
-  ConsumerState<PermissionGateScreen> createState() =>
+  State<PermissionGateScreen> createState() =>
       _PermissionGateScreenState();
 }
 
-class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
+class _PermissionGateScreenState extends State<PermissionGateScreen> {
+  StreamSubscription<RunTrackerState>? _trackerSubscription;
   bool _requestingForeground = false;
   bool _requestingBackground = false;
   String _errorMsg = "";
@@ -26,14 +28,25 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
   @override
   void initState() {
     super.initState();
+    _trackerSubscription = context.read<RunTrackerCubit>().stream.listen((state) {
+      if (state.permissionsGranted && mounted) {
+        AppRouter.replace(context, const MainScaffold());
+      }
+    });
     // Check permission status on startup, if already granted, go to ActiveRunScreen directly after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPermissionsAndNavigate();
     });
   }
 
+  @override
+  void dispose() {
+    _trackerSubscription?.cancel();
+    super.dispose();
+  }
+
   void _checkPermissionsAndNavigate() {
-    final state = ref.read(runTrackerProvider);
+    final state = context.read<RunTrackerCubit>().state;
     if (state.permissionsGranted) {
       AppRouter.replace(context, const MainScaffold());
     }
@@ -41,14 +54,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final trackerState = ref.watch(runTrackerProvider);
-
-    // Automatically redirect if permission gets granted
-    ref.listen(runTrackerProvider, (prev, next) {
-      if (next.permissionsGranted) {
-        AppRouter.replace(context, const MainScaffold());
-      }
-    });
+    final trackerState = context.watch<RunTrackerCubit>().state;
 
     if (!trackerState.permissionsChecked) {
       return const Scaffold(
@@ -265,9 +271,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
       _errorMsg = "";
     });
     try {
-      final granted = await ref
-          .read(runTrackerProvider.notifier)
-          .requestForegroundPermission();
+      final granted = await context.read<RunTrackerCubit>().requestForegroundPermission();
       if (!granted) {
         setState(() {
           _errorMsg =
@@ -291,9 +295,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
       _errorMsg = "";
     });
     try {
-      final granted = await ref
-          .read(runTrackerProvider.notifier)
-          .requestBackgroundPermission();
+      final granted = await context.read<RunTrackerCubit>().requestBackgroundPermission();
       if (!granted) {
         setState(() {
           _errorMsg =

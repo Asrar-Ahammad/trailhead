@@ -1,5 +1,5 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/navigation/app_router.dart';
 import '../../run_tracking/presentation/permission_gate_screen.dart';
 import '../application/auth_service.dart';
@@ -11,16 +11,16 @@ import '../../sync/application/sync_service.dart';
 import '../../sync/data/api_client.dart';
 import '../../../main.dart';
 import '../../../shared/widgets/pressable_scale.dart';
-import '../../shoes/application/shoe_service.dart';
+import '../../shoes/application/shoe_cubits.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _isLoading = false;
@@ -33,7 +33,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
 
-    final auth = ref.read(authServiceProvider);
+    final auth = context.read<AuthService>();
     final email = _emailCtrl.text.trim();
     final pass = _passCtrl.text.trim();
 
@@ -47,12 +47,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (mounted) {
       if (success) {
         try {
-          final apiClient = ref.read(apiClientProvider);
+          final apiClient = context.read<ApiClient>();
           final syncService = SyncService(isar: isarInstance, apiClient: apiClient);
           await syncService.fetchInitialData();
-          // Invalidate shoe providers so they re-read from updated Isar
-          ref.invalidate(allShoesProvider);
-          ref.invalidate(activeShoesProvider);
+          context.read<AllShoesCubit>().load();
+          context.read<ActiveShoesCubit>().load();
         } catch (e) {
           debugPrint('Error starting sync: $e');
         }

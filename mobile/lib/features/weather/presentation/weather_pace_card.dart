@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
@@ -7,7 +7,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/weather_service.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 
-class WeatherPaceCard extends ConsumerWidget {
+class WeatherPaceCard extends StatelessWidget {
   const WeatherPaceCard({super.key});
 
   IconData _getWeatherIcon(int code) {
@@ -22,9 +22,9 @@ class WeatherPaceCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final weatherAsync = ref.watch(weatherPacingProvider);
+    final weatherAsync = context.watch<WeatherPacingCubit>().state;
 
     return weatherAsync.when(
       data: (data) {

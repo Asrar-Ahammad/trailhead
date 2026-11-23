@@ -1,17 +1,16 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/run_metric_chart.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/tracking_calcs.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'dart:math';
 
-class RunChartsSection extends ConsumerWidget {
+class RunChartsSection extends StatelessWidget {
   final RunIsar run;
   final List<RunPointIsar> points;
 
@@ -22,8 +21,8 @@ class RunChartsSection extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     if (points.isEmpty) return const SizedBox.shrink();
 
     final colors = Theme.of(context).extension<AppColors>()!;

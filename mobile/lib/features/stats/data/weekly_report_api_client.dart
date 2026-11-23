@@ -1,18 +1,7 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/features/sync/data/api_client.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
-
-final weeklyReportApiClientProvider = Provider((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  return WeeklyReportApiClient(apiClient.client);
-});
-
-final weeklyReportsProvider = FutureProvider<List<WeeklyReportModel>>((ref) async {
-  final client = ref.watch(weeklyReportApiClientProvider);
-  await client.syncWeeklyReports(); // Ensure latest runs are grouped and saved
-  return client.getWeeklyReportsHistory();
-});
+import '../../../shared/state/app_cubits.dart';
 
 class WeeklyReportApiClient {
   final Dio _dio;
@@ -39,6 +28,26 @@ class WeeklyReportApiClient {
     } catch (e) {
       print('Failed to get weekly reports history: $e');
       return [];
+    }
+  }
+}
+
+class WeeklyReportsCubit extends Cubit<AsyncState<List<WeeklyReportModel>>> {
+  WeeklyReportsCubit({required WeeklyReportApiClient client})
+      : _client = client,
+        super(const AsyncState.loading()) {
+    load();
+  }
+
+  final WeeklyReportApiClient _client;
+
+  Future<void> load() async {
+    emit(const AsyncState.loading());
+    try {
+      await _client.syncWeeklyReports();
+      emit(AsyncState.data(await _client.getWeeklyReportsHistory()));
+    } catch (error, stackTrace) {
+      emit(AsyncState.error(error, stackTrace));
     }
   }
 }

@@ -1,45 +1,44 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
+import 'package:trailhead_mobile/features/you/application/activity_cubits.dart';
+import 'package:trailhead_mobile/features/history/application/run_points_cubit.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
-import '../../../shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/run_splits_table.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/run_charts_section.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import '../application/gpx_export_util.dart';
 import '../application/share_image_generator.dart';
-import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/results_section.dart';
 import 'package:intl/intl.dart';
 
-final runRawPointsProvider = FutureProvider.family<List<RunPointIsar>, String>((ref, clientRunId) async {
-  final repo = ref.read(runHistoryRepositoryProvider);
-  return repo.getRunPoints(clientRunId);
-});
-
-final runPointsProvider = FutureProvider.family<List<LatLng>, String>((ref, clientRunId) async {
-  final points = await ref.watch(runRawPointsProvider(clientRunId).future);
-  return points.map((p) => LatLng(p.lat ?? 0.0, p.lng ?? 0.0)).toList();
-});
-
-class RunDetailScreen extends ConsumerStatefulWidget {
+class RunDetailScreen extends StatefulWidget {
   final RunIsar run;
 
   const RunDetailScreen({super.key, required this.run});
 
   @override
-  ConsumerState<RunDetailScreen> createState() => _RunDetailScreenState();
+  State<RunDetailScreen> createState() => _RunDetailScreenState();
 }
 
-class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
+class _RunDetailScreenState extends State<RunDetailScreen> {
   bool _isDeleting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final clientRunId = widget.run.clientRunId;
+    if (clientRunId != null) {
+      context.read<RunPointsCubit>().load(clientRunId);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,16 +51,16 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     
     final durationMins = ((run.durationS ?? 0) / 60).floor();
     final durationSecs = ((run.durationS ?? 0) % 60).toString().padLeft(2, '0');
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final pace = RunFormatUtils.formatPace(1000, run.avgPaceSPerKm?.toInt() ?? 0, useMiles);
 
+    final pointsState = context.watch<RunPointsCubit>().state;
     final rawPointsAsync = run.clientRunId != null
-        ? ref.watch(runRawPointsProvider(run.clientRunId!))
-        : const AsyncValue.data(<RunPointIsar>[]);
-
-    final pointsAsync = run.clientRunId != null 
-        ? ref.watch(runPointsProvider(run.clientRunId!)) 
-        : const AsyncValue.data(<LatLng>[]);
+        ? pointsState.rawFor(run.clientRunId!)
+        : const AsyncState.data(<RunPointIsar>[]);
+    final pointsAsync = run.clientRunId != null
+        ? pointsState.routeFor(run.clientRunId!)
+        : const AsyncState.data(<LatLng>[]);
 
     final activityStr = (run.activityType ?? 'run').toUpperCase();
     final titleText = '$activityStr DETAILS';
@@ -84,7 +83,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             tooltip: 'Share Activity Image',
             onPressed: () async {
               if (run.clientRunId == null) return;
-              final repo = ref.read(runHistoryRepositoryProvider);
+              final repo = context.read<RunHistoryRepository>();
               final points = await repo.getRunPoints(run.clientRunId!);
               if (points.isNotEmpty && context.mounted) {
                 try {
@@ -105,7 +104,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             tooltip: 'Export GPX',
             onPressed: () async {
               if (run.clientRunId == null) return;
-              final repo = ref.read(runHistoryRepositoryProvider);
+              final repo = context.read<RunHistoryRepository>();
               final points = await repo.getRunPoints(run.clientRunId!);
               if (points.isNotEmpty && context.mounted) {
                 try {
@@ -150,10 +149,10 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         });
                         
                         try {
-                          final repo = ref.read(runHistoryRepositoryProvider);
+                          final repo = context.read<RunHistoryRepository>();
                           await repo.deleteRun(run.id);
-                          ref.invalidate(historyProvider);
-                          ref.invalidate(prsProvider);
+                          context.read<CompletedRunsCubit>().refresh();
+                          context.read<PersonalRecordsCubit>().load();
                           if (mounted) {
                             Navigator.of(context).pop();
                           }
@@ -254,7 +253,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                       crossAxisSpacing: 16,
                       childAspectRatio: 2.5,
                       children: [
-                        _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
+                        _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, context.watch<DistanceUnitCubit>().state) + ' ' + RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)),
                         _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
                         _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '$pace /${RunFormatUtils.getUnitString(useMiles)}'),
                         _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
@@ -275,7 +274,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                     crossAxisSpacing: 16,
                     childAspectRatio: 2.5,
                     children: [
-                      _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
+                      _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, context.watch<DistanceUnitCubit>().state) + ' ' + RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)),
                       _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
                       _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '$pace /${RunFormatUtils.getUnitString(useMiles)}'),
                       _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),
@@ -293,7 +292,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                     crossAxisSpacing: 16,
                     childAspectRatio: 2.5,
                     children: [
-                      _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))),
+                      _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Distance', RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, context.watch<DistanceUnitCubit>().state) + ' ' + RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)),
                       _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', '${durationMins}:${durationSecs}'),
                       _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Avg Pace', '$pace /${RunFormatUtils.getUnitString(useMiles)}'),
                       _buildStatCard(retroColors, PhosphorIcons.flame(), 'Calories', run.caloriesKcal != null && run.caloriesKcal! > 0 ? '${run.caloriesKcal!.toStringAsFixed(0)} kcal (est)' : '—'),

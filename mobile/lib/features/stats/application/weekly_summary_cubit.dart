@@ -1,4 +1,6 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:async';
+import '../../../shared/state/app_cubits.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
@@ -19,9 +21,21 @@ class WeeklySummary {
   });
 }
 
-final weeklySummaryProvider = StreamProvider<WeeklySummary>((ref) {
-  final repo = ref.read(runHistoryRepositoryProvider);
-  return repo.watchCompletedRuns(limit: 500).asyncMap((allRuns) async {
+class WeeklySummaryCubit extends Cubit<AsyncState<WeeklySummary>> {
+  WeeklySummaryCubit({required RunHistoryRepository repository})
+      : super(const AsyncState.loading()) {
+    _subscription = repository.watchCompletedRuns(limit: 500).listen((runs) async {
+      try {
+        emit(AsyncState.data(await _calculate(runs)));
+      } catch (error, stackTrace) {
+        emit(AsyncState.error(error, stackTrace));
+      }
+    });
+  }
+
+  StreamSubscription<List<RunIsar>>? _subscription;
+
+  Future<WeeklySummary> _calculate(List<RunIsar> allRuns) async {
     if (allRuns.isEmpty) {
       return WeeklySummary(distanceKm: 0, runCount: 0, streakDays: 0, chartData: List.filled(7, 0.0));
     }
@@ -135,6 +149,12 @@ final weeklySummaryProvider = StreamProvider<WeeklySummary>((ref) {
       chartData: chartData,
       mostRecentRun: allRuns.first,
     );
-  });
-});
+  }
+
+  @override
+  Future<void> close() async {
+    await _subscription?.cancel();
+    await super.close();
+  }
+}
 

@@ -1,8 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-final soundServiceProvider = Provider((ref) => SoundService());
 
 class SoundService {
   final AudioPlayer _navPlayer = AudioPlayer();

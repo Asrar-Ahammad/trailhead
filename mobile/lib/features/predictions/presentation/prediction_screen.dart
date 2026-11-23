@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
@@ -7,13 +7,13 @@ import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/prediction_service.dart';
 
-class PredictionScreen extends ConsumerWidget {
+class PredictionScreen extends StatelessWidget {
   const PredictionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final predictionsAsync = ref.watch(racePredictionsProvider);
+    final predictionsAsync = context.watch<PredictionsCubit>().state;
 
     return Scaffold(
       backgroundColor: colors.background,

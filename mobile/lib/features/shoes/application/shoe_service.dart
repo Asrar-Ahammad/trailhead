@@ -1,35 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 import '../data/shoe_repository.dart';
 import '../data/models/shoe_isar.dart';
 import '../../sync/application/sync_service.dart';
-import '../../../main.dart'; // For isarInstance
-
-import '../../sync/data/api_client.dart';
-
-final shoeRepositoryProvider = Provider<ShoeRepository>((ref) {
-  return ShoeRepository(isarInstance!);
-});
-
-final shoeServiceProvider = Provider<ShoeService>((ref) {
-  final repo = ref.watch(shoeRepositoryProvider);
-  final apiClient = ref.watch(apiClientProvider);
-  final syncService = SyncService(isar: isarInstance!, apiClient: apiClient);
-  return ShoeService(repo, syncService);
-});
-
-// Provides all shoes
-final allShoesProvider = FutureProvider<List<ShoeIsar>>((ref) async {
-  final service = ref.watch(shoeServiceProvider);
-  return service.getAllShoes();
-});
-
-// Provides only active shoes
-final activeShoesProvider = FutureProvider<List<ShoeIsar>>((ref) async {
-  final service = ref.watch(shoeServiceProvider);
-  return service.getActiveShoes();
-});
 
 class ShoeService {
   final ShoeRepository repository;

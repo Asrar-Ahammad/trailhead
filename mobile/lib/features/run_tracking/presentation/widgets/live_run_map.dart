@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import '../../application/route_provider.dart';
+import '../../application/route_cubit.dart';
 import '../../application/run_tracker_controller.dart';
 import '../../data/map_tile_cache_manager.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -14,16 +14,16 @@ import '../../../../shared/theme/app_colors.dart';
 /// Shows a CartoDB tile layer (dark in dark theme, light in light theme),
 /// a polyline of all accepted GPS points so far, and a circle marker at the
 /// current position. The camera follows the latest point automatically.
-class LiveRunMap extends ConsumerStatefulWidget {
+class LiveRunMap extends StatefulWidget {
   final LatLng? initialLocation;
 
   const LiveRunMap({super.key, this.initialLocation});
 
   @override
-  ConsumerState<LiveRunMap> createState() => _LiveRunMapState();
+  State<LiveRunMap> createState() => _LiveRunMapState();
 }
 
-class _LiveRunMapState extends ConsumerState<LiveRunMap> {
+class _LiveRunMapState extends State<LiveRunMap> {
   final MapController _mapController = MapController();
 
   // Default center: shows world overview before any GPS fix
@@ -35,7 +35,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
   void didUpdateWidget(LiveRunMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.initialLocation != oldWidget.initialLocation && widget.initialLocation != null) {
-      final points = ref.read(routePointsProvider).valueOrNull ?? [];
+      final points = context.read<RouteCubit>().state;
       if (points.isEmpty) {
         _mapController.move(widget.initialLocation!, _runningZoom);
       }
@@ -67,9 +67,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final brightness = Theme.of(context).brightness;
-    final routeAsync = ref.watch(routePointsProvider);
-
-    final points = routeAsync.valueOrNull ?? [];
+    final points = context.watch<RouteCubit>().state;
 
     // Follow latest point whenever it changes
     WidgetsBinding.instance.addPostFrameCallback((_) {

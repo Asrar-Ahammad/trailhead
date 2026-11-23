@@ -1,12 +1,12 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/run_tracker_controller.dart';
 import '../application/run_format_utils.dart';
-import '../application/route_provider.dart';
+import '../application/route_cubit.dart';
 import '../../audio/application/sound_service.dart';
 import 'permission_gate_screen.dart';
 import 'post_run_summary_screen.dart';
@@ -18,7 +18,7 @@ import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../../shared/theme/app_spacing.dart';
-import '../../shoes/application/shoe_service.dart';
+import '../../shoes/application/shoe_cubits.dart';
 import '../../shoes/presentation/shoe_management_screen.dart';
 import '../../shoes/data/models/shoe_isar.dart';
 
@@ -27,12 +27,12 @@ import '../../shoes/data/models/shoe_isar.dart';
 /// All formatting delegated to [RunFormatUtils].
 /// All colors sourced from [AppColors] via ThemeExtension.
 /// All spacing uses [AppSpacing] constants.
-class ActiveRunScreen extends ConsumerWidget {
+class ActiveRunScreen extends StatelessWidget {
   const ActiveRunScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final trackerState = ref.watch(runTrackerProvider);
+  Widget build(BuildContext context) {
+    final trackerState = context.watch<RunTrackerCubit>().state;
     final colors = Theme.of(context).extension<AppColors>()!;
 
     if (!trackerState.permissionsChecked) {
@@ -106,8 +106,8 @@ class ActiveRunScreen extends ConsumerWidget {
                       trackerState: trackerState,
                       colors: colors,
                       onStop: () {
-                        ref.read(runTrackerProvider.notifier).pauseRun();
-                        _showStopSheet(context, ref, colors, trackerState.activityType);
+                        context.read<RunTrackerCubit>().pauseRun();
+                        _showStopSheet(context,  colors, trackerState.activityType);
                       },
                     ),
                   ],
@@ -120,7 +120,7 @@ class ActiveRunScreen extends ConsumerWidget {
     );
   }
 
-  void _showStopSheet(BuildContext context, WidgetRef ref, AppColors colors, String activityType) async {
+  void _showStopSheet(BuildContext context, AppColors colors, String activityType) async {
     final result = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: colors.surface,
@@ -135,15 +135,14 @@ class ActiveRunScreen extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    final notifier = ref.read(runTrackerProvider.notifier);
+    final notifier = context.read<RunTrackerCubit>();
 
     if (result == 'save') {
       debugPrint('[SAVE_DEBUG] Starting save flow...');
-      ref.read(soundServiceProvider).playRunFinish();
+      context.read<SoundService>().playRunFinish();
 
       // Read points BEFORE stopping the run (while ref is still valid)
-      final pointsAsync = ref.read(routePointsProvider);
-      final points = pointsAsync.valueOrNull ?? [];
+      final points = context.read<RouteCubit>().state;
       debugPrint('[SAVE_DEBUG] Points count: ${points.length}');
 
       try {
@@ -186,15 +185,15 @@ class ActiveRunScreen extends ConsumerWidget {
       );
 
       if (confirm == true) {
-        ref.read(soundServiceProvider).playRunDiscard();
+        context.read<SoundService>().playRunDiscard();
         notifier.discardRun();
       } else {
-        ref.read(soundServiceProvider).playPauseResume();
+        context.read<SoundService>().playPauseResume();
         notifier.resumeRun();
       }
     } else {
       // Dismissed or 'resume' — resume tracking
-      ref.read(soundServiceProvider).playPauseResume();
+      context.read<SoundService>().playPauseResume();
       notifier.resumeRun();
     }
   }
@@ -204,14 +203,14 @@ class ActiveRunScreen extends ConsumerWidget {
 // Sub-widgets — one logical block each, kept private to this feature
 // ---------------------------------------------------------------------------
 
-class _GpsWeakBanner extends ConsumerWidget {
+class _GpsWeakBanner extends StatelessWidget {
   const _GpsWeakBanner({required this.colors});
 
   final AppColors colors;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       color: colors.warning,
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -235,7 +234,7 @@ class _GpsWeakBanner extends ConsumerWidget {
   }
 }
 
-class _StatusBar extends ConsumerWidget {
+class _StatusBar extends StatelessWidget {
   const _StatusBar({required this.trackerState, required this.colors});
 
   final RunTrackerState trackerState;
@@ -253,8 +252,8 @@ class _StatusBar extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -290,15 +289,15 @@ class _StatusBar extends ConsumerWidget {
 
 
 
-class _StatPanel extends ConsumerWidget {
+class _StatPanel extends StatelessWidget {
   const _StatPanel({required this.trackerState, required this.colors});
 
   final RunTrackerState trackerState;
   final AppColors colors;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -363,7 +362,7 @@ class _StatPanel extends ConsumerWidget {
   }
 }
 
-class _StatColumn extends ConsumerWidget {
+class _StatColumn extends StatelessWidget {
   const _StatColumn({required this.value, required this.label, required this.colors, this.isCenter = false});
   final String value;
   final String label;
@@ -371,8 +370,8 @@ class _StatColumn extends ConsumerWidget {
   final bool isCenter;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Expanded(
       child: Column(
         children: [
@@ -409,15 +408,15 @@ class _StatColumn extends ConsumerWidget {
   }
 }
 
-class _PaceComparisonBadge extends ConsumerWidget {
+class _PaceComparisonBadge extends StatelessWidget {
   const _PaceComparisonBadge({required this.trackerState, required this.colors});
 
   final RunTrackerState trackerState;
   final AppColors colors;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final target = trackerState.targetPaceSPerKm!;
     // Use split pace if available, else fall back to average pace
     final int? currentRaw = trackerState.currentSplitPaceSPerKm ??
@@ -500,7 +499,7 @@ class _PaceComparisonBadge extends ConsumerWidget {
 
 
 
-class _RunControls extends ConsumerStatefulWidget {
+class _RunControls extends StatefulWidget {
   const _RunControls({
     required this.trackerState,
     required this.colors,
@@ -512,19 +511,19 @@ class _RunControls extends ConsumerStatefulWidget {
   final VoidCallback onStop;
 
   @override
-  ConsumerState<_RunControls> createState() => _RunControlsState();
+  State<_RunControls> createState() => _RunControlsState();
 }
 
-class _RunControlsState extends ConsumerState<_RunControls> {
+class _RunControlsState extends State<_RunControls> {
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final trackerState = widget.trackerState;
     final colors = widget.colors;
     final onStop = widget.onStop;
 
-    final notifier = ref.read(runTrackerProvider.notifier);
+    final notifier = context.read<RunTrackerCubit>();
     final status = trackerState.status;
     final isIdle = status == 'idle';
     final isPaused = status == 'paused';
@@ -558,7 +557,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isIdle) ...[
-                _buildShoeSelector(context, ref, colors, trackerState),
+                _buildShoeSelector(context,  colors, trackerState),
                 const SizedBox(height: 16),
               ],
               if (!isIdle) const SizedBox(height: 12),
@@ -576,7 +575,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                     textColor: colors.textPrimary,
                     onTap: () {
                       if (isIdle) {
-                        ref.read(hapticsServiceProvider).lightImpact();
+                        context.read<HapticsService>().lightImpact();
                         notifier.setActivityType(isRun ? 'walk' : 'run');
                       } else {
                         onStop();
@@ -588,13 +587,13 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                   PressableScale(
                     onTap: () {
                       if (isIdle) {
-                        ref.read(soundServiceProvider).playRunStart();
+                        context.read<SoundService>().playRunStart();
                         notifier.startRun();
                       } else if (isPaused) {
-                        ref.read(soundServiceProvider).playPauseResume();
+                        context.read<SoundService>().playPauseResume();
                         notifier.resumeRun();
                       } else {
-                        ref.read(soundServiceProvider).playPauseResume();
+                        context.read<SoundService>().playPauseResume();
                         notifier.pauseRun();
                       }
                     },
@@ -629,7 +628,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                     textColor: colors.textPrimary,
                     onTap: () {
                       if (isIdle) {
-                        ref.read(hapticsServiceProvider).lightImpact();
+                        context.read<HapticsService>().lightImpact();
                         showModalBottomSheet(
                           context: context,
                           backgroundColor: colors.surface,
@@ -651,14 +650,14 @@ class _RunControlsState extends ConsumerState<_RunControls> {
   );
 }
 
-  Widget _buildShoeSelector(BuildContext context, WidgetRef ref, AppColors colors, RunTrackerState state) {
-    final activeShoesAsync = ref.watch(activeShoesProvider);
+  Widget _buildShoeSelector(BuildContext context, AppColors colors, RunTrackerState state) {
+    final activeShoesAsync = context.watch<ActiveShoesCubit>().state;
     return activeShoesAsync.when(
       data: (shoes) {
         if (shoes.isEmpty) {
           return GestureDetector(
             onTap: () {
-              ref.read(hapticsServiceProvider).lightImpact();
+              context.read<HapticsService>().lightImpact();
               AppRouter.push(context, const ShoeManagementScreen());
             },
             child: Container(
@@ -685,7 +684,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
 
         return GestureDetector(
           onTap: () {
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<HapticsService>().lightImpact();
             showModalBottomSheet(
               context: context,
               backgroundColor: colors.surface,
@@ -723,7 +722,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
   }
 }
 
-class _CircularAction extends ConsumerWidget {
+class _CircularAction extends StatelessWidget {
   const _CircularAction({
     required this.icon,
     required this.label,
@@ -741,8 +740,8 @@ class _CircularAction extends ConsumerWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -772,22 +771,20 @@ class _CircularAction extends ConsumerWidget {
   }
 }
 
-class _TargetPaceSelector extends ConsumerWidget {
+class _TargetPaceSelector extends StatelessWidget {
   const _TargetPaceSelector({
     required this.trackerState,
     required this.colors,
     required this.notifier,
-    required this.ref,
   });
 
   final RunTrackerState trackerState;
   final AppColors colors;
-  final RunTrackerController notifier;
-  final WidgetRef ref;
+  final RunTrackerCubit notifier;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final currentPace = trackerState.targetPaceSPerKm;
     final String paceStr = currentPace != null 
         ? '${(currentPace / 60).floor()}:${(currentPace % 60).toString().padLeft(2, '0')} /km'
@@ -812,8 +809,8 @@ class _TargetPaceSelector extends ConsumerWidget {
           IconButton(
             icon: Icon(PhosphorIcons.minus(), color: colors.textPrimary),
             onPressed: () {
-              ref.read(hapticsServiceProvider).lightImpact();
-              ref.read(soundServiceProvider).playPaceDown();
+              context.read<HapticsService>().lightImpact();
+              context.read<SoundService>().playPaceDown();
               final newPace = (currentPace ?? 360) + 10; // Slower pace = more seconds
               notifier.setTargetPace(newPace);
             },
@@ -827,8 +824,8 @@ class _TargetPaceSelector extends ConsumerWidget {
           IconButton(
             icon: Icon(PhosphorIcons.plus(), color: colors.textPrimary),
             onPressed: () {
-              ref.read(hapticsServiceProvider).lightImpact();
-              ref.read(soundServiceProvider).playPaceUp();
+              context.read<HapticsService>().lightImpact();
+              context.read<SoundService>().playPaceUp();
               final newPace = (currentPace ?? 360) - 10; // Faster pace = less seconds
               if (newPace > 0) notifier.setTargetPace(newPace);
             },
@@ -839,22 +836,20 @@ class _TargetPaceSelector extends ConsumerWidget {
   }
 }
 
-class _ActivityTypeSelector extends ConsumerWidget {
+class _ActivityTypeSelector extends StatelessWidget {
   const _ActivityTypeSelector({
     required this.trackerState,
     required this.colors,
     required this.notifier,
-    required this.ref,
   });
 
   final RunTrackerState trackerState;
   final AppColors colors;
-  final RunTrackerController notifier;
-  final WidgetRef ref;
+  final RunTrackerCubit notifier;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final isRun = trackerState.activityType == 'run';
 
     return Container(
@@ -896,8 +891,8 @@ class _ActivityTypeSelector extends ConsumerWidget {
                   icon: PhosphorIcons.personSimpleRun(),
                   isSelected: isRun,
                   onTap: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playSwitchRun();
+                    context.read<HapticsService>().lightImpact();
+                    context.read<SoundService>().playSwitchRun();
                     notifier.setActivityType('run');
                   },
                 ),
@@ -908,8 +903,8 @@ class _ActivityTypeSelector extends ConsumerWidget {
                   icon: PhosphorIcons.personSimpleWalk(),
                   isSelected: !isRun,
                   onTap: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playSwitchWalk();
+                    context.read<HapticsService>().lightImpact();
+                    context.read<SoundService>().playSwitchWalk();
                     notifier.setActivityType('walk');
                   },
                 ),
@@ -954,7 +949,7 @@ class _ActivityTypeSelector extends ConsumerWidget {
   }
 }
 
-class _CircleButton extends ConsumerWidget {
+class _CircleButton extends StatelessWidget {
   const _CircleButton({
     required this.size,
     required this.color,
@@ -968,8 +963,8 @@ class _CircleButton extends ConsumerWidget {
   final Color? borderColor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       width: size,
       height: size,
@@ -986,15 +981,15 @@ class _CircleButton extends ConsumerWidget {
   }
 }
 
-class _StopBottomSheet extends ConsumerWidget {
+class _StopBottomSheet extends StatelessWidget {
   const _StopBottomSheet({required this.colors, required this.activityType});
 
   final AppColors colors;
   final String activityType;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final activityStr = activityType.toLowerCase() == 'walk' ? 'Walk' : 'Run';
     return SafeArea(
       child: Padding(
@@ -1061,7 +1056,7 @@ class _StopBottomSheet extends ConsumerWidget {
   }
 }
 
-class _SheetButton extends ConsumerWidget {
+class _SheetButton extends StatelessWidget {
   const _SheetButton({
     required this.label,
     required this.backgroundColor,
@@ -1073,8 +1068,8 @@ class _SheetButton extends ConsumerWidget {
   final Color textColor;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       height: 50,
       decoration: BoxDecoration(
@@ -1097,14 +1092,14 @@ class _SheetButton extends ConsumerWidget {
   }
 }
 
-class _TargetPaceSelectorSheet extends ConsumerWidget {
+class _TargetPaceSelectorSheet extends StatelessWidget {
   const _TargetPaceSelectorSheet({required this.colors});
   final AppColors colors;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final trackerState = ref.watch(runTrackerProvider);
-    final notifier = ref.read(runTrackerProvider.notifier);
+  Widget build(BuildContext context) {
+    final trackerState = context.watch<RunTrackerCubit>().state;
+    final notifier = context.read<RunTrackerCubit>();
     
     final currentPace = trackerState.targetPaceSPerKm;
     final String paceStr = currentPace != null 
@@ -1138,8 +1133,8 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
                 IconButton(
                   icon: Icon(PhosphorIcons.minusCircle(PhosphorIconsStyle.fill), color: colors.accent, size: 48),
                   onPressed: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playPaceDown();
+                    context.read<HapticsService>().lightImpact();
+                    context.read<SoundService>().playPaceDown();
                     final newPace = (currentPace ?? 360) + 10;
                     notifier.setTargetPace(newPace);
                   },
@@ -1148,8 +1143,8 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
                 IconButton(
                   icon: Icon(PhosphorIcons.plusCircle(PhosphorIconsStyle.fill), color: colors.accent, size: 48),
                   onPressed: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playPaceUp();
+                    context.read<HapticsService>().lightImpact();
+                    context.read<SoundService>().playPaceUp();
                     final newPace = (currentPace ?? 360) - 10;
                     if (newPace > 0) notifier.setTargetPace(newPace);
                   },
@@ -1180,20 +1175,20 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
   }
 }
 
-class _LocationButton extends ConsumerStatefulWidget {
+class _LocationButton extends StatefulWidget {
   final AppColors colors;
   const _LocationButton({required this.colors});
 
   @override
-  ConsumerState<_LocationButton> createState() => _LocationButtonState();
+  State<_LocationButton> createState() => _LocationButtonState();
 }
 
-class _LocationButtonState extends ConsumerState<_LocationButton> {
+class _LocationButtonState extends State<_LocationButton> {
   bool _isFetching = false;
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Align(
       alignment: Alignment.centerRight,
       child: Padding(
@@ -1208,13 +1203,13 @@ class _LocationButtonState extends ConsumerState<_LocationButton> {
             setState(() {
               _isFetching = true;
             });
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<HapticsService>().lightImpact();
             try {
               final pos = await Geolocator.getCurrentPosition(
                 desiredAccuracy: LocationAccuracy.high,
                 timeLimit: const Duration(seconds: 10),
               );
-              ref.read(runTrackerProvider.notifier).updateInitialPosition(pos);
+              context.read<RunTrackerCubit>().updateInitialPosition(pos);
             } catch (_) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1242,7 +1237,7 @@ class _LocationButtonState extends ConsumerState<_LocationButton> {
   }
 }
 
-class _ShoeSelectorSheet extends ConsumerWidget {
+class _ShoeSelectorSheet extends StatelessWidget {
   const _ShoeSelectorSheet({
     required this.colors,
     required this.shoes,
@@ -1254,7 +1249,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
   final String? selectedShoeId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.only(top: 24, bottom: 48, left: 24, right: 24),
       child: Column(
@@ -1275,7 +1270,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
           
           InkWell(
             onTap: () {
-              ref.read(runTrackerProvider.notifier).setSelectedShoe(null);
+              context.read<RunTrackerCubit>().setSelectedShoe(null);
               Navigator.pop(context);
             },
             borderRadius: BorderRadius.circular(12),
@@ -1304,7 +1299,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                 final isSelected = shoe.clientShoeId == selectedShoeId;
                 return InkWell(
                   onTap: () {
-                    ref.read(runTrackerProvider.notifier).setSelectedShoe(shoe.clientShoeId);
+                    context.read<RunTrackerCubit>().setSelectedShoe(shoe.clientShoeId);
                     Navigator.pop(context);
                   },
                   borderRadius: BorderRadius.circular(12),

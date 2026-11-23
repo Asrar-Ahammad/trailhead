@@ -1,34 +1,26 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:isar/isar.dart';
 import '../data/models/shoe_isar.dart';
+import '../application/shoe_cubits.dart';
 import '../../run_tracking/data/models/run_isar.dart';
-import '../../../main.dart'; // isarInstance
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 
-final shoeRunsProvider = FutureProvider.family<List<RunIsar>, String>((ref, shoeId) async {
-  return await isarInstance!.runIsars
-      .filter()
-      .clientShoeIdEqualTo(shoeId)
-      .statusEqualTo('completed')
-      .sortByStartTimeDesc()
-      .findAll();
-});
-
-class ShoeDashboardScreen extends ConsumerWidget {
+class ShoeDashboardScreen extends StatelessWidget {
   final ShoeIsar shoe;
 
   const ShoeDashboardScreen({super.key, required this.shoe});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    context.read<ShoeRunsCubit>().load(shoe.clientShoeId!);
     final colors = Theme.of(context).extension<AppColors>()!;
-    final runsAsync = ref.watch(shoeRunsProvider(shoe.clientShoeId!));
-    final useMiles = ref.watch(distanceUnitProvider);
+    final runsAsync = context.watch<ShoeRunsCubit>().state;
+    final useMiles = context.watch<DistanceUnitCubit>().state;
 
     return Scaffold(
       backgroundColor: colors.background,

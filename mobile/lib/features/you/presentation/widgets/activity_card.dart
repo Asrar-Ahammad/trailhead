@@ -1,12 +1,13 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
+import 'package:trailhead_mobile/features/history/application/run_points_cubit.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -14,7 +15,7 @@ import 'package:trailhead_mobile/features/haptics/application/haptics_service.da
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 
-class ActivityCard extends ConsumerWidget {
+class ActivityCard extends StatelessWidget {
   final RunIsar run;
   final int achievementsCount;
   final bool isSelectionMode;
@@ -33,12 +34,15 @@ class ActivityCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+  Widget build(BuildContext context) {
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final pointsAsync = run.clientRunId != null 
-        ? ref.watch(runRawPointsProvider(run.clientRunId!))
-        : const AsyncValue.data(<RunPointIsar>[]);
+    if (run.clientRunId != null) {
+      context.read<RunPointsCubit>().load(run.clientRunId!);
+    }
+    final pointsAsync = run.clientRunId != null
+        ? context.watch<RunPointsCubit>().state.rawFor(run.clientRunId!)
+        : const AsyncState.data(<RunPointIsar>[]);
     
     String formattedTime = '00:00';
     if (run.startTime != null) {
@@ -57,8 +61,8 @@ class ActivityCard extends ConsumerWidget {
           onSelect?.call();
           return;
         }
-        ref.read(hapticsServiceProvider).lightImpact();
-        ref.read(soundServiceProvider).playActivityTap();
+        context.read<HapticsService>().lightImpact();
+        context.read<SoundService>().playActivityTap();
         AppRouter.push(context, RunDetailScreen(run: run));
       },
       child: Container(

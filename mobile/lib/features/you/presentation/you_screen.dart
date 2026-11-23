@@ -1,5 +1,8 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/features/you/application/you_ui_cubit.dart';
+import 'package:trailhead_mobile/features/you/application/activity_cubits.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -8,7 +11,6 @@ import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart
 import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/profile/presentation/settings_screen.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
@@ -18,28 +20,14 @@ import 'package:trailhead_mobile/features/haptics/application/haptics_service.da
 import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
 import 'package:intl/intl.dart';
 
-final historyProvider = StreamProvider<List<RunIsar>>((ref) {
-  final repo = ref.read(runHistoryRepositoryProvider);
-  return repo.watchCompletedRuns();
-});
-
-final prsProvider = FutureProvider<RecordGroup>((ref) async {
-  final engine = ref.read(prEngineProvider);
-  return engine.getRecords();
-});
-
-final selectedActivitiesProvider = StateProvider<Set<int>>((ref) => {});
-final isDeletingProvider = StateProvider<bool>((ref) => false);
-final recordsModeProvider = StateProvider<String>((ref) => 'best_effort');
-
-class YouScreen extends ConsumerStatefulWidget {
+class YouScreen extends StatefulWidget {
   const YouScreen({super.key});
 
   @override
-  ConsumerState<YouScreen> createState() => _YouScreenState();
+  State<YouScreen> createState() => _YouScreenState();
 }
 
-class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProviderStateMixin {
+class _YouScreenState extends State<YouScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   int _lastSoundIndex = 0;
 
@@ -63,8 +51,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     if (perceivedIndex == _lastSoundIndex) return;
     _lastSoundIndex = perceivedIndex;
 
-    ref.read(hapticsServiceProvider).lightImpact();
-    final soundService = ref.read(soundServiceProvider);
+    context.read<HapticsService>().lightImpact();
+    final soundService = context.read<SoundService>();
     switch (perceivedIndex) {
       case 0:
         soundService.playTabActivities();
@@ -89,11 +77,12 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final historyAsync = ref.watch(historyProvider);
-    final prsAsync = ref.watch(prsProvider);
+    final historyAsync = context.watch<CompletedRunsCubit>().state;
+    final prsAsync = context.watch<PersonalRecordsCubit>().state;
 
-    final selectedIds = ref.watch(selectedActivitiesProvider);
-    final isDeleting = ref.watch(isDeletingProvider);
+    final youUiState = context.watch<YouUiCubit>().state;
+    final selectedIds = youUiState.selectedActivityIds;
+    final isDeleting = youUiState.isDeleting;
 
     return Scaffold(
         backgroundColor: retroColors.background,
@@ -105,7 +94,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                 leading: IconButton(
                   icon: Icon(PhosphorIcons.x(), color: retroColors.textPrimary),
                   onPressed: isDeleting ? null : () {
-                    ref.read(selectedActivitiesProvider.notifier).state = {};
+                    context.read<YouUiCubit>().clearSelection();
                   },
                 ),
                 actions: [
@@ -144,17 +133,17 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                         );
 
                         if (confirmed == true) {
-                          ref.read(isDeletingProvider.notifier).state = true;
+                          context.read<YouUiCubit>().setDeleting(true);
                           try {
-                            final repo = ref.read(runHistoryRepositoryProvider);
+                            final repo = context.read<RunHistoryRepository>();
                             for (final id in selectedIds) {
                               await repo.deleteRun(id);
                             }
                           } finally {
-                            ref.read(isDeletingProvider.notifier).state = false;
-                            ref.read(selectedActivitiesProvider.notifier).state = {};
-                            ref.refresh(historyProvider);
-                            ref.refresh(prsProvider);
+                            context.read<YouUiCubit>().setDeleting(false);
+                            context.read<YouUiCubit>().clearSelection();
+                            context.read<CompletedRunsCubit>().refresh();
+                            context.read<PersonalRecordsCubit>().load();
                           }
                         }
                       },
@@ -181,8 +170,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                   IconButton(
                     icon: Icon(PhosphorIcons.gearSix(), color: retroColors.textPrimary),
                     onPressed: () {
-                      ref.read(hapticsServiceProvider).lightImpact();
-                      ref.read(soundServiceProvider).playSettingsTap();
+                      context.read<HapticsService>().lightImpact();
+                      context.read<SoundService>().playSettingsTap();
                       AppRouter.push(context, const SettingsScreen());
                     },
                   ),
@@ -208,9 +197,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               backgroundColor: retroColors.surface,
               onRefresh: () async {
                 // ignore: unused_result
-                ref.refresh(historyProvider);
+                context.read<CompletedRunsCubit>().refresh();
                 // ignore: unused_result
-                ref.refresh(prsProvider);
+                context.read<PersonalRecordsCubit>().load();
               },
               child: _buildEmptyState(retroColors),
             );
@@ -228,8 +217,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
           return TabBarView(
             controller: _tabController,
             children: [
-              _buildActivitiesTab(retroColors, runs, prsAsync, ref),
-              _buildRecordsTab(retroColors, prsAsync, ref, context),
+              _buildActivitiesTab(retroColors, runs, prsAsync),
+              _buildRecordsTab(retroColors, prsAsync,  context),
               ProgressTab(runs: runs),
             ],
           );
@@ -243,8 +232,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
           elevation: 0,
           highlightElevation: 0,
           onPressed: () {
-            ref.read(hapticsServiceProvider).mediumImpact();
-            ref.read(soundServiceProvider).playFabAddRun();
+            context.read<HapticsService>().mediumImpact();
+            context.read<SoundService>().playFabAddRun();
             AppRouter.push(context, const ManualEntryScreen());
           },
           backgroundColor: retroColors.accent,
@@ -321,14 +310,14 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     return '';
   }
 
-  Widget _buildRecordsTab(AppColors retroColors, AsyncValue<RecordGroup> prsAsync, WidgetRef ref, BuildContext context) {
-    final mode = ref.watch(recordsModeProvider);
+  Widget _buildRecordsTab(AppColors retroColors, AsyncState<RecordGroup> prsAsync, BuildContext context) {
+    final mode = context.watch<YouUiCubit>().state.recordsMode;
     return RefreshIndicator(
       color: retroColors.accent,
       backgroundColor: retroColors.surface,
       onRefresh: () async {
         // ignore: unused_result
-        ref.refresh(prsProvider);
+        context.read<PersonalRecordsCubit>().load();
       },
       child: prsAsync.when(
         data: (group) {
@@ -369,9 +358,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                       showCheckmark: false,
                       onSelected: (val) {
                         if(val) {
-                          ref.read(hapticsServiceProvider).lightImpact();
-                          ref.read(soundServiceProvider).playTabBestEfforts();
-                          ref.read(recordsModeProvider.notifier).state = 'best_effort';
+                          context.read<HapticsService>().lightImpact();
+                          context.read<SoundService>().playTabBestEfforts();
+                          context.read<YouUiCubit>().setRecordsMode('best_effort');
                         }
                       },
                     ),
@@ -384,9 +373,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                       showCheckmark: false,
                       onSelected: (val) {
                         if(val) {
-                          ref.read(hapticsServiceProvider).lightImpact();
-                          ref.read(soundServiceProvider).playTabAllTime();
-                          ref.read(recordsModeProvider.notifier).state = 'manual';
+                          context.read<HapticsService>().lightImpact();
+                          context.read<SoundService>().playTabAllTime();
+                          context.read<YouUiCubit>().setRecordsMode('manual');
                         }
                       },
                     ),
@@ -414,14 +403,14 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                         final pr = item as PersonalRecord;
                         final formattedTitle = pr.category.toUpperCase();
                         final formattedValue = formatValue(pr.category, pr.value);
-                        final paceStr = formatPace(pr.category, pr.value, ref.watch(distanceUnitProvider));
+                        final paceStr = formatPace(pr.category, pr.value, context.watch<DistanceUnitCubit>().state);
                         final dateStr = DateFormat('MMM d, yyyy').format(pr.achievedAt);
 
                         return GestureDetector(
                           onTap: () {
-                            ref.read(hapticsServiceProvider).lightImpact();
+                            context.read<HapticsService>().lightImpact();
                             if (pr.runId != null) {
-                              final runs = ref.read(historyProvider).valueOrNull ?? [];
+                              final runs = context.read<CompletedRunsCubit>().state.valueOrNull ?? [];
                               try {
                                 final run = runs.firstWhere((r) => r.clientRunId == pr.runId);
                                 AppRouter.push(context, RunDetailScreen(run: run));
@@ -483,9 +472,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                                   icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
                                   onPressed: () async {
                                     try {
-                                      await ref.read(prEngineProvider).deleteManualRecord(pr.id);
+                                      await context.read<PREngine>().deleteManualRecord(pr.id);
                                       // ignore: unused_result
-                                      ref.refresh(prsProvider);
+                                      context.read<PersonalRecordsCubit>().load();
                                     } catch (e) {
                                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete PR')));
                                     }
@@ -503,8 +492,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                   padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0, bottom: 120.0),
                   child: ElevatedButton(
                     onPressed: () {
-                      ref.read(hapticsServiceProvider).lightImpact();
-                      _showAddPRDialog(context, retroColors, ref);
+                      context.read<HapticsService>().lightImpact();
+                      _showAddPRDialog(context, retroColors);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: retroColors.accent,
@@ -522,7 +511,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     );
   }
 
-  void _showAddPRDialog(BuildContext context, AppColors retroColors, WidgetRef ref) {
+  void _showAddPRDialog(BuildContext context, AppColors retroColors) {
     final categoryController = TextEditingController(text: '5k');
     final valueController = TextEditingController();
     
@@ -556,7 +545,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
           TextButton(
             onPressed: () async {
               try {
-                await ref.read(prEngineProvider).addManualRecord(
+                await context.read<PREngine>().addManualRecord(
                   categoryController.text,
                   double.parse(valueController.text),
                   DateTime.now(),
@@ -564,7 +553,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                 );
                 Navigator.pop(ctx);
                 // ignore: unused_result
-                ref.refresh(prsProvider);
+                context.read<PersonalRecordsCubit>().load();
               } catch (e) {
                 // Ignore parsing errors for now
               }
@@ -576,7 +565,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildActivitiesTab(AppColors retroColors, List<RunIsar> runs, AsyncValue<RecordGroup> prsAsync, WidgetRef ref) {
+  Widget _buildActivitiesTab(AppColors retroColors, List<RunIsar> runs, AsyncState<RecordGroup> prsAsync) {
     final List<dynamic> listItems = [];
     String? currentGroupDate;
     final now = DateTime.now();
@@ -613,9 +602,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
       backgroundColor: retroColors.surface,
       onRefresh: () async {
         // ignore: unused_result
-        ref.refresh(historyProvider);
+        context.read<CompletedRunsCubit>().refresh();
         // ignore: unused_result
-        ref.refresh(prsProvider);
+        context.read<PersonalRecordsCubit>().load();
       },
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 16, bottom: 200),
@@ -643,8 +632,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               orElse: () => 0,
             );
             
-            final isSelectionMode = ref.watch(selectedActivitiesProvider).isNotEmpty;
-            final isSelected = ref.watch(selectedActivitiesProvider).contains(item.id);
+            final selectedIds = context.watch<YouUiCubit>().state.selectedActivityIds;
+            final isSelectionMode = selectedIds.isNotEmpty;
+            final isSelected = selectedIds.contains(item.id);
 
             return ActivityCard(
               run: item, 
@@ -652,20 +642,20 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               isSelectionMode: isSelectionMode,
               isSelected: isSelected,
               onSelect: () {
-                final currentSelection = Set<int>.from(ref.read(selectedActivitiesProvider));
+                final currentSelection = Set<int>.from(context.read<YouUiCubit>().state.selectedActivityIds);
                 if (isSelected) {
                   currentSelection.remove(item.id);
                 } else {
                   currentSelection.add(item.id);
                 }
-                ref.read(selectedActivitiesProvider.notifier).state = currentSelection;
-                ref.read(soundServiceProvider).playToggleSwitch(); // Audio feedback for toggle
+                context.read<YouUiCubit>().setSelectedActivities(currentSelection);
+                context.read<SoundService>().playToggleSwitch(); // Audio feedback for toggle
               },
               onLongPress: () {
                 if (!isSelectionMode) {
-                  ref.read(selectedActivitiesProvider.notifier).state = {item.id};
-                  ref.read(soundServiceProvider).playToggleSwitch(); // Audio feedback for toggle
-                  ref.read(hapticsServiceProvider).lightImpact();
+                  context.read<YouUiCubit>().setSelectedActivities({item.id});
+                  context.read<SoundService>().playToggleSwitch(); // Audio feedback for toggle
+                  context.read<HapticsService>().lightImpact();
                 }
               },
             );

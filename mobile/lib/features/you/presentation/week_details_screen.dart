@@ -1,4 +1,5 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -9,20 +10,19 @@ import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.
 import 'package:trailhead_mobile/features/you/presentation/weekly_activities_screen.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 
-class WeekDetailsScreen extends ConsumerStatefulWidget {
+class WeekDetailsScreen extends StatefulWidget {
   final WeeklyReportModel report;
 
   const WeekDetailsScreen({super.key, required this.report});
 
   @override
-  ConsumerState<WeekDetailsScreen> createState() => _WeekDetailsScreenState();
+  State<WeekDetailsScreen> createState() => _WeekDetailsScreenState();
 }
 
-class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
+class _WeekDetailsScreenState extends State<WeekDetailsScreen> {
   int? _touchedPaceSpotIndex;
   int? _touchedCadenceSpotIndex;
 
@@ -86,7 +86,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
           Text('TOTAL DISTANCE', style: AppTextStyles.label(color: retroColors.textSecondary)),
           const SizedBox(height: 8),
           Text(
-            RunFormatUtils.formatDistance(widget.report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+            RunFormatUtils.formatDistance(widget.report.totalDistanceM, context.watch<DistanceUnitCubit>().state) + ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
             style: AppTextStyles.displayHero(color: retroColors.textPrimary).copyWith(fontSize: 48),
           ),
           const SizedBox(height: 16),
@@ -123,7 +123,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
 
   Widget _buildStatsGrid(AppColors retroColors) {
     final workoutTime = RunFormatUtils.formatDuration(widget.report.totalDurationS);
-    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS, ref.watch(distanceUnitProvider));
+    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS, context.watch<DistanceUnitCubit>().state);
     
     return Column(
       children: [
@@ -203,8 +203,8 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: () {
-            ref.read(soundServiceProvider).playActivitiesCardTap();
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<SoundService>().playActivitiesCardTap();
+            context.read<HapticsService>().lightImpact();
             AppRouter.push(context, WeeklyActivitiesScreen(report: widget.report));
           },
           child: Padding(
@@ -266,7 +266,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
                 final index = touchResponse.lineBarSpots![0].spotIndex;
                 if (_touchedPaceSpotIndex != index) {
                   _touchedPaceSpotIndex = index;
-                  ref.read(hapticsServiceProvider).lightImpact();
+                  context.read<HapticsService>().lightImpact();
                 }
               } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.lineBarSpots == null)) {
                 _touchedPaceSpotIndex = null;
@@ -399,7 +399,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
                 final index = touchResponse.lineBarSpots![0].spotIndex;
                 if (_touchedCadenceSpotIndex != index) {
                   _touchedCadenceSpotIndex = index;
-                  ref.read(hapticsServiceProvider).lightImpact();
+                  context.read<HapticsService>().lightImpact();
                 }
               } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.lineBarSpots == null)) {
                 _touchedCadenceSpotIndex = null;

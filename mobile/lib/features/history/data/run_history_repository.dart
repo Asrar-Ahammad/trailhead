@@ -1,12 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
-import 'package:trailhead_mobile/main.dart'; // To access isarInstance
 import 'package:trailhead_mobile/features/sync/data/api_client.dart';
 import 'package:flutter/foundation.dart';
-
-final runHistoryRepositoryProvider = Provider((ref) => RunHistoryRepository(isarInstance, ref.read(apiClientProvider)));
 
 class RunHistoryRepository {
   final Isar _isar;

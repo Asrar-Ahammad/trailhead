@@ -1,10 +1,10 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:trailhead_mobile/main.dart' show isarInstance;
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
@@ -14,14 +14,14 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 
-class ChatScreen extends ConsumerStatefulWidget {
+class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   
@@ -68,7 +68,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final durMins = ((run.durationS ?? 0) / 60).floor();
       final date = run.startTime != null ? '${run.startTime!.year}-${run.startTime!.month.toString().padLeft(2, '0')}-${run.startTime!.day.toString().padLeft(2, '0')}' : 'Unknown date';
       
-      final useMiles = ref.read(distanceUnitProvider);
+      final useMiles = context.read<DistanceUnitCubit>().state;
       final distStr = RunFormatUtils.formatDistance(run.distanceM ?? 0, useMiles);
       final unitStr = RunFormatUtils.getUnitString(useMiles);
       buffer.writeln("- $date: $type, $distStr $unitStr in $durMins mins.");
@@ -86,8 +86,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (text.isEmpty) return;
 
     _textController.clear();
-    ref.read(soundServiceProvider).playButtonTap();
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<SoundService>().playButtonTap();
+    context.read<HapticsService>().lightImpact();
 
     setState(() {
       _messages.add({'role': 'user', 'content': text});
@@ -97,7 +97,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     await _injectSystemContextIfNeeded();
 
-    final response = await ref.read(chatServiceProvider).sendMessage(_messages);
+    final response = await context.read<ChatService>().sendMessage(_messages);
 
 
     setState(() {
@@ -109,8 +109,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
     });
     
-    ref.read(soundServiceProvider).playChatBeep();
-    ref.read(hapticsServiceProvider).mediumImpact();
+    context.read<SoundService>().playChatBeep();
+    context.read<HapticsService>().mediumImpact();
     _scrollToBottom();
   }
 

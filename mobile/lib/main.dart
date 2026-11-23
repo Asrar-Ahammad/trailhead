@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,25 +22,9 @@ import 'shared/theme/app_themes.dart';
 import 'features/audio/application/sound_service.dart';
 import 'shared/navigation/sound_navigator_observer.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'shared/state/app_cubits.dart';
 
 late Isar isarInstance;
-
-final initialThemeModeProvider = Provider<ThemeMode>((ref) => ThemeMode.system);
-
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
-  final initial = ref.watch(initialThemeModeProvider);
-  return ThemeModeNotifier(initial);
-});
-
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier(ThemeMode initial) : super(initial);
-
-  Future<void> setMode(ThemeMode mode) async {
-    state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('themeMode', mode.name);
-  }
-}
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -83,8 +67,8 @@ void main() async {
   );
 
   // Initialize Notifications
+  final notificationService = NotificationService();
   try {
-    final notificationService = NotificationService();
     await notificationService.initialize();
   } catch (e, st) {
     debugPrint('Notification initialization error: $e\n$st');
@@ -140,42 +124,43 @@ void main() async {
   }
 
   runApp(
-    ProviderScope(
-      overrides: [
-        initialThemeModeProvider.overrideWithValue(initialThemeMode),
-      ],
+    AppCubitProviders(
+      initialThemeMode: initialThemeMode,
+      isar: isarInstance,
+      apiClient: ApiClient(),
+      notificationService: notificationService,
       child: const TrailheadApp(),
     ),
   );
 }
 
-class TrailheadApp extends ConsumerWidget {
+class TrailheadApp extends StatelessWidget {
   const TrailheadApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark || 
-                  (themeMode == ThemeMode.system && 
-                   WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
-                   
-    final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
-    final soundService = ref.read(soundServiceProvider);
+  Widget build(BuildContext context) {
+    final soundService = context.read<SoundService>();
 
     return WithForegroundTask(
-      child: ThemeProvider(
-        initTheme: initTheme,
-        builder: (context, myTheme) {
-          return MaterialApp(
-            title: 'Trailhead',
-            debugShowCheckedModeBanner: false,
-            themeMode: themeMode,
-            theme: myTheme,
-            darkTheme: AppThemes.darkTheme,
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          final isDark = themeMode == ThemeMode.dark ||
+              (themeMode == ThemeMode.system &&
+                  WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
+          final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
+          return ThemeProvider(
+            initTheme: initTheme,
+            builder: (context, myTheme) => MaterialApp(
+              title: 'Trailhead',
+              debugShowCheckedModeBanner: false,
+              themeMode: themeMode,
+              theme: myTheme,
+              darkTheme: AppThemes.darkTheme,
             home: const AuthWrapper(),
-            navigatorObservers: [
-              SoundNavigatorObserver(soundService: soundService),
-            ],
+              navigatorObservers: [
+                SoundNavigatorObserver(soundService: soundService),
+              ],
+            ),
           );
         },
       ),

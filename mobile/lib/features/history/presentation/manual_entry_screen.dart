@@ -1,5 +1,5 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -11,14 +11,14 @@ import 'package:trailhead_mobile/features/history/data/run_history_repository.da
 import 'package:permission_handler/permission_handler.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 
-class ManualEntryScreen extends ConsumerStatefulWidget {
+class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({super.key});
 
   @override
-  ConsumerState<ManualEntryScreen> createState() => _ManualEntryScreenState();
+  State<ManualEntryScreen> createState() => _ManualEntryScreenState();
 }
 
-class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
+class _ManualEntryScreenState extends State<ManualEntryScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   final TextEditingController _textController = TextEditingController();
@@ -59,7 +59,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   void _startListening() async {
     if (!_isListening) {
-      ref.read(hapticsServiceProvider).lightImpact();
+      context.read<HapticsService>().lightImpact();
       
       var micStatus = await Permission.microphone.status;
       if (micStatus.isPermanentlyDenied) {
@@ -84,7 +84,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       if (micStatus.isGranted) {
         bool available = await _initSpeechIfNeeded();
         if (available) {
-          ref.read(soundServiceProvider).playMicStart();
+          context.read<SoundService>().playMicStart();
           setState(() => _isListening = true);
           
           final int cursorPos = _textController.selection.baseOffset >= 0 
@@ -126,7 +126,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   void _stopListening() {
     if (_isListening) {
-      ref.read(hapticsServiceProvider).lightImpact();
+      context.read<HapticsService>().lightImpact();
       _speech.stop();
       setState(() => _isListening = false);
     }
@@ -136,19 +136,19 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     if (_textController.text.trim().isEmpty) return;
 
     setState(() => _isParsing = true);
-    ref.read(soundServiceProvider).playButtonTap();
-    final parsed = await ref.read(nlLoggingProvider).parseLog(_textController.text);
+    context.read<SoundService>().playButtonTap();
+    final parsed = await context.read<NlLoggingService>().parseLog(_textController.text);
     setState(() => _isParsing = false);
 
     if (parsed != null) {
-      ref.read(hapticsServiceProvider).mediumImpact();
-      ref.read(soundServiceProvider).playSuccess();
+      context.read<HapticsService>().mediumImpact();
+      context.read<SoundService>().playSuccess();
       if (parsed.distanceKm != null) _distanceController.text = parsed.distanceKm.toString();
       if (parsed.subjectiveEffort != null) _effortController.text = parsed.subjectiveEffort!;
       if (parsed.conditions != null) _conditionsController.text = parsed.conditions!;
       if (parsed.timeOfDay != null) _timeController.text = parsed.timeOfDay!;
     } else {
-      ref.read(soundServiceProvider).playError();
+      context.read<SoundService>().playError();
       if(mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to parse text.')));
       }
@@ -158,12 +158,12 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   Future<void> _saveRun() async {
     final distance = double.tryParse(_distanceController.text);
     if (distance == null) {
-       ref.read(soundServiceProvider).playError();
+       context.read<SoundService>().playError();
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid distance required')));
        return;
     }
     
-    final repo = ref.read(runHistoryRepositoryProvider);
+    final repo = context.read<RunHistoryRepository>();
     final now = DateTime.now();
     
     // Create run
@@ -182,8 +182,8 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       
     await repo.saveRun(run, []);
     
-    ref.read(soundServiceProvider).playRunFinish();
-    ref.read(hapticsServiceProvider).heavyImpact();
+    context.read<SoundService>().playRunFinish();
+    context.read<HapticsService>().heavyImpact();
     if(mounted) Navigator.pop(context);
   }
 

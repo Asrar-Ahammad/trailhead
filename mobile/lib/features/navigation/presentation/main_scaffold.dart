@@ -1,7 +1,8 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -12,16 +13,14 @@ import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_c
 import 'package:trailhead_mobile/features/home/presentation/home_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 
-final navigationProvider = StateProvider<int>((ref) => 0);
-
-class MainScaffold extends ConsumerStatefulWidget {
+class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
 
   @override
-  ConsumerState<MainScaffold> createState() => _MainScaffoldState();
+  State<MainScaffold> createState() => _MainScaffoldState();
 }
 
-class _MainScaffoldState extends ConsumerState<MainScaffold> {
+class _MainScaffoldState extends State<MainScaffold> {
   bool _isAtBottom = false;
   DateTime? _lastBackPressedAt;
   OverlayEntry? _toastEntry;
@@ -51,16 +50,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(navigationProvider, (previous, next) {
-      if (previous != next && mounted) {
-        setState(() {
-          _isAtBottom = false;
-        });
-      }
-    });
-
-    final currentIndex = ref.watch(navigationProvider);
-    final runState = ref.watch(runTrackerProvider);
+    final currentIndex = context.watch<NavigationCubit>().state;
+    final runState = context.watch<RunTrackerCubit>().state;
     final isRunning = runState.status != 'idle';
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -74,8 +65,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
     void onTabTapped(int index) {
       if (currentIndex == index) return;
-      ref.read(hapticsServiceProvider).lightImpact();
-      final soundService = ref.read(soundServiceProvider);
+      context.read<HapticsService>().lightImpact();
+      final soundService = context.read<SoundService>();
       if (index == 0) {
         soundService.playNavHome();
       } else if (index == 1) {
@@ -83,7 +74,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       } else if (index == 2) {
         soundService.playNavYou();
       }
-      ref.read(navigationProvider.notifier).state = index;
+      context.read<NavigationCubit>().selectTab(index);
+      if (mounted) setState(() => _isAtBottom = false);
     }
 
     return PopScope(
@@ -96,7 +88,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
             now.difference(_lastBackPressedAt!) > maxDuration;
 
         // Play retro back sound on every back press
-        ref.read(soundServiceProvider).playSystemBack();
+        context.read<SoundService>().playSystemBack();
 
         if (isFirstPress) {
           _lastBackPressedAt = now;

@@ -1,8 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-final authServiceProvider = Provider((ref) => AuthService());
 
 class AuthService {
   final Dio _dio;

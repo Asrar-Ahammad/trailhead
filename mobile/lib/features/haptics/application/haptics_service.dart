@@ -1,8 +1,5 @@
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-final hapticsServiceProvider = Provider((ref) => HapticsService());
 
 class HapticsService {
   bool? _hapticsEnabled;

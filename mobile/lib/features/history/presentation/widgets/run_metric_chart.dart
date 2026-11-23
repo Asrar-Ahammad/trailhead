@@ -1,11 +1,11 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'dart:math';
 
@@ -18,7 +18,7 @@ class ChartDataPoint {
 
 enum MetricType { pace, cadence, elevation }
 
-class RunMetricChart extends ConsumerStatefulWidget {
+class RunMetricChart extends StatefulWidget {
   final String title;
   final MetricType type;
   final List<ChartDataPoint> data;
@@ -35,10 +35,10 @@ class RunMetricChart extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<RunMetricChart> createState() => _RunMetricChartState();
+  State<RunMetricChart> createState() => _RunMetricChartState();
 }
 
-class _RunMetricChartState extends ConsumerState<RunMetricChart> {
+class _RunMetricChartState extends State<RunMetricChart> {
   int? _lastTouchedIndex;
 
   String _getTooltipMessage(MetricType type) {
@@ -55,7 +55,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     
     if (widget.data.isEmpty) {
       return const SizedBox.shrink();
@@ -147,7 +147,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                     final touchedIndex = touchResponse.lineBarSpots!.first.spotIndex;
                     if (_lastTouchedIndex != touchedIndex) {
                       _lastTouchedIndex = touchedIndex;
-                      ref.read(hapticsServiceProvider).lightImpact();
+                      context.read<HapticsService>().lightImpact();
                     }
                   } else {
                     _lastTouchedIndex = null;
@@ -235,7 +235,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          RunFormatUtils.formatDistance(value * 1000, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider)),
+                          RunFormatUtils.formatDistance(value * 1000, context.watch<DistanceUnitCubit>().state) + ' ' + RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state),
                           style: AppTextStyles.label(color: colors.textSecondary).copyWith(fontSize: 10),
                         ),
                       );

@@ -1,6 +1,7 @@
+import 'package:trailhead_mobile/shared/state/app_cubits.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/navigation/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -9,23 +10,21 @@ import '../../haptics/application/haptics_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../audio/application/sound_service.dart';
-import '../../../main.dart';
 import '../../auth/application/auth_service.dart';
 import '../../auth/presentation/auth_wrapper.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import '../../../shared/theme/app_themes.dart';
 import '../../sync/data/api_client.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import '../../shoes/presentation/shoe_management_screen.dart';
 
-class SettingsScreen extends ConsumerStatefulWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+  State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> {
   bool _uiSoundsEnabled = false;
   bool _hapticsEnabled = true;
   bool _audioCuesEnabled = true;
@@ -61,7 +60,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
 
     try {
-      final api = ref.read(apiClientProvider);
+      final api = context.read<ApiClient>();
       final response = await api.client.get('/auth/me');
       if (response.statusCode == 200 && response.data != null) {
         final data = response.data;
@@ -143,7 +142,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final val = int.tryParse(result);
       if (val != null && val >= 0 && val <= 31) {
         try {
-          final api = ref.read(apiClientProvider);
+          final api = context.read<ApiClient>();
           await api.client.put('/streak', data: {'restDaysLimit': val});
           
           final prefs = await SharedPreferences.getInstance();
@@ -176,7 +175,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _audioCuesEnabled = value;
     });
     
-    await ref.read(soundServiceProvider).playToggleSwitch();
+    await context.read<SoundService>().playToggleSwitch();
   }
 
   Future<void> _updateAudioCueFrequency(double value) async {
@@ -193,7 +192,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     } catch (_) {}
     
-    await ref.read(soundServiceProvider).playToggleSwitch();
+    await context.read<SoundService>().playToggleSwitch();
   }
 
   Future<void> _toggleUiSounds(bool value) async {
@@ -204,9 +203,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     
     // Notify the sound service to reload settings
-    await ref.read(soundServiceProvider).reloadSettings();
+    await context.read<SoundService>().reloadSettings();
     if (value) {
-      await ref.read(soundServiceProvider).playToggleSwitch();
+      await context.read<SoundService>().playToggleSwitch();
     }
   }
 
@@ -217,11 +216,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _hapticsEnabled = value;
     });
     
-    await ref.read(hapticsServiceProvider).reloadSettings();
+    await context.read<HapticsService>().reloadSettings();
     if (value) {
-      await ref.read(hapticsServiceProvider).lightImpact();
+      await context.read<HapticsService>().lightImpact();
     }
-    await ref.read(soundServiceProvider).playToggleSwitch();
+    await context.read<SoundService>().playToggleSwitch();
   }
 
   Future<void> _updateWeight() async {
@@ -267,7 +266,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         });
 
         try {
-          final api = ref.read(apiClientProvider);
+          final api = context.read<ApiClient>();
           await api.client.put('/auth/me', data: {'weightKg': weight});
         } catch (e) {
           debugPrint('Failed to sync weight to backend: $e');
@@ -316,7 +315,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
 
       try {
-        final api = ref.read(apiClientProvider);
+        final api = context.read<ApiClient>();
         await api.client.put('/auth/me', data: {'name': result.trim()});
       } catch (e) {
         debugPrint('Failed to sync name to backend: $e');
@@ -356,7 +355,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
 
       try {
-        final api = ref.read(apiClientProvider);
+        final api = context.read<ApiClient>();
         await api.client.put('/auth/me', data: {'dob': dateStr});
       } catch (e) {
         debugPrint('Failed to sync dob to backend: $e');
@@ -389,7 +388,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
 
       try {
-        final api = ref.read(apiClientProvider);
+        final api = context.read<ApiClient>();
         await api.client.put('/auth/me', data: {'gender': result});
       } catch (e) {
         debugPrint('Failed to sync gender to backend: $e');
@@ -431,7 +430,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (shouldLogout == true) {
-      await ref.read(authServiceProvider).logout();
+      await context.read<AuthService>().logout();
       if (mounted) {
         AppRouter.replaceAll(context, const AuthWrapper());
       }
@@ -475,7 +474,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final themeMode = ref.watch(themeModeProvider);
+    final themeMode = context.watch<ThemeCubit>().state;
     
     return Scaffold(
       backgroundColor: colors.background,
@@ -546,8 +545,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: AppTextStyles.bodyLarge(color: colors.textPrimary),
                       underline: const SizedBox.shrink(),
                       items: [
-                        DropdownMenuItem(value: 1.0, child: Text('Every 1 ${ref.watch(distanceUnitProvider) ? 'mi' : 'km'}')),
-                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 ${ref.watch(distanceUnitProvider) ? 'mi' : 'km'}')),
+                        DropdownMenuItem(value: 1.0, child: Text('Every 1 ${context.watch<DistanceUnitCubit>().state ? 'mi' : 'km'}')),
+                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 ${context.watch<DistanceUnitCubit>().state ? 'mi' : 'km'}')),
                       ],
                       onChanged: (value) {
                         if (value != null) _updateAudioCueFrequency(value);
@@ -570,7 +569,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: Text('My Gear / Shoes', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
               trailing: Icon(PhosphorIcons.caretRight(), color: colors.textSecondary, size: 20),
               onTap: () {
-                ref.read(hapticsServiceProvider).lightImpact();
+                context.read<HapticsService>().lightImpact();
                 AppRouter.push(context, const ShoeManagementScreen());
               },
             ),
@@ -603,14 +602,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                   onChanged: (mode) {
                     if (mode != null) {
-                      ref.read(themeModeProvider.notifier).setMode(mode);
+                      context.read<ThemeCubit>().setMode(mode);
                       final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
                       final newTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
                       
                       if (isDark) {
-                        ref.read(soundServiceProvider).playThemeDark();
+                        context.read<SoundService>().playThemeDark();
                       } else {
-                        ref.read(soundServiceProvider).playThemeLight();
+                        context.read<SoundService>().playThemeLight();
                       }
                       
                       ThemeSwitcher.of(context).changeTheme(theme: newTheme);

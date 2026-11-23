@@ -1,9 +1,5 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/features/sync/data/api_client.dart';
-
-final prEngineProvider = Provider((ref) {
-  return PREngine(ref.read(apiClientProvider));
-});
 
 class PersonalRecord {
   final String id;

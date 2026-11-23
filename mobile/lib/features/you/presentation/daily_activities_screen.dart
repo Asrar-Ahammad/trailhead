@@ -1,15 +1,15 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/daily_steps_cubit.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/daily_steps_provider.dart';
 
-class DailyActivitiesScreen extends ConsumerStatefulWidget {
+class DailyActivitiesScreen extends StatefulWidget {
   final DateTime date;
   final List<RunIsar> runs;
 
@@ -20,11 +20,19 @@ class DailyActivitiesScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DailyActivitiesScreen> createState() => _DailyActivitiesScreenState();
+  State<DailyActivitiesScreen> createState() => _DailyActivitiesScreenState();
 }
 
-class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
+class _DailyActivitiesScreenState extends State<DailyActivitiesScreen> {
   int? _touchedSpotIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    final date = widget.date;
+    final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    context.read<DailyStepsCubit>().load(dateKey);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +44,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
 
     // Get background steps for this date
     final dateKey = '${widget.date.year}-${widget.date.month.toString().padLeft(2, '0')}-${widget.date.day.toString().padLeft(2, '0')}';
-    final backgroundStepsAsync = ref.watch(dailyStepsForDateProvider(dateKey));
+    final backgroundStepsAsync = context.watch<DailyStepsCubit>().state;
     final backgroundSteps = backgroundStepsAsync.valueOrNull ?? 0;
 
     // Calculate steps per hour from runs
@@ -104,7 +112,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                         final index = touchResponse.spot!.touchedBarGroupIndex;
                         if (_touchedSpotIndex != index) {
                           _touchedSpotIndex = index;
-                          ref.read(hapticsServiceProvider).lightImpact();
+                          context.read<HapticsService>().lightImpact();
                         }
                       } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.spot == null)) {
                         _touchedSpotIndex = null;

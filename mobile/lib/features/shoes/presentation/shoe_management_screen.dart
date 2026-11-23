@@ -1,21 +1,22 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/navigation/app_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../application/shoe_service.dart';
+import '../application/shoe_cubits.dart';
 import '../data/models/shoe_isar.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../haptics/application/haptics_service.dart';
 import 'shoe_dashboard_screen.dart';
 
-class ShoeManagementScreen extends ConsumerWidget {
+class ShoeManagementScreen extends StatelessWidget {
   const ShoeManagementScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final shoesAsync = ref.watch(allShoesProvider);
+    final shoesAsync = context.watch<AllShoesCubit>().state;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -30,8 +31,8 @@ class ShoeManagementScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ref.read(hapticsServiceProvider).lightImpact();
-          _showAddShoeDialog(context, ref, colors);
+          context.read<HapticsService>().lightImpact();
+          _showAddShoeDialog(context, colors);
         },
         backgroundColor: colors.accent,
         shape: const CircleBorder(),
@@ -58,13 +59,13 @@ class ShoeManagementScreen extends ConsumerWidget {
               if (activeShoes.isNotEmpty) ...[
                 Text('ACTIVE GEAR', style: AppTextStyles.label(color: colors.accent)),
                 const SizedBox(height: 8),
-                ...activeShoes.map((s) => _buildShoeCard(context, ref, colors, s)),
+                ...activeShoes.map((s) => _buildShoeCard(context, colors, s)),
                 const SizedBox(height: 24),
               ],
               if (retiredShoes.isNotEmpty) ...[
                 Text('RETIRED GEAR', style: AppTextStyles.label(color: colors.textSecondary)),
                 const SizedBox(height: 8),
-                ...retiredShoes.map((s) => _buildShoeCard(context, ref, colors, s)),
+                ...retiredShoes.map((s) => _buildShoeCard(context, colors, s)),
               ],
             ],
           );
@@ -75,7 +76,7 @@ class ShoeManagementScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildShoeCard(BuildContext context, WidgetRef ref, AppColors colors, ShoeIsar shoe) {
+  Widget _buildShoeCard(BuildContext context, AppColors colors, ShoeIsar shoe) {
     final distanceKm = shoe.distanceM / 1000.0;
     
     return Container(
@@ -87,7 +88,7 @@ class ShoeManagementScreen extends ConsumerWidget {
       ),
       child: ListTile(
         onTap: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsService>().lightImpact();
           AppRouter.push(context, ShoeDashboardScreen(shoe: shoe));
         },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -143,9 +144,9 @@ class ShoeManagementScreen extends ConsumerWidget {
                                 ),
                                 onPressed: () async {
                                   setState(() => isRetiring = true);
-                                  await ref.read(shoeServiceProvider).retireShoe(shoe.id);
-                                  ref.refresh(allShoesProvider);
-                                  ref.refresh(activeShoesProvider);
+                                  await context.read<ShoeService>().retireShoe(shoe.id);
+                                  context.read<AllShoesCubit>().load();
+                                  context.read<ActiveShoesCubit>().load();
                                   if (ctx.mounted) Navigator.pop(ctx);
                                 },
                                 child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -192,9 +193,9 @@ class ShoeManagementScreen extends ConsumerWidget {
                               ),
                               onPressed: () async {
                                 setState(() => isDeleting = true);
-                                await ref.read(shoeServiceProvider).deleteShoe(shoe.id);
-                                ref.refresh(allShoesProvider);
-                                ref.refresh(activeShoesProvider);
+                                await context.read<ShoeService>().deleteShoe(shoe.id);
+                                context.read<AllShoesCubit>().load();
+                                context.read<ActiveShoesCubit>().load();
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                               child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -212,7 +213,7 @@ class ShoeManagementScreen extends ConsumerWidget {
     );
   }
 
-  void _showAddShoeDialog(BuildContext context, WidgetRef ref, AppColors colors) {
+  void _showAddShoeDialog(BuildContext context, AppColors colors) {
     final nameController = TextEditingController();
     final brandController = TextEditingController();
 
@@ -268,9 +269,9 @@ class ShoeManagementScreen extends ConsumerWidget {
                     final name = nameController.text.trim();
                     if (name.isNotEmpty) {
                       setState(() => isSaving = true);
-                      await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
-                      ref.refresh(allShoesProvider);
-                      ref.refresh(activeShoesProvider);
+                      await context.read<ShoeService>().addShoe(name, brandController.text.trim());
+                      context.read<AllShoesCubit>().load();
+                      context.read<ActiveShoesCubit>().load();
                       if (ctx.mounted) Navigator.pop(ctx);
                     }
                   },

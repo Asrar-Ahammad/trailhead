@@ -1,5 +1,5 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
@@ -7,28 +7,19 @@ import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
+import 'package:trailhead_mobile/features/you/application/activity_cubits.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 
-final weeklyRunsProvider = StreamProvider.family<List<RunIsar>, WeeklyReportModel>((ref, report) {
-  final repo = ref.read(runHistoryRepositoryProvider);
-  return repo.watchCompletedRuns().map((runs) {
-    return runs.where((r) {
-      if (r.startTime == null) return false;
-      return r.startTime!.isAfter(report.startDate.subtract(const Duration(seconds: 1))) && 
-             r.startTime!.isBefore(report.endDate.add(const Duration(days: 1)));
-    }).toList()..sort((a, b) => b.startTime!.compareTo(a.startTime!)); // newest first
-  });
-});
-
-class WeeklyActivitiesScreen extends ConsumerWidget {
+class WeeklyActivitiesScreen extends StatelessWidget {
   final WeeklyReportModel report;
 
   const WeeklyActivitiesScreen({super.key, required this.report});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    context.read<WeeklyRunsCubit>().observe(report);
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final runsAsync = ref.watch(weeklyRunsProvider(report));
+    final runsAsync = context.watch<WeeklyRunsCubit>().state.forReport(report);
 
     return Scaffold(
       backgroundColor: retroColors.background,

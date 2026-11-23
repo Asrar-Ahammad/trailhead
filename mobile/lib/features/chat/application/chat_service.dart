@@ -1,15 +1,12 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/sync/data/api_client.dart';
 
-final chatServiceProvider = Provider((ref) => ChatService(ref));
-
 class ChatService {
-  final Ref _ref;
+  final ApiClient _apiClient;
   
-  ChatService(this._ref);
+  ChatService(this._apiClient);
 
   Future<Map<String, dynamic>?> sendMessage(List<Map<String, dynamic>> messages) async {
-    final client = _ref.read(apiClientProvider).client;
+    final client = _apiClient.client;
     try {
       final response = await client.post('/chat', data: {'messages': messages});
       if (response.statusCode == 200) {
