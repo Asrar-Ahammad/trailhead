@@ -13,6 +13,9 @@ class DailyStepsIsar {
   /// Total background steps recorded for this day
   int steps = 0;
 
+  /// Hourly breakdown of background steps
+  List<int> hourlySteps = List.filled(24, 0);
+
   /// Last raw pedometer value seen (for delta calculation across app restarts)
   int lastPedometerValue = 0;
 

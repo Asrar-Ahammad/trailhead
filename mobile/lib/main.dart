@@ -5,23 +5,22 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'features/run_tracking/data/models/run_isar.dart';
 import 'features/run_tracking/data/models/run_point_isar.dart';
-import 'features/run_tracking/presentation/permission_gate_screen.dart';
-import 'features/auth/presentation/auth_wrapper.dart';
-import 'features/sync/application/sync_service.dart';
-import 'features/sync/data/api_client.dart';
-import 'features/sync/data/models/sync_job_isar.dart';
+import 'features/onboarding/presentation/onboarding_screen.dart';
+import 'features/onboarding/application/onboarding_provider.dart';
 import 'package:trailhead_mobile/features/shoes/data/models/shoe_isar.dart';
 import 'features/run_tracking/data/models/daily_steps_isar.dart';
+import 'features/stats/data/models/personal_record_isar.dart';
+import 'features/stats/data/models/weekly_report_isar.dart';
+import 'features/goals/data/models/goal_isar.dart';
 import 'features/run_tracking/application/background_step_service.dart';
-import 'package:workmanager/workmanager.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'features/notifications/application/notification_service.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
-import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_themes.dart';
 import 'features/audio/application/sound_service.dart';
 import 'shared/navigation/sound_navigator_observer.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'features/navigation/presentation/main_scaffold.dart';
 
 late Isar isarInstance;
 
@@ -42,43 +41,22 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   }
 }
 
-@pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final isar = await Isar.open(
-        [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema, DailyStepsIsarSchema],
-        directory: dir.path,
-      );
-
-      final apiClient = ApiClient();
-      final syncService = SyncService(isar: isar, apiClient: apiClient);
-
-      final success = await syncService.runSyncLoop();
-      await isar.close();
-      
-      return success;
-    } catch (e) {
-      return false;
-    }
-  });
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterForegroundTask.initCommunicationPort();
 
-  // Initialize Workmanager
-  Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: true,
-  );
-
   // Initialize Isar
   final dir = await getApplicationDocumentsDirectory();
   isarInstance = await Isar.open(
-    [RunIsarSchema, RunPointIsarSchema, SyncJobIsarSchema, ShoeIsarSchema, DailyStepsIsarSchema],
+    [
+      RunIsarSchema,
+      RunPointIsarSchema,
+      ShoeIsarSchema,
+      DailyStepsIsarSchema,
+      PersonalRecordIsarSchema,
+      WeeklyReportIsarSchema,
+      GoalIsarSchema,
+    ],
     directory: dir.path,
   );
 
@@ -139,10 +117,13 @@ void main() async {
     initialThemeMode = ThemeMode.light;
   }
 
+  final bool seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
+
   runApp(
     ProviderScope(
       overrides: [
         initialThemeModeProvider.overrideWithValue(initialThemeMode),
+        initialOnboardingProvider.overrideWithValue(seenOnboarding),
       ],
       child: const TrailheadApp(),
     ),
@@ -161,6 +142,11 @@ class TrailheadApp extends ConsumerWidget {
                    
     final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
     final soundService = ref.read(soundServiceProvider);
+    final hasSeenOnboarding = ref.watch(onboardingCompletedProvider);
+
+    final Widget homeScreen = hasSeenOnboarding
+        ? const MainScaffold()
+        : const OnboardingScreen();
 
     return WithForegroundTask(
       child: ThemeProvider(
@@ -172,7 +158,7 @@ class TrailheadApp extends ConsumerWidget {
             themeMode: themeMode,
             theme: myTheme,
             darkTheme: AppThemes.darkTheme,
-            home: const AuthWrapper(),
+            home: homeScreen,
             navigatorObservers: [
               SoundNavigatorObserver(soundService: soundService),
             ],

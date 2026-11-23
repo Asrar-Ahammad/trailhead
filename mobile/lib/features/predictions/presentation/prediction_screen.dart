@@ -1,10 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../application/prediction_service.dart';
 
 class PredictionScreen extends ConsumerWidget {
@@ -17,10 +18,17 @@ class PredictionScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('RACE PREDICTOR', style: AppTextStyles.retroLabelLarge(color: colors.textPrimary).copyWith(fontSize: 20)),
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surface.withValues(alpha: 0.7),
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colors.textPrimary),
           onPressed: () => Navigator.pop(context),
@@ -32,7 +40,12 @@ class PredictionScreen extends ConsumerWidget {
           final aiReasoning = data['aiReasoning'] as String;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + kToolbarHeight + AppSpacing.lg,
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              bottom: AppSpacing.lg,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -46,7 +59,7 @@ class PredictionScreen extends ConsumerWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(PhosphorIcons.robot(), color: colors.accent, size: 32),
+                      Icon(PhosphorIcons.robot, color: colors.accent, size: 32),
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
@@ -84,7 +97,7 @@ class PredictionScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(PhosphorIcons.warningCircle(), size: 48, color: colors.error),
+                Icon(PhosphorIcons.warningCircle, size: 48, color: colors.error),
                 const SizedBox(height: 16),
                 Text('Cannot predict times.', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
                 const SizedBox(height: 8),

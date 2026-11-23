@@ -34,11 +34,15 @@ class RunIsar {
   
   double? avgCadenceSpm;
   
+  double? avgGapSPerKm;
+  
   double? caloriesKcal;
   
   String? status; // 'running', 'paused', 'completed'
   
   String? aiSummary;
+  
+  String? aiAnalysis;
   
   String? subjectiveEffort;
   

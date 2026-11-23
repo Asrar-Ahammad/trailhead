@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
@@ -88,6 +88,7 @@ class ResultsSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 32),
             Text('Results', style: AppTextStyles.headline(color: retroColors.textPrimary).copyWith(fontSize: 24)),
             const SizedBox(height: 24),
             Row(
@@ -125,9 +126,9 @@ class ResultsSection extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (isTop3)
-                      Icon(PhosphorIcons.medal(PhosphorIconsStyle.fill), color: _getMedalColor(pr.rank, retroColors), size: 40)
+                      Icon(PhosphorIcons.medalFill, color: _getMedalColor(pr.rank, retroColors), size: 40)
                     else
-                      Icon(PhosphorIcons.sneaker(PhosphorIconsStyle.regular), color: retroColors.textSecondary, size: 40),
+                      Icon(PhosphorIcons.sneaker, color: retroColors.textSecondary, size: 40),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(

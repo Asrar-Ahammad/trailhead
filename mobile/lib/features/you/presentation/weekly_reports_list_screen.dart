@@ -1,8 +1,9 @@
+import 'dart:ui';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
-import 'package:trailhead_mobile/features/stats/data/weekly_report_api_client.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:trailhead_mobile/features/stats/data/weekly_report_service.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/week_details_screen.dart';
@@ -22,12 +23,19 @@ class WeeklyReportsListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: retroColors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('WEEKLY REPORTS', style: AppTextStyles.headline(color: retroColors.textPrimary)),
-        backgroundColor: retroColors.surface,
+        backgroundColor: retroColors.surface.withValues(alpha: 0.7),
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(PhosphorIcons.arrowLeft(), color: retroColors.textPrimary),
+          icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -64,7 +72,12 @@ class WeeklyReportsListScreen extends ConsumerWidget {
             final sortedYears = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
             return ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+                left: 16,
+                right: 16,
+                bottom: 16,
+              ),
               itemCount: sortedYears.length,
               itemBuilder: (context, index) {
                 final year = sortedYears[index];
@@ -137,9 +150,9 @@ class WeeklyReportsListScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildMonthStat(retroColors, PhosphorIcons.sneaker(), '$totalSteps Steps', isSolidCard: true),
-                  _buildMonthStat(retroColors, PhosphorIcons.mapPin(), '${(totalDistanceM / 1000).toStringAsFixed(1)} km', isSolidCard: true),
-                  _buildMonthStat(retroColors, PhosphorIcons.timer(), timeStr, isSolidCard: true),
+                  _buildMonthStat(retroColors, PhosphorIcons.sneaker, '$totalSteps Steps', isSolidCard: true),
+                  _buildMonthStat(retroColors, PhosphorIcons.mapPin, '${(totalDistanceM / 1000).toStringAsFixed(1)} km', isSolidCard: true),
+                  _buildMonthStat(retroColors, PhosphorIcons.timer, timeStr, isSolidCard: true),
                 ],
               ),
             ],
@@ -218,7 +231,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(width: 16),
-                  Icon(PhosphorIcons.caretRight(), color: retroColors.textSecondary),
+                  Icon(PhosphorIcons.caretRight, color: retroColors.textSecondary),
                 ],
               ),
             ],

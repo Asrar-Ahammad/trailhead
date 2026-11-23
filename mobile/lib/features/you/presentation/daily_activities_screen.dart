@@ -1,5 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/daily_steps_provider.dart';
+import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 
 class DailyActivitiesScreen extends ConsumerStatefulWidget {
   final DateTime date;
@@ -37,45 +39,88 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
     // Get background steps for this date
     final dateKey = '${widget.date.year}-${widget.date.month.toString().padLeft(2, '0')}-${widget.date.day.toString().padLeft(2, '0')}';
     final backgroundStepsAsync = ref.watch(dailyStepsForDateProvider(dateKey));
-    final backgroundSteps = backgroundStepsAsync.valueOrNull ?? 0;
+    final backgroundStepsRecord = backgroundStepsAsync.valueOrNull;
 
-    // Calculate steps per hour from runs
+    // Calculate steps per hour
     final List<double> stepsPerHour = List.filled(24, 0.0);
     double maxSteps = 0;
+    int totalSteps = backgroundStepsRecord?.steps ?? 0;
     
-    for (final run in widget.runs) {
-      if (run.startTime != null && run.stepCount != null) {
-        final hour = run.startTime!.hour;
-        stepsPerHour[hour] += run.stepCount!.toDouble();
-        if (stepsPerHour[hour] > maxSteps) {
-          maxSteps = stepsPerHour[hour];
-        }
+    // Use hourly daily steps from background pedometer
+    if (backgroundStepsRecord != null && backgroundStepsRecord.hourlySteps.length == 24) {
+      for (int i = 0; i < 24; i++) {
+        stepsPerHour[i] += backgroundStepsRecord.hourlySteps[i].toDouble();
       }
     }
-    if (maxSteps == 0) maxSteps = 1000;
     
-    final int runSteps = stepsPerHour.fold(0.0, (sum, val) => sum + val).toInt();
-    final int totalSteps = runSteps + backgroundSteps;
+    // Reactive runs for this date
+    final historyAsync = ref.watch(historyProvider);
+    final allRuns = historyAsync.valueOrNull;
+    final runs = allRuns != null
+        ? allRuns.where((r) {
+            if (r.startTime == null) return false;
+            return r.startTime!.year == widget.date.year &&
+                   r.startTime!.month == widget.date.month &&
+                   r.startTime!.day == widget.date.day;
+          }).toList()
+        : widget.runs;
+
+    // Add active run steps on top of background steps
+    for (final run in runs) {
+      if (run.startTime != null) {
+        final hour = run.startTime!.hour;
+        stepsPerHour[hour] += (run.stepCount ?? 0).toDouble();
+        totalSteps += (run.stepCount ?? 0);
+      }
+    }
+    
+    for (int i = 0; i < 24; i++) {
+      if (stepsPerHour[i] > maxSteps) {
+        maxSteps = stepsPerHour[i];
+      }
+    }
+
+    if (maxSteps == 0) maxSteps = 1000;
 
     return Scaffold(
       backgroundColor: retroColors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(dateStr, style: AppTextStyles.title(color: retroColors.textPrimary)),
-        backgroundColor: retroColors.surface,
+        backgroundColor: retroColors.surface.withValues(alpha: 0.7),
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(PhosphorIcons.arrowLeft(), color: retroColors.textPrimary),
+          icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 16.0, bottom: 120.0),
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16.0,
+          bottom: 120.0,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text('STEPS PER HOUR', style: AppTextStyles.label(color: retroColors.accent)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('STEPS PER HOUR', style: AppTextStyles.label(color: retroColors.accent)),
+                  if (_touchedSpotIndex != null)
+                    Text(
+                      '${_touchedSpotIndex.toString().padLeft(2, '0')}:00 • ${stepsPerHour[_touchedSpotIndex!].toInt()} steps',
+                      style: AppTextStyles.labelCaps(color: retroColors.accent),
+                    ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             Container(
@@ -99,24 +144,34 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                   maxY: maxSteps * 1.2,
                   barTouchData: BarTouchData(
                     enabled: true,
-                    touchCallback: (FlTouchEvent event, BarTouchResponse? touchResponse) {
-                      if (touchResponse != null && touchResponse.spot != null) {
-                        final index = touchResponse.spot!.touchedBarGroupIndex;
-                        if (_touchedSpotIndex != index) {
-                          _touchedSpotIndex = index;
-                          ref.read(hapticsServiceProvider).lightImpact();
+                  touchCallback: (FlTouchEvent event, BarTouchResponse? touchResponse) {
+                      setState(() {
+                        if (touchResponse != null && touchResponse.spot != null) {
+                          final index = touchResponse.spot!.touchedBarGroupIndex;
+                          if (_touchedSpotIndex != index) {
+                            _touchedSpotIndex = index;
+                            ref.read(hapticsServiceProvider).lightImpact();
+                          }
+                        } else if (event is FlTapUpEvent ||
+                            event is FlPanEndEvent ||
+                            event is FlPanCancelEvent ||
+                            (event is FlPointerHoverEvent && touchResponse?.spot == null)) {
+                          _touchedSpotIndex = null;
                         }
-                      } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.spot == null)) {
-                        _touchedSpotIndex = null;
-                      }
+                      });
                     },
                     touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (group) => retroColors.surface,
-                      tooltipMargin: 8,
+                      getTooltipColor: (_) => retroColors.accent.withValues(alpha: 0.15),
+                      tooltipMargin: 6,
+                      tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: false,
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        final steps = rod.toY.toInt();
+                        if (steps == 0) return null;
                         return BarTooltipItem(
-                          '${rod.toY.toInt()} steps',
-                          AppTextStyles.label(color: retroColors.textPrimary),
+                          '$steps',
+                          AppTextStyles.labelCaps(color: retroColors.accent),
                         );
                       },
                     ),
@@ -174,16 +229,25 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                   gridData: const FlGridData(show: false),
                   borderData: FlBorderData(show: false),
                   barGroups: List.generate(24, (i) {
+                    final isTouched = i == _touchedSpotIndex;
+                    final stepCount = stepsPerHour[i];
                     return BarChartGroupData(
                       x: i,
                       barRods: [
                         BarChartRodData(
-                          toY: stepsPerHour[i],
-                          color: retroColors.accent,
-                          width: 8,
+                          toY: stepCount,
+                          color: isTouched ? retroColors.accent : retroColors.accent.withValues(alpha: 0.5),
+                          width: isTouched ? 10 : 8,
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          rodStackItems: [],
+                          backDrawRodData: BackgroundBarChartRodData(
+                            show: isTouched,
+                            toY: maxSteps * 1.2,
+                            color: retroColors.accent.withValues(alpha: 0.07),
+                          ),
                         ),
                       ],
+                      showingTooltipIndicators: isTouched && stepCount > 0 ? [0] : [],
                     );
                   }),
                 ),
@@ -209,7 +273,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
               child: Text('ACTIVITIES', style: AppTextStyles.label(color: retroColors.accent)),
             ),
             const SizedBox(height: 16),
-            if (widget.runs.isEmpty)
+            if (runs.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Center(
@@ -217,7 +281,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                 ),
               )
             else
-              ...widget.runs.map((run) => ActivityCard(run: run)),
+              ...runs.map((run) => ActivityCard(key: ValueKey(run.id), run: run)),
           ],
         ),
       ),

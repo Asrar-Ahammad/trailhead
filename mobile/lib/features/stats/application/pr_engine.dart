@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/features/sync/data/api_client.dart';
+import 'package:isar/isar.dart';
+import '../../../main.dart'; // import global isarInstance
+import '../data/models/personal_record_isar.dart';
 
 final prEngineProvider = Provider((ref) {
-  return PREngine(ref.read(apiClientProvider));
+  return PREngine(isarInstance);
 });
 
 class PersonalRecord {
@@ -26,16 +28,16 @@ class PersonalRecord {
     this.proofUrl,
   });
 
-  factory PersonalRecord.fromJson(Map<String, dynamic> json) {
+  factory PersonalRecord.fromIsar(PersonalRecordIsar isar) {
     return PersonalRecord(
-      id: json['id'],
-      category: json['category'],
-      value: (json['value'] as num).toDouble(),
-      achievedAt: DateTime.parse(json['achievedAt']),
-      rank: json['rank'],
-      source: json['source'],
-      runId: json['runId'],
-      proofUrl: json['proofUrl'],
+      id: isar.id.toString(),
+      category: isar.category ?? '',
+      value: isar.value ?? 0.0,
+      achievedAt: isar.achievedAt ?? DateTime.now(),
+      rank: isar.rank ?? 1,
+      source: isar.source ?? 'manual',
+      runId: isar.runId,
+      proofUrl: isar.proofUrl,
     );
   }
 }
@@ -48,33 +50,48 @@ class RecordGroup {
 }
 
 class PREngine {
-  final ApiClient _apiClient;
+  final Isar _isar;
 
-  PREngine(this._apiClient);
+  PREngine(this._isar);
 
   Future<RecordGroup> getRecords() async {
-    final response = await _apiClient.client.get('/records');
+    final allRecords = await _isar.personalRecordIsars.where().findAll();
     
-    final bestEffortRaw = response.data['best_effort'] as List? ?? [];
-    final manualRaw = response.data['manual'] as List? ?? [];
+    final bestEffort = allRecords
+        .where((r) => r.source == 'best_effort')
+        .map((r) => PersonalRecord.fromIsar(r))
+        .toList();
+        
+    final manual = allRecords
+        .where((r) => r.source == 'manual')
+        .map((r) => PersonalRecord.fromIsar(r))
+        .toList();
 
-    return RecordGroup(
-      bestEffort: bestEffortRaw.map((e) => PersonalRecord.fromJson(e)).toList(),
-      manual: manualRaw.map((e) => PersonalRecord.fromJson(e)).toList(),
-    );
+    return RecordGroup(bestEffort: bestEffort, manual: manual);
   }
 
   Future<PersonalRecord> addManualRecord(String category, double value, DateTime date, String? proofUrl) async {
-    final response = await _apiClient.client.post('/records/manual', data: {
-      'category': category,
-      'value': value,
-      'achievedAt': date.toIso8601String(),
-      'proofUrl': proofUrl,
+    final pr = PersonalRecordIsar()
+      ..category = category
+      ..value = value
+      ..achievedAt = date
+      ..source = 'manual'
+      ..rank = 1
+      ..proofUrl = proofUrl;
+
+    await _isar.writeTxn(() async {
+      await _isar.personalRecordIsars.put(pr);
     });
-    return PersonalRecord.fromJson(response.data);
+
+    return PersonalRecord.fromIsar(pr);
   }
 
   Future<void> deleteManualRecord(String id) async {
-    await _apiClient.client.delete('/records/manual/$id');
+    final idInt = int.tryParse(id);
+    if (idInt != null) {
+      await _isar.writeTxn(() async {
+        await _isar.personalRecordIsars.delete(idInt);
+      });
+    }
   }
 }

@@ -1,23 +1,19 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
-import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/profile/presentation/settings_screen.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
+import 'package:trailhead_mobile/features/you/presentation/widgets/records_tab.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/auth/application/auth_service.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/history/presentation/manual_entry_screen.dart';
-import 'package:intl/intl.dart';
+import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 
 final historyProvider = StreamProvider<List<RunIsar>>((ref) {
   final repo = ref.read(runHistoryRepositoryProvider);
@@ -90,6 +86,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     
     final retroColors = Theme.of(context).extension<AppColors>()!;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final historyAsync = ref.watch(historyProvider);
     final prsAsync = ref.watch(prsProvider);
 
@@ -98,13 +95,22 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
 
     return Scaffold(
         backgroundColor: retroColors.background,
+        extendBodyBehindAppBar: true,
         appBar: selectedIds.isNotEmpty
             ? AppBar(
                 title: Text('${selectedIds.length} Selected', style: AppTextStyles.title(color: retroColors.textPrimary)),
-                backgroundColor: retroColors.surfaceRaised,
+                backgroundColor: Colors.transparent,
                 elevation: 0,
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                    child: Container(
+                      color: retroColors.surfaceRaised.withValues(alpha: isDarkMode ? 0.35 : 0.45),
+                    ),
+                  ),
+                ),
                 leading: IconButton(
-                  icon: Icon(PhosphorIcons.x(), color: retroColors.textPrimary),
+                  icon: Icon(PhosphorIcons.x, color: retroColors.textPrimary),
                   onPressed: isDeleting ? null : () {
                     ref.read(selectedActivitiesProvider.notifier).state = {};
                   },
@@ -123,7 +129,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                     )
                   else
                     IconButton(
-                      icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
+                      icon: Icon(PhosphorIcons.trash, color: retroColors.error),
                       onPressed: () async {
                         final confirmed = await showDialog<bool>(
                           context: context,
@@ -146,16 +152,24 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
 
                         if (confirmed == true) {
                           ref.read(isDeletingProvider.notifier).state = true;
+                          final idsToDelete = List<int>.from(selectedIds);
                           try {
                             final repo = ref.read(runHistoryRepositoryProvider);
-                            for (final id in selectedIds) {
+                            for (final id in idsToDelete) {
                               await repo.deleteRun(id);
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to delete: $e')),
+                              );
                             }
                           } finally {
                             ref.read(isDeletingProvider.notifier).state = false;
                             ref.read(selectedActivitiesProvider.notifier).state = {};
-                            ref.refresh(historyProvider);
-                            ref.refresh(prsProvider);
+                            ref.invalidate(historyProvider);
+                            ref.invalidate(prsProvider);
+                            ref.invalidate(weeklySummaryProvider);
                           }
                         }
                       },
@@ -176,11 +190,19 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               )
             : AppBar(
                 title: Text('YOU', style: AppTextStyles.headline(color: retroColors.textPrimary)),
-                backgroundColor: retroColors.surface,
+                backgroundColor: Colors.transparent,
                 elevation: 0,
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                    child: Container(
+                      color: retroColors.surface.withValues(alpha: isDarkMode ? 0.35 : 0.45),
+                    ),
+                  ),
+                ),
                 actions: [
                   IconButton(
-                    icon: Icon(PhosphorIcons.gearSix(), color: retroColors.textPrimary),
+                    icon: Icon(PhosphorIcons.gearSix, color: retroColors.textPrimary),
                     onPressed: () {
                       ref.read(hapticsServiceProvider).lightImpact();
                       ref.read(soundServiceProvider).playSettingsTap();
@@ -203,57 +225,38 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
             ],
           ),
         ),
-        body: historyAsync.when(
-          data: (runs) {
-          if (runs.isEmpty) {
-            Widget emptyRefreshable() => RefreshIndicator(
-              color: retroColors.accent,
-              backgroundColor: retroColors.surface,
-              onRefresh: () async {
-                // ignore: unused_result
-                ref.refresh(historyProvider);
-                // ignore: unused_result
-                ref.refresh(prsProvider);
-              },
-              child: _buildEmptyState(retroColors),
-            );
+        body: () {
+          // Use valueOrNull so we never block the whole body on stream loading.
+          // The stream fires immediately (fireImmediately: true) but on first
+          // cold open there can be a brief loading state that would hide all
+          // three tabs. Instead we fall back to an empty list and let each
+          // individual card/tab manage its own loading state.
+          final runs = historyAsync.valueOrNull ?? [];
+          final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
 
-            return TabBarView(
-              controller: _tabController,
-              children: [
-                emptyRefreshable(),
-                emptyRefreshable(),
-                emptyRefreshable(),
-              ],
-            );
-          }
+          Widget emptyRefreshable() => RefreshIndicator(
+            color: retroColors.accent,
+            backgroundColor: retroColors.surface,
+            edgeOffset: topInset,
+            onRefresh: () async {
+              ref.invalidate(historyProvider);
+              ref.invalidate(prsProvider);
+              ref.invalidate(weeklySummaryProvider);
+            },
+            child: historyAsync.isLoading && !historyAsync.hasValue
+                ? Center(child: CircularProgressIndicator(color: retroColors.accent))
+                : _buildEmptyState(retroColors),
+          );
 
           return TabBarView(
             controller: _tabController,
             children: [
-              _buildActivitiesTab(retroColors, runs, prsAsync, ref),
-              _buildRecordsTab(retroColors, prsAsync, ref, context),
+              runs.isEmpty ? emptyRefreshable() : _buildActivitiesTab(context, retroColors, runs, prsAsync, ref),
+              const RecordsTab(),
               ProgressTab(runs: runs),
             ],
           );
-        },
-        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
-        error: (err, stack) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
-      ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 120.0, right: 8.0),
-        child: FloatingActionButton(
-          elevation: 0,
-          highlightElevation: 0,
-          onPressed: () {
-            ref.read(hapticsServiceProvider).mediumImpact();
-            ref.read(soundServiceProvider).playFabAddRun();
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ManualEntryScreen()));
-          },
-          backgroundColor: retroColors.accent,
-          child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.bold), color: retroColors.background),
-        ),
-      ),
+        }(),
     );
   }
 
@@ -268,7 +271,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(PhosphorIcons.personSimpleRun(PhosphorIconsStyle.regular), size: 64, color: retroColors.textSecondary),
+                  Icon(PhosphorIcons.personSimpleRun, size: 64, color: retroColors.textSecondary),
                   const SizedBox(height: 16),
                   Text(
                     'No runs yet!',
@@ -288,298 +291,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     );
   }
 
-  String formatValue(String category, double value) {
-    if (['longest_run', 'max_elevation'].contains(category)) {
-      if (category == 'longest_run') return '${(value / 1000).toStringAsFixed(2)} km';
-      return '${value.toStringAsFixed(0)} m';
-    }
-    // Time format
-    final mins = (value / 60).floor();
-    final secs = (value % 60).floor();
-    if (mins >= 60) {
-      final hours = (mins / 60).floor();
-      final remainingMins = mins % 60;
-      return '${hours}:${remainingMins.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
-    }
-    return '${mins}m ${secs}s';
-  }
 
-  String formatPace(String category, double value, bool useMiles) {
-    double distanceM = 0;
-    if (category == '100m') distanceM = 100;
-    else if (category == '400m') distanceM = 400;
-    else if (category == '1k') distanceM = 1000;
-    else if (category == '1 mile') distanceM = 1609.34;
-    else if (category == '5k') distanceM = 5000;
-    else if (category == '10k') distanceM = 10000;
-    else if (category == 'half') distanceM = 21097.5;
-    else if (category == 'marathon') distanceM = 42195;
-    
-    if (distanceM > 0) {
-      final paceSPerKm = value / (distanceM / 1000);
-      final paceMins = (paceSPerKm / 60).floor();
-      final paceSecs = (paceSPerKm % 60).floor().toString().padLeft(2, '0');
-      return RunFormatUtils.formatPace(distanceM, value.toInt(), useMiles) + ' /${RunFormatUtils.getUnitString(useMiles)}';
-    }
-    return '';
-  }
 
-  Widget _buildRecordsTab(AppColors retroColors, AsyncValue<RecordGroup> prsAsync, WidgetRef ref, BuildContext context) {
-    final mode = ref.watch(recordsModeProvider);
-    return RefreshIndicator(
-      color: retroColors.accent,
-      backgroundColor: retroColors.surface,
-      onRefresh: () async {
-        // ignore: unused_result
-        ref.refresh(prsProvider);
-      },
-      child: prsAsync.when(
-        data: (group) {
-          final list = mode == 'best_effort' ? group.bestEffort : group.manual;
-          List<dynamic> displayItems = [];
-          if (list.isNotEmpty) {
-            Map<String, List<PersonalRecord>> grouped = {};
-            for (var pr in list) {
-              grouped.putIfAbsent(pr.category, () => []).add(pr);
-            }
-            final categories = ['100m', '1k', '5k', '10k', 'half', 'marathon', 'longest_run', 'longest_duration', 'max_elevation'];
-            for (var cat in categories) {
-              if (grouped.containsKey(cat)) {
-                displayItems.add(cat.toUpperCase());
-                displayItems.addAll(grouped[cat]!);
-              }
-            }
-            grouped.forEach((key, value) {
-              if (!categories.contains(key)) {
-                displayItems.add(key.toUpperCase());
-                displayItems.addAll(value);
-              }
-            });
-          }
-
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ChoiceChip(
-                      label: Text('Best Efforts', style: AppTextStyles.label(color: mode == 'best_effort' ? retroColors.surface : retroColors.textPrimary)),
-                      selected: mode == 'best_effort',
-                      selectedColor: retroColors.accent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      showCheckmark: false,
-                      onSelected: (val) {
-                        if(val) {
-                          ref.read(hapticsServiceProvider).lightImpact();
-                          ref.read(soundServiceProvider).playTabBestEfforts();
-                          ref.read(recordsModeProvider.notifier).state = 'best_effort';
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 16),
-                    ChoiceChip(
-                      label: Text('All-Time PRs', style: AppTextStyles.label(color: mode == 'manual' ? retroColors.surface : retroColors.textPrimary)),
-                      selected: mode == 'manual',
-                      selectedColor: retroColors.accent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      showCheckmark: false,
-                      onSelected: (val) {
-                        if(val) {
-                          ref.read(hapticsServiceProvider).lightImpact();
-                          ref.read(soundServiceProvider).playTabAllTime();
-                          ref.read(recordsModeProvider.notifier).state = 'manual';
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: displayItems.isEmpty 
-                  ? _buildEmptyState(retroColors)
-                  : ListView.builder(
-                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 200),
-                      itemCount: displayItems.length,
-                      itemBuilder: (context, index) {
-                        final item = displayItems[index];
-                        if (item is String) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 16, bottom: 8),
-                            child: Text(
-                              item,
-                              style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary),
-                            ),
-                          );
-                        }
-
-                        final pr = item as PersonalRecord;
-                        final formattedTitle = pr.category.toUpperCase();
-                        final formattedValue = formatValue(pr.category, pr.value);
-                        final paceStr = formatPace(pr.category, pr.value, ref.watch(distanceUnitProvider));
-                        final dateStr = DateFormat('MMM d, yyyy').format(pr.achievedAt);
-
-                        return GestureDetector(
-                          onTap: () {
-                            ref.read(hapticsServiceProvider).lightImpact();
-                            if (pr.runId != null) {
-                              final runs = ref.read(historyProvider).valueOrNull ?? [];
-                              try {
-                                final run = runs.firstWhere((r) => r.clientRunId == pr.runId);
-                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => RunDetailScreen(run: run)));
-                              } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Run not found or not synced locally.')));
-                              }
-                            }
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: retroColors.surface,
-                              borderRadius: BorderRadius.circular(24),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                              Icon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(formattedTitle, style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Text(formattedValue, style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
-                                        if (paceStr.isNotEmpty) ...[
-                                          const SizedBox(width: 8),
-                                          Text(paceStr, style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        if (pr.rank > 0 && mode == 'best_effort') ...[
-                                          Text('Rank ${pr.rank}', style: AppTextStyles.label(color: retroColors.textSecondary)),
-                                          Text(' • ', style: AppTextStyles.label(color: retroColors.textSecondary)),
-                                        ],
-                                        Text(dateStr, style: AppTextStyles.label(color: retroColors.textSecondary)),
-                                      ],
-                                    ),
-                                    if (pr.proofUrl != null)
-                                      Text(pr.proofUrl!, style: AppTextStyles.label(color: retroColors.accent)),
-                                  ],
-                                ),
-                              ),
-                              if (mode == 'manual')
-                                IconButton(
-                                  icon: Icon(PhosphorIcons.trash(), color: retroColors.error),
-                                  onPressed: () async {
-                                    try {
-                                      await ref.read(prEngineProvider).deleteManualRecord(pr.id);
-                                      // ignore: unused_result
-                                      ref.refresh(prsProvider);
-                                    } catch (e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete PR')));
-                                    }
-                                  },
-                                )
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ),
-              if (mode == 'manual')
-                Padding(
-                  padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0, bottom: 120.0),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      ref.read(hapticsServiceProvider).lightImpact();
-                      _showAddPRDialog(context, retroColors, ref);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: retroColors.accent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                    ),
-                    child: Text('Add PR', style: AppTextStyles.bodyMediumBold(color: retroColors.surface)),
-                  ),
-                ),
-            ],
-          );
-        },
-        loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
-        error: (err, _) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
-      ),
-    );
-  }
-
-  void _showAddPRDialog(BuildContext context, AppColors retroColors, WidgetRef ref) {
-    final categoryController = TextEditingController(text: '5k');
-    final valueController = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: retroColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Add Manual PR', style: AppTextStyles.headline(color: retroColors.textPrimary)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: categoryController,
-              decoration: InputDecoration(labelText: 'Category (e.g. 5k, 10k)', labelStyle: TextStyle(color: retroColors.textSecondary)),
-              style: TextStyle(color: retroColors.textPrimary),
-            ),
-            TextField(
-              controller: valueController,
-              decoration: InputDecoration(labelText: 'Value (seconds/meters)', labelStyle: TextStyle(color: retroColors.textSecondary)),
-              keyboardType: TextInputType.number,
-              style: TextStyle(color: retroColors.textPrimary),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await ref.read(prEngineProvider).addManualRecord(
-                  categoryController.text,
-                  double.parse(valueController.text),
-                  DateTime.now(),
-                  null
-                );
-                Navigator.pop(ctx);
-                // ignore: unused_result
-                ref.refresh(prsProvider);
-              } catch (e) {
-                // Ignore parsing errors for now
-              }
-            },
-            child: Text('Save', style: AppTextStyles.bodyMediumBold(color: retroColors.accent)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivitiesTab(AppColors retroColors, List<RunIsar> runs, AsyncValue<RecordGroup> prsAsync, WidgetRef ref) {
+  Widget _buildActivitiesTab(BuildContext context, AppColors retroColors, List<RunIsar> runs, AsyncValue<RecordGroup> prsAsync, WidgetRef ref) {
     final List<dynamic> listItems = [];
     String? currentGroupDate;
     final now = DateTime.now();
@@ -611,17 +325,21 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
       listItems.add(run);
     }
 
+    final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
     return RefreshIndicator(
       color: retroColors.accent,
       backgroundColor: retroColors.surface,
+      edgeOffset: topInset,
       onRefresh: () async {
-        // ignore: unused_result
-        ref.refresh(historyProvider);
-        // ignore: unused_result
-        ref.refresh(prsProvider);
+        ref.invalidate(historyProvider);
+        ref.invalidate(prsProvider);
+        ref.invalidate(weeklySummaryProvider);
       },
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 16, bottom: 200),
+        padding: EdgeInsets.only(
+          top: topInset + 2,
+          bottom: 200,
+        ),
         itemCount: listItems.length,
         itemBuilder: (context, index) {
           final item = listItems[index];
@@ -650,6 +368,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
             final isSelected = ref.watch(selectedActivitiesProvider).contains(item.id);
 
             return ActivityCard(
+              key: ValueKey(item.id),
               run: item, 
               achievementsCount: achievementsCount,
               isSelectionMode: isSelectionMode,

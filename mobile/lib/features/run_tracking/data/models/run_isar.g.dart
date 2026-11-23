@@ -22,113 +22,123 @@ const RunIsarSchema = CollectionSchema(
       name: r'activityType',
       type: IsarType.string,
     ),
-    r'aiSummary': PropertySchema(
+    r'aiAnalysis': PropertySchema(
       id: 1,
+      name: r'aiAnalysis',
+      type: IsarType.string,
+    ),
+    r'aiSummary': PropertySchema(
+      id: 2,
       name: r'aiSummary',
       type: IsarType.string,
     ),
     r'avgCadenceSpm': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'avgCadenceSpm',
       type: IsarType.double,
     ),
+    r'avgGapSPerKm': PropertySchema(
+      id: 4,
+      name: r'avgGapSPerKm',
+      type: IsarType.double,
+    ),
     r'avgPaceSPerKm': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'avgPaceSPerKm',
       type: IsarType.double,
     ),
     r'avgStrideLengthM': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'avgStrideLengthM',
       type: IsarType.double,
     ),
     r'caloriesKcal': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'caloriesKcal',
       type: IsarType.double,
     ),
     r'clientRunId': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'clientRunId',
       type: IsarType.string,
     ),
     r'clientShoeId': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'clientShoeId',
       type: IsarType.string,
     ),
     r'conditions': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'conditions',
       type: IsarType.string,
     ),
     r'distanceM': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'distanceM',
       type: IsarType.double,
     ),
     r'durationS': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'durationS',
       type: IsarType.long,
     ),
     r'elevationGainM': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'elevationGainM',
       type: IsarType.double,
     ),
     r'endTime': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'endTime',
       type: IsarType.dateTime,
     ),
     r'lastModifiedAt': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'lastModifiedAt',
       type: IsarType.dateTime,
     ),
     r'startTime': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'startTime',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'status',
       type: IsarType.string,
     ),
     r'stepCount': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'stepCount',
       type: IsarType.long,
     ),
     r'subjectiveEffort': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'subjectiveEffort',
       type: IsarType.string,
     ),
     r'synced': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'synced',
       type: IsarType.bool,
     ),
     r'syncedAt': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'syncedAt',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'title',
       type: IsarType.string,
     ),
     r'weatherCode': PropertySchema(
-      id: 21,
+      id: 23,
       name: r'weatherCode',
       type: IsarType.double,
     ),
     r'weatherTemp': PropertySchema(
-      id: 22,
+      id: 24,
       name: r'weatherTemp',
       type: IsarType.double,
     )
@@ -187,6 +197,12 @@ int _runIsarEstimateSize(
     }
   }
   {
+    final value = object.aiAnalysis;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.aiSummary;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -238,28 +254,30 @@ void _runIsarSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.activityType);
-  writer.writeString(offsets[1], object.aiSummary);
-  writer.writeDouble(offsets[2], object.avgCadenceSpm);
-  writer.writeDouble(offsets[3], object.avgPaceSPerKm);
-  writer.writeDouble(offsets[4], object.avgStrideLengthM);
-  writer.writeDouble(offsets[5], object.caloriesKcal);
-  writer.writeString(offsets[6], object.clientRunId);
-  writer.writeString(offsets[7], object.clientShoeId);
-  writer.writeString(offsets[8], object.conditions);
-  writer.writeDouble(offsets[9], object.distanceM);
-  writer.writeLong(offsets[10], object.durationS);
-  writer.writeDouble(offsets[11], object.elevationGainM);
-  writer.writeDateTime(offsets[12], object.endTime);
-  writer.writeDateTime(offsets[13], object.lastModifiedAt);
-  writer.writeDateTime(offsets[14], object.startTime);
-  writer.writeString(offsets[15], object.status);
-  writer.writeLong(offsets[16], object.stepCount);
-  writer.writeString(offsets[17], object.subjectiveEffort);
-  writer.writeBool(offsets[18], object.synced);
-  writer.writeDateTime(offsets[19], object.syncedAt);
-  writer.writeString(offsets[20], object.title);
-  writer.writeDouble(offsets[21], object.weatherCode);
-  writer.writeDouble(offsets[22], object.weatherTemp);
+  writer.writeString(offsets[1], object.aiAnalysis);
+  writer.writeString(offsets[2], object.aiSummary);
+  writer.writeDouble(offsets[3], object.avgCadenceSpm);
+  writer.writeDouble(offsets[4], object.avgGapSPerKm);
+  writer.writeDouble(offsets[5], object.avgPaceSPerKm);
+  writer.writeDouble(offsets[6], object.avgStrideLengthM);
+  writer.writeDouble(offsets[7], object.caloriesKcal);
+  writer.writeString(offsets[8], object.clientRunId);
+  writer.writeString(offsets[9], object.clientShoeId);
+  writer.writeString(offsets[10], object.conditions);
+  writer.writeDouble(offsets[11], object.distanceM);
+  writer.writeLong(offsets[12], object.durationS);
+  writer.writeDouble(offsets[13], object.elevationGainM);
+  writer.writeDateTime(offsets[14], object.endTime);
+  writer.writeDateTime(offsets[15], object.lastModifiedAt);
+  writer.writeDateTime(offsets[16], object.startTime);
+  writer.writeString(offsets[17], object.status);
+  writer.writeLong(offsets[18], object.stepCount);
+  writer.writeString(offsets[19], object.subjectiveEffort);
+  writer.writeBool(offsets[20], object.synced);
+  writer.writeDateTime(offsets[21], object.syncedAt);
+  writer.writeString(offsets[22], object.title);
+  writer.writeDouble(offsets[23], object.weatherCode);
+  writer.writeDouble(offsets[24], object.weatherTemp);
 }
 
 RunIsar _runIsarDeserialize(
@@ -270,29 +288,31 @@ RunIsar _runIsarDeserialize(
 ) {
   final object = RunIsar();
   object.activityType = reader.readStringOrNull(offsets[0]);
-  object.aiSummary = reader.readStringOrNull(offsets[1]);
-  object.avgCadenceSpm = reader.readDoubleOrNull(offsets[2]);
-  object.avgPaceSPerKm = reader.readDoubleOrNull(offsets[3]);
-  object.avgStrideLengthM = reader.readDoubleOrNull(offsets[4]);
-  object.caloriesKcal = reader.readDoubleOrNull(offsets[5]);
-  object.clientRunId = reader.readStringOrNull(offsets[6]);
-  object.clientShoeId = reader.readStringOrNull(offsets[7]);
-  object.conditions = reader.readStringOrNull(offsets[8]);
-  object.distanceM = reader.readDoubleOrNull(offsets[9]);
-  object.durationS = reader.readLongOrNull(offsets[10]);
-  object.elevationGainM = reader.readDoubleOrNull(offsets[11]);
-  object.endTime = reader.readDateTimeOrNull(offsets[12]);
+  object.aiAnalysis = reader.readStringOrNull(offsets[1]);
+  object.aiSummary = reader.readStringOrNull(offsets[2]);
+  object.avgCadenceSpm = reader.readDoubleOrNull(offsets[3]);
+  object.avgGapSPerKm = reader.readDoubleOrNull(offsets[4]);
+  object.avgPaceSPerKm = reader.readDoubleOrNull(offsets[5]);
+  object.avgStrideLengthM = reader.readDoubleOrNull(offsets[6]);
+  object.caloriesKcal = reader.readDoubleOrNull(offsets[7]);
+  object.clientRunId = reader.readStringOrNull(offsets[8]);
+  object.clientShoeId = reader.readStringOrNull(offsets[9]);
+  object.conditions = reader.readStringOrNull(offsets[10]);
+  object.distanceM = reader.readDoubleOrNull(offsets[11]);
+  object.durationS = reader.readLongOrNull(offsets[12]);
+  object.elevationGainM = reader.readDoubleOrNull(offsets[13]);
+  object.endTime = reader.readDateTimeOrNull(offsets[14]);
   object.id = id;
-  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[13]);
-  object.startTime = reader.readDateTimeOrNull(offsets[14]);
-  object.status = reader.readStringOrNull(offsets[15]);
-  object.stepCount = reader.readLongOrNull(offsets[16]);
-  object.subjectiveEffort = reader.readStringOrNull(offsets[17]);
-  object.synced = reader.readBool(offsets[18]);
-  object.syncedAt = reader.readDateTimeOrNull(offsets[19]);
-  object.title = reader.readStringOrNull(offsets[20]);
-  object.weatherCode = reader.readDoubleOrNull(offsets[21]);
-  object.weatherTemp = reader.readDoubleOrNull(offsets[22]);
+  object.lastModifiedAt = reader.readDateTimeOrNull(offsets[15]);
+  object.startTime = reader.readDateTimeOrNull(offsets[16]);
+  object.status = reader.readStringOrNull(offsets[17]);
+  object.stepCount = reader.readLongOrNull(offsets[18]);
+  object.subjectiveEffort = reader.readStringOrNull(offsets[19]);
+  object.synced = reader.readBool(offsets[20]);
+  object.syncedAt = reader.readDateTimeOrNull(offsets[21]);
+  object.title = reader.readStringOrNull(offsets[22]);
+  object.weatherCode = reader.readDoubleOrNull(offsets[23]);
+  object.weatherTemp = reader.readDoubleOrNull(offsets[24]);
   return object;
 }
 
@@ -308,7 +328,7 @@ P _runIsarDeserializeProp<P>(
     case 1:
       return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readDoubleOrNull(offset)) as P;
     case 4:
@@ -316,38 +336,42 @@ P _runIsarDeserializeProp<P>(
     case 5:
       return (reader.readDoubleOrNull(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 8:
       return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
       return (reader.readDoubleOrNull(offset)) as P;
     case 12:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 13:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 14:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 15:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 16:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 17:
       return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 19:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 20:
       return (reader.readStringOrNull(offset)) as P;
+    case 20:
+      return (reader.readBool(offset)) as P;
     case 21:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 22:
+      return (reader.readStringOrNull(offset)) as P;
+    case 23:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 24:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -829,6 +853,152 @@ extension RunIsarQueryFilter
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'aiAnalysis',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'aiAnalysis',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'aiAnalysis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'aiAnalysis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'aiAnalysis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'aiAnalysis',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'aiAnalysis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'aiAnalysis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'aiAnalysis',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'aiAnalysis',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'aiAnalysis',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiAnalysisIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'aiAnalysis',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> aiSummaryIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1046,6 +1216,85 @@ extension RunIsarQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'avgCadenceSpm',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> avgGapSPerKmIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'avgGapSPerKm',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition>
+      avgGapSPerKmIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'avgGapSPerKm',
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> avgGapSPerKmEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'avgGapSPerKm',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> avgGapSPerKmGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'avgGapSPerKm',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> avgGapSPerKmLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'avgGapSPerKm',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterFilterCondition> avgGapSPerKmBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'avgGapSPerKm',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -2994,6 +3243,18 @@ extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAiAnalysis() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'aiAnalysis', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAiAnalysisDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'aiAnalysis', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAiSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aiSummary', Sort.asc);
@@ -3015,6 +3276,18 @@ extension RunIsarQuerySortBy on QueryBuilder<RunIsar, RunIsar, QSortBy> {
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAvgCadenceSpmDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'avgCadenceSpm', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAvgGapSPerKm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'avgGapSPerKm', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> sortByAvgGapSPerKmDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'avgGapSPerKm', Sort.desc);
     });
   }
 
@@ -3273,6 +3546,18 @@ extension RunIsarQuerySortThenBy
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAiAnalysis() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'aiAnalysis', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAiAnalysisDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'aiAnalysis', Sort.desc);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAiSummary() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'aiSummary', Sort.asc);
@@ -3294,6 +3579,18 @@ extension RunIsarQuerySortThenBy
   QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAvgCadenceSpmDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'avgCadenceSpm', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAvgGapSPerKm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'avgGapSPerKm', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QAfterSortBy> thenByAvgGapSPerKmDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'avgGapSPerKm', Sort.desc);
     });
   }
 
@@ -3559,6 +3856,13 @@ extension RunIsarQueryWhereDistinct
     });
   }
 
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByAiAnalysis(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'aiAnalysis', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByAiSummary(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3569,6 +3873,12 @@ extension RunIsarQueryWhereDistinct
   QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByAvgCadenceSpm() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'avgCadenceSpm');
+    });
+  }
+
+  QueryBuilder<RunIsar, RunIsar, QDistinct> distinctByAvgGapSPerKm() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'avgGapSPerKm');
     });
   }
 
@@ -3714,6 +4024,12 @@ extension RunIsarQueryProperty
     });
   }
 
+  QueryBuilder<RunIsar, String?, QQueryOperations> aiAnalysisProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'aiAnalysis');
+    });
+  }
+
   QueryBuilder<RunIsar, String?, QQueryOperations> aiSummaryProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'aiSummary');
@@ -3723,6 +4039,12 @@ extension RunIsarQueryProperty
   QueryBuilder<RunIsar, double?, QQueryOperations> avgCadenceSpmProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'avgCadenceSpm');
+    });
+  }
+
+  QueryBuilder<RunIsar, double?, QQueryOperations> avgGapSPerKmProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'avgGapSPerKm');
     });
   }
 

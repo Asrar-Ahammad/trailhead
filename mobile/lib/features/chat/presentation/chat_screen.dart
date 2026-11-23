@@ -11,7 +11,9 @@ import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/chat/application/chat_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../ai/application/ai_config_provider.dart';
+
 
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -64,7 +66,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     
     for (final run in recentRuns) {
       final type = run.activityType ?? 'run';
-      final distKm = ((run.distanceM ?? 0) / 1000).toStringAsFixed(2);
       final durMins = ((run.durationS ?? 0) / 60).floor();
       final date = run.startTime != null ? '${run.startTime!.year}-${run.startTime!.month.toString().padLeft(2, '0')}-${run.startTime!.day.toString().padLeft(2, '0')}' : 'Unknown date';
       
@@ -83,7 +84,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _textController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isLoading) return;
 
     _textController.clear();
     ref.read(soundServiceProvider).playButtonTap();
@@ -97,26 +98,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     await _injectSystemContextIfNeeded();
 
-    final response = await ref.read(chatServiceProvider).sendMessage(_messages);
-
-
+    final assistantIndex = _messages.length;
     setState(() {
-      _isLoading = false;
-      if (response != null && response['reply'] != null) {
-        _messages.add({'role': 'assistant', 'content': response['reply']});
-      } else {
-        _messages.add({'role': 'assistant', 'content': 'Error connecting to servers.'});
-      }
+      _messages.add({'role': 'assistant', 'content': ''});
     });
-    
-    ref.read(soundServiceProvider).playChatBeep();
-    ref.read(hapticsServiceProvider).mediumImpact();
     _scrollToBottom();
+
+    try {
+      final stream = ref.read(chatServiceProvider).streamMessage(_messages.sublist(0, assistantIndex));
+      String accumulated = '';
+
+      await for (final chunk in stream) {
+        accumulated += chunk;
+        if (mounted) {
+          setState(() {
+            _messages[assistantIndex]['content'] = accumulated;
+          });
+          _scrollToBottom();
+        }
+      }
+
+      if (accumulated.trim().isEmpty && mounted) {
+        setState(() {
+          _messages[assistantIndex]['content'] = 'Unable to get response from AI coach. Please check your network or API key in Settings.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          if ((_messages[assistantIndex]['content'] as String).isEmpty) {
+            _messages[assistantIndex]['content'] = 'Error connecting to AI service.';
+          }
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      ref.read(soundServiceProvider).playChatBeep();
+      ref.read(hapticsServiceProvider).mediumImpact();
+      _scrollToBottom();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
+    final aiConfig = ref.watch(aiConfigProvider);
+    final isAiConfigured = aiConfig.isConfigured;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -131,13 +162,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
+          if (!isAiConfigured)
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: colors.error.withValues(alpha: 0.12),
+              child: Row(
+                children: [
+                  Icon(PhosphorIcons.warningCircle, color: colors.error),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'AI features require an API key. Please configure your key in Settings.',
+                      style: AppTextStyles.bodyMedium(color: colors.error),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(16),
-              itemCount: _messages.length + (_isLoading ? 1 : 0),
+              itemCount: _messages.length,
               itemBuilder: (context, index) {
-                if (index == _messages.length) {
+                final msg = _messages[index];
+                if (msg['role'] == 'system') return const SizedBox.shrink();
+                final isUser = msg['role'] == 'user';
+                final content = msg['content'] as String? ?? '';
+
+                if (!isUser && content.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Align(
@@ -147,9 +200,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   );
                 }
 
-                final msg = _messages[index];
-                if (msg['role'] == 'system') return const SizedBox.shrink();
-                final isUser = msg['role'] == 'user';
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
@@ -158,14 +208,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     decoration: BoxDecoration(
                       color: isUser ? colors.accent : colors.surfaceRaised,
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: Radius.circular(isUser ? 12 : 0),
-                        bottomRight: Radius.circular(isUser ? 0 : 12),
+                        topLeft: const Radius.circular(14),
+                        topRight: const Radius.circular(14),
+                        bottomLeft: Radius.circular(isUser ? 14 : 2),
+                        bottomRight: Radius.circular(isUser ? 2 : 14),
+                      ),
+                      border: Border.all(
+                        color: isUser ? colors.accent : colors.border.withValues(alpha: 0.5),
+                        width: 1,
                       ),
                     ),
                     child: MarkdownBody(
-                      data: msg['content'] ?? '',
+                      data: content,
                       styleSheet: MarkdownStyleSheet(
                         p: AppTextStyles.bodyMedium(
                           color: isUser ? colors.surface : colors.textPrimary,
@@ -189,9 +243,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Expanded(
                   child: TextField(
                     controller: _textController,
+                    enabled: isAiConfigured,
                     style: TextStyle(color: colors.textPrimary),
                     decoration: InputDecoration(
-                      hintText: 'Ask about your stats...',
+                      hintText: isAiConfigured ? 'Ask about your stats...' : 'AI is disabled...',
                       hintStyle: TextStyle(color: colors.textDisabled),
                       filled: true,
                       fillColor: colors.background,
@@ -201,22 +256,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
+                    onSubmitted: (_) => (isAiConfigured && !_isLoading) ? _sendMessage() : null,
                   ),
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: _sendMessage,
+                  onTap: (isAiConfigured && !_isLoading) ? _sendMessage : null,
                   child: Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: colors.accent,
+                      color: (isAiConfigured && !_isLoading) ? colors.accent : colors.textDisabled,
                       shape: BoxShape.circle,
                     ),
                     child: Padding(
                       padding: const EdgeInsets.only(left: 4.0), // visually center the paper plane
-                      child: Icon(PhosphorIcons.paperPlaneRight(PhosphorIconsStyle.fill), color: colors.surface, size: 20),
+                      child: Icon(PhosphorIcons.paperPlaneRightFill, color: colors.surface, size: 20),
                     ),
                   ),
                 ),

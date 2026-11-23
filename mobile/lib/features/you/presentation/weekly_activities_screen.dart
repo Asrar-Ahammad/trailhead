@@ -1,6 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -32,12 +33,19 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: retroColors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('Week ${report.weekNumber} Activities', style: AppTextStyles.title(color: retroColors.textPrimary)),
-        backgroundColor: retroColors.surface,
+        backgroundColor: retroColors.surface.withValues(alpha: 0.7),
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(PhosphorIcons.arrowLeft(), color: retroColors.textPrimary),
+          icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -64,7 +72,12 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + kToolbarHeight + 16.0,
+              left: 16.0,
+              right: 16.0,
+              bottom: 16.0,
+            ),
             itemCount: grouped.length,
             itemBuilder: (context, index) {
               final dateStr = grouped.keys.elementAt(index);
@@ -77,7 +90,7 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 8, bottom: 12),
                     child: Text(dateStr, style: AppTextStyles.labelCaps(color: retroColors.accent)),
                   ),
-                  ...dayRuns.map((r) => ActivityCard(run: r)),
+                  ...dayRuns.map((r) => ActivityCard(key: ValueKey(r.id), run: r)),
                   const SizedBox(height: 16),
                 ],
               );

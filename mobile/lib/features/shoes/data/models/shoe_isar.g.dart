@@ -37,13 +37,18 @@ const ShoeIsarSchema = CollectionSchema(
       name: r'distanceM',
       type: IsarType.double,
     ),
-    r'isActive': PropertySchema(
+    r'imageUrl': PropertySchema(
       id: 4,
+      name: r'imageUrl',
+      type: IsarType.string,
+    ),
+    r'isActive': PropertySchema(
+      id: 5,
       name: r'isActive',
       type: IsarType.bool,
     ),
     r'name': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'name',
       type: IsarType.string,
     )
@@ -95,6 +100,12 @@ int _shoeIsarEstimateSize(
     }
   }
   {
+    final value = object.imageUrl;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.name;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -113,8 +124,9 @@ void _shoeIsarSerialize(
   writer.writeString(offsets[1], object.clientShoeId);
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeDouble(offsets[3], object.distanceM);
-  writer.writeBool(offsets[4], object.isActive);
-  writer.writeString(offsets[5], object.name);
+  writer.writeString(offsets[4], object.imageUrl);
+  writer.writeBool(offsets[5], object.isActive);
+  writer.writeString(offsets[6], object.name);
 }
 
 ShoeIsar _shoeIsarDeserialize(
@@ -129,8 +141,9 @@ ShoeIsar _shoeIsarDeserialize(
   object.createdAt = reader.readDateTimeOrNull(offsets[2]);
   object.distanceM = reader.readDouble(offsets[3]);
   object.id = id;
-  object.isActive = reader.readBool(offsets[4]);
-  object.name = reader.readStringOrNull(offsets[5]);
+  object.imageUrl = reader.readStringOrNull(offsets[4]);
+  object.isActive = reader.readBool(offsets[5]);
+  object.name = reader.readStringOrNull(offsets[6]);
   return object;
 }
 
@@ -150,8 +163,10 @@ P _shoeIsarDeserializeProp<P>(
     case 3:
       return (reader.readDouble(offset)) as P;
     case 4:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
+      return (reader.readBool(offset)) as P;
+    case 6:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -848,6 +863,152 @@ extension ShoeIsarQueryFilter
     });
   }
 
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'imageUrl',
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'imageUrl',
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'imageUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'imageUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'imageUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'imageUrl',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'imageUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'imageUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'imageUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'imageUrl',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'imageUrl',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> imageUrlIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'imageUrl',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<ShoeIsar, ShoeIsar, QAfterFilterCondition> isActiveEqualTo(
       bool value) {
     return QueryBuilder.apply(this, (query) {
@@ -1060,6 +1221,18 @@ extension ShoeIsarQuerySortBy on QueryBuilder<ShoeIsar, ShoeIsar, QSortBy> {
     });
   }
 
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterSortBy> sortByImageUrl() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'imageUrl', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterSortBy> sortByImageUrlDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'imageUrl', Sort.desc);
+    });
+  }
+
   QueryBuilder<ShoeIsar, ShoeIsar, QAfterSortBy> sortByIsActive() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isActive', Sort.asc);
@@ -1147,6 +1320,18 @@ extension ShoeIsarQuerySortThenBy
     });
   }
 
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterSortBy> thenByImageUrl() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'imageUrl', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ShoeIsar, ShoeIsar, QAfterSortBy> thenByImageUrlDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'imageUrl', Sort.desc);
+    });
+  }
+
   QueryBuilder<ShoeIsar, ShoeIsar, QAfterSortBy> thenByIsActive() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isActive', Sort.asc);
@@ -1200,6 +1385,13 @@ extension ShoeIsarQueryWhereDistinct
     });
   }
 
+  QueryBuilder<ShoeIsar, ShoeIsar, QDistinct> distinctByImageUrl(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'imageUrl', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<ShoeIsar, ShoeIsar, QDistinct> distinctByIsActive() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isActive');
@@ -1243,6 +1435,12 @@ extension ShoeIsarQueryProperty
   QueryBuilder<ShoeIsar, double, QQueryOperations> distanceMProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'distanceM');
+    });
+  }
+
+  QueryBuilder<ShoeIsar, String?, QQueryOperations> imageUrlProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'imageUrl');
     });
   }
 

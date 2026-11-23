@@ -2,7 +2,7 @@ import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
@@ -80,8 +80,8 @@ class ActivityCard extends ConsumerWidget {
                     children: [
                       Icon(
                         run.activityType == 'walk' 
-                            ? PhosphorIcons.personSimpleWalk() 
-                            : PhosphorIcons.personSimpleRun(), 
+                            ? PhosphorIcons.personSimpleWalk 
+                            : PhosphorIcons.personSimpleRun, 
                         size: 16, 
                         color: retroColors.textSecondary,
                       ),
@@ -113,7 +113,7 @@ class ActivityCard extends ConsumerWidget {
                           style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
                         ),
                         Icon(
-                          PhosphorIcons.medal(PhosphorIconsStyle.fill),
+                          PhosphorIcons.medalFill,
                           size: 16,
                           color: achievementsCount == 1
                               ? const Color(0xFFFFD700) // Gold
@@ -163,16 +163,16 @@ class ActivityCard extends ConsumerWidget {
                       ],
                     );
                   }
-                  return Icon(PhosphorIcons.personSimpleRun(PhosphorIconsStyle.fill), size: 32, color: retroColors.accent);
+                  return Icon(PhosphorIcons.personSimpleRunFill, size: 32, color: retroColors.accent);
                 },
                 loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent, strokeWidth: 2)),
-                error: (_, __) => Icon(PhosphorIcons.warning(), size: 24, color: retroColors.error),
+                error: (_, __) => Icon(PhosphorIcons.warning, size: 24, color: retroColors.error),
               ),
             ),
             if (isSelectionMode) ...[
               const SizedBox(width: 16),
               Icon(
-                isSelected ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill) : PhosphorIcons.circle(),
+                isSelected ? PhosphorIcons.checkCircleFill : PhosphorIcons.circle,
                 color: isSelected ? retroColors.accent : retroColors.textSecondary,
                 size: 28,
               ),

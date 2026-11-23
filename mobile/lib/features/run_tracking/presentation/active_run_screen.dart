@@ -1,20 +1,18 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../application/run_tracker_controller.dart';
 import '../application/run_format_utils.dart';
 import '../application/route_provider.dart';
-import '../application/location_service_task.dart';
 import '../../audio/application/sound_service.dart';
-import 'permission_gate_screen.dart';
 import 'post_run_summary_screen.dart';
-import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
 import 'widgets/live_run_map.dart';
+import 'widgets/countdown_overlay.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
@@ -22,6 +20,9 @@ import '../../../shared/theme/app_spacing.dart';
 import '../../shoes/application/shoe_service.dart';
 import '../../shoes/presentation/shoe_management_screen.dart';
 import '../../shoes/data/models/shoe_isar.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Active run screen — shows live map, hero stats, and playback controls.
 ///
@@ -37,15 +38,6 @@ class ActiveRunScreen extends ConsumerWidget {
     final colors = Theme.of(context).extension<AppColors>()!;
 
     if (!trackerState.permissionsChecked) {
-      return const SizedBox.shrink();
-    }
-
-    if (!trackerState.permissionsGranted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const PermissionGateScreen()),
-        );
-      });
       return const SizedBox.shrink();
     }
 
@@ -87,7 +79,7 @@ class ActiveRunScreen extends ConsumerWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(PhosphorIcons.warning(PhosphorIconsStyle.bold), color: colors.background, size: 16),
+                          Icon(PhosphorIcons.warningBold, color: colors.background, size: 16),
                           const SizedBox(width: 8),
                           Text('NO GPS SIGNAL', style: AppTextStyles.labelCaps(color: colors.background)),
                         ],
@@ -204,6 +196,230 @@ class ActiveRunScreen extends ConsumerWidget {
   }
 }
 
+/// Shows a weight input sheet if the user hasn't set their weight yet.
+/// After confirming (or skipping), runs the countdown overlay and starts the activity.
+Future<void> _maybePromptWeightAndStart(
+  BuildContext context,
+  WidgetRef ref,
+  AppColors colors,
+  RunTrackerController notifier,
+) async {
+  final prefs = await SharedPreferences.getInstance();
+  final existingWeight = prefs.getDouble('user_weight_kg');
+
+  if (existingWeight == null && context.mounted) {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (ctx) => _WeightInputSheet(colors: colors),
+    );
+  }
+
+  // Once weight prompt is handled (or if weight already exists), run countdown then start run
+  if (context.mounted) {
+    await CountdownOverlay.show(context);
+    ref.read(soundServiceProvider).playRunStart();
+    notifier.startRun();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Weight Input Sheet — prompts user to enter weight for calorie accuracy
+// ---------------------------------------------------------------------------
+
+class _WeightInputSheet extends StatefulWidget {
+  const _WeightInputSheet({required this.colors});
+  final AppColors colors;
+
+  @override
+  State<_WeightInputSheet> createState() => _WeightInputSheetState();
+}
+
+class _WeightInputSheetState extends State<_WeightInputSheet> {
+  final _controller = TextEditingController();
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final text = _controller.text.trim();
+    final weight = double.tryParse(text);
+    if (weight == null || weight < 20 || weight > 300) {
+      setState(() => _error = 'Enter a valid weight between 20–300 kg');
+      return;
+    }
+    setState(() { _saving = true; _error = null; });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('user_weight_kg', weight);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = widget.colors;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 28, 24, 24 + bottomInset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Icon + headline
+          Center(
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.fitness_center_rounded, color: colors.accent, size: 28),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Add Your Weight',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Used to estimate calories burned during your activity. You can update this anytime in Settings.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 13,
+              color: colors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // Weight input field
+          TextField(
+            controller: _controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            autofocus: true,
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: colors.textPrimary,
+            ),
+            decoration: InputDecoration(
+              hintText: '70',
+              hintStyle: GoogleFonts.spaceGrotesk(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: colors.textSecondary.withValues(alpha: 0.4),
+              ),
+              suffixText: 'kg',
+              suffixStyle: GoogleFonts.spaceGrotesk(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: colors.textSecondary,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: colors.border, width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: colors.accent, width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: colors.error, width: 1.5),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: colors.error, width: 2),
+              ),
+              errorText: _error,
+              fillColor: colors.surfaceRaised,
+              filled: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            ),
+            onSubmitted: (_) => _save(),
+          ),
+          const SizedBox(height: 20),
+
+          // Save button
+          GestureDetector(
+            onTap: _saving ? null : _save,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              height: 54,
+              decoration: BoxDecoration(
+                color: _saving ? colors.accent.withValues(alpha: 0.6) : colors.accent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: _saving
+                  ? SizedBox(
+                      width: 22, height: 22,
+                      child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2.5),
+                    )
+                  : Text(
+                      'SAVE & START',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: colors.surface,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Skip button
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              height: 48,
+              alignment: Alignment.center,
+              child: Text(
+                'Skip for now',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sub-widgets — one logical block each, kept private to this feature
 // ---------------------------------------------------------------------------
@@ -224,7 +440,7 @@ class _GpsWeakBanner extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            PhosphorIcons.warning(PhosphorIconsStyle.bold),
+            PhosphorIcons.warningBold,
             color: colors.background,
             size: 16,
           ),
@@ -275,7 +491,7 @@ class _StatusBar extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  PhosphorIcons.footprints(PhosphorIconsStyle.fill),
+                  PhosphorIcons.footprintsFill,
                   color: colors.textSecondary,
                   size: 16,
                 ),
@@ -294,74 +510,141 @@ class _StatusBar extends ConsumerWidget {
 
 
 
-class _StatPanel extends ConsumerWidget {
+class _StatPanel extends ConsumerStatefulWidget {
   const _StatPanel({required this.trackerState, required this.colors});
 
   final RunTrackerState trackerState;
   final AppColors colors;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            decoration: BoxDecoration(
-              color: colors.surface.withValues(alpha: 0.7), // Glass effect
-              border: Border.all(color: colors.border.withValues(alpha: 0.5), width: 1),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Time
-              _StatColumn(
-                value: RunFormatUtils.formatDuration(trackerState.durationS),
-                label: 'Time',
-                colors: colors,
-              ),
-              
-              // Pace
-              _StatColumn(
-                value: trackerState.currentSplitPaceSPerKm != null
-                    ? '${(trackerState.currentSplitPaceSPerKm! / 60).floor()}:${(trackerState.currentSplitPaceSPerKm! % 60).toString().padLeft(2, '0')}'
-                    : RunFormatUtils.formatPace(trackerState.distanceM, trackerState.durationS, useMiles),
-                label: trackerState.currentSplitPaceSPerKm != null ? 'Split avg. (/km)' : 'Pace (/km)',
-                colors: colors,
-                isCenter: true,
-              ),
+  ConsumerState<_StatPanel> createState() => _StatPanelState();
+}
 
-              // Distance
-              _StatColumn(
-                value: RunFormatUtils.formatDistance(trackerState.distanceM, useMiles),
-                label: 'Distance (km)',
-                colors: colors,
+class _StatPanelState extends ConsumerState<_StatPanel> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final useMiles = ref.watch(distanceUnitProvider);
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      onVerticalDragEnd: (details) {
+        if (details.primaryVelocity! > 0 && !_isExpanded) {
+          // Swipe down
+          setState(() => _isExpanded = true);
+        } else if (details.primaryVelocity! < 0 && _isExpanded) {
+          // Swipe up
+          setState(() => _isExpanded = false);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: widget.colors.surface.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark ? 0.35 : 0.45,
+                ), // Glass effect
+                border: Border.all(
+                  color: widget.colors.border.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(24),
               ),
-            ],
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Drag handle
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Icon(
+                        _isExpanded ? PhosphorIcons.caretDownBold : PhosphorIcons.caretUpBold,
+                        color: widget.colors.textSecondary.withValues(alpha: 0.5),
+                        size: 24,
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Time
+                        _StatColumn(
+                          value: RunFormatUtils.formatDuration(widget.trackerState.durationS),
+                          label: 'Time',
+                          colors: widget.colors,
+                        ),
+                        
+                        // Pace
+                        _StatColumn(
+                          value: widget.trackerState.currentSplitPaceSPerKm != null
+                              ? '${(widget.trackerState.currentSplitPaceSPerKm! / 60).floor()}:${(widget.trackerState.currentSplitPaceSPerKm! % 60).toString().padLeft(2, '0')}'
+                              : RunFormatUtils.formatPace(widget.trackerState.distanceM, widget.trackerState.durationS, useMiles),
+                          label: widget.trackerState.currentSplitPaceSPerKm != null ? 'Split avg. (/km)' : 'Pace (/km)',
+                          colors: widget.colors,
+                          isCenter: true,
+                        ),
+
+                        // Distance
+                        _StatColumn(
+                          value: RunFormatUtils.formatDistance(widget.trackerState.distanceM, useMiles),
+                          label: 'Distance (km)',
+                          colors: widget.colors,
+                        ),
+                      ],
+                    ),
+                    if (_isExpanded) ...[
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // Steps
+                          _StatColumn(
+                            value: widget.trackerState.stepCount.toString(),
+                            label: 'Steps',
+                            colors: widget.colors,
+                          ),
+                          
+                          // Cadence
+                          _StatColumn(
+                            value: widget.trackerState.currentCadence > 0 ? widget.trackerState.currentCadence.toString() : '--',
+                            label: 'Cadence (spm)',
+                            colors: widget.colors,
+                          ),
+
+                          // Calories
+                          _StatColumn(
+                            value: widget.trackerState.caloriesKcal > 0 ? widget.trackerState.caloriesKcal.toString() : '--',
+                            label: 'Calories',
+                            colors: widget.colors,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
-      ),
-      ),
+        ),
       ),
     );
   }
@@ -380,20 +663,6 @@ class _StatColumn extends ConsumerWidget {
     return Expanded(
       child: Column(
         children: [
-          if (isCenter) 
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(color: colors.textPrimary, shape: BoxShape.circle)),
-                  const SizedBox(width: 4),
-                  Container(width: 16, height: 4, decoration: BoxDecoration(color: colors.textPrimary, borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 4),
-                  Container(width: 16, height: 4, decoration: BoxDecoration(color: colors.textPrimary, borderRadius: BorderRadius.circular(2))),
-                ],
-              ),
-            ),
           Text(
             value,
             style: AppTextStyles.displayStat(color: colors.textPrimary).copyWith(fontSize: 40),
@@ -435,7 +704,7 @@ class _PaceComparisonBadge extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(PhosphorIcons.timer(), color: colors.textSecondary, size: 14),
+            Icon(PhosphorIcons.timer, color: colors.textSecondary, size: 14),
             const SizedBox(width: 6),
             Text(
               'CALCULATING PACE…',
@@ -550,12 +819,17 @@ class _RunControlsState extends ConsumerState<_RunControls> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+              filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
               child: Container(
                 padding: const EdgeInsets.only(top: 12, bottom: 24, left: 16, right: 16),
                 decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: 0.7), // Glass effect
-                  border: Border.all(color: colors.border.withValues(alpha: 0.5), width: 1),
+                  color: colors.surface.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark ? 0.35 : 0.45,
+                  ), // Glass effect
+                  border: Border.all(
+                    color: colors.border.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
@@ -573,9 +847,9 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                 children: [
                   // Left Action (Activity Toggle or Stop)
                   _CircularAction(
-                    icon: isIdle ? (isRun ? PhosphorIcons.personSimpleRun() : PhosphorIcons.personSimpleWalk()) : PhosphorIcons.stop(PhosphorIconsStyle.fill),
+                    icon: isIdle ? (isRun ? PhosphorIcons.personSimpleRun : PhosphorIcons.personSimpleWalk) : PhosphorIcons.stopFill,
                     label: isIdle ? (isRun ? 'Run' : 'Walk') : 'Stop',
-                    color: colors.background,
+                    color: colors.surface.withValues(alpha: 0.45),
                     iconColor: isIdle ? colors.accent : colors.error,
                     textColor: colors.textPrimary,
                     onTap: () {
@@ -592,8 +866,23 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                   PressableScale(
                     onTap: () {
                       if (isIdle) {
-                        ref.read(soundServiceProvider).playRunStart();
-                        notifier.startRun();
+                        if (!trackerState.permissionsGranted) {
+                          notifier.requestForegroundPermission().then((granted) {
+                            if (granted) {
+                              _maybePromptWeightAndStart(context, ref, colors, notifier);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Location permission required to track runs.'),
+                                  ),
+                                );
+                              }
+                            }
+                          });
+                        } else {
+                          _maybePromptWeightAndStart(context, ref, colors, notifier);
+                        }
                       } else if (isPaused) {
                         ref.read(soundServiceProvider).playPauseResume();
                         notifier.resumeRun();
@@ -608,16 +897,9 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                       decoration: BoxDecoration(
                         color: colors.accent,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.accent.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
                       ),
                       child: Icon(
-                              isIdle || isPaused ? PhosphorIcons.play(PhosphorIconsStyle.fill) : PhosphorIcons.pause(PhosphorIconsStyle.fill),
+                              isIdle || isPaused ? PhosphorIcons.playFill : PhosphorIcons.pauseFill,
                               color: Colors.white,
                               size: 56,
                             ),
@@ -626,9 +908,9 @@ class _RunControlsState extends ConsumerState<_RunControls> {
 
                   // Right Action (Target Pace)
                   _CircularAction(
-                    icon: PhosphorIcons.target(),
+                    icon: PhosphorIcons.target,
                     label: 'Pace',
-                    color: colors.background,
+                    color: colors.surface.withValues(alpha: 0.45),
                     iconColor: colors.textPrimary,
                     textColor: colors.textPrimary,
                     onTap: () {
@@ -636,9 +918,10 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                         ref.read(hapticsServiceProvider).lightImpact();
                         showModalBottomSheet(
                           context: context,
-                          backgroundColor: colors.surface,
+                          backgroundColor: Colors.transparent,
+                          barrierColor: Colors.black.withValues(alpha: 0.35),
                           shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                           ),
                           builder: (ctx) => _TargetPaceSelectorSheet(colors: colors),
                         );
@@ -668,13 +951,16 @@ class _RunControlsState extends ConsumerState<_RunControls> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               decoration: BoxDecoration(
-                color: colors.background.withValues(alpha: 0.5),
+                color: colors.surface.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colors.border.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(PhosphorIcons.sneaker(), color: colors.textSecondary, size: 16),
+                  Icon(PhosphorIcons.sneaker, color: colors.textSecondary, size: 16),
                   const SizedBox(width: 8),
                   Text('Add Gear', style: AppTextStyles.bodyMediumBold(color: colors.textSecondary)),
                 ],
@@ -692,9 +978,11 @@ class _RunControlsState extends ConsumerState<_RunControls> {
             ref.read(hapticsServiceProvider).lightImpact();
             showModalBottomSheet(
               context: context,
-              backgroundColor: colors.surface,
+              backgroundColor: Colors.transparent,
+              barrierColor: colors.background.withValues(alpha: 0.6),
+              isScrollControlled: true,
               shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
               builder: (ctx) => _ShoeSelectorSheet(colors: colors, shoes: shoes, selectedShoeId: state.selectedShoeId),
             );
@@ -702,20 +990,26 @@ class _RunControlsState extends ConsumerState<_RunControls> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             decoration: BoxDecoration(
-              color: colors.background.withValues(alpha: 0.5),
+              color: colors.surface.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: colors.border.withValues(alpha: 0.4),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(PhosphorIcons.sneaker(), color: selectedShoe != null ? colors.accent : colors.textSecondary, size: 16),
+                if (selectedShoe != null && selectedShoe.imageUrl != null)
+                  _buildShoeThumb(selectedShoe.imageUrl!, 20, colors.accent, colors)
+                else
+                  Icon(PhosphorIcons.sneaker, color: selectedShoe != null ? colors.accent : colors.textSecondary, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   selectedShoe != null ? selectedShoe.name! : 'Select Shoe',
                   style: AppTextStyles.bodyMediumBold(color: selectedShoe != null ? colors.textPrimary : colors.textSecondary),
                 ),
                 const SizedBox(width: 4),
-                Icon(PhosphorIcons.caretDown(), color: colors.textSecondary, size: 12),
+                Icon(PhosphorIcons.caretDown, color: colors.textSecondary, size: 12),
               ],
             ),
           ),
@@ -746,7 +1040,7 @@ class _CircularAction extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -758,6 +1052,10 @@ class _CircularAction extends ConsumerWidget {
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
+              border: Border.all(
+                color: colors.border.withValues(alpha: 0.5),
+                width: 1,
+              ),
             ),
             child: Icon(icon, color: iconColor, size: 32),
           ),
@@ -767,7 +1065,7 @@ class _CircularAction extends ConsumerWidget {
           label,
           style: TextStyle(
             fontSize: 14,
-            color: textColor ?? Colors.white,
+            color: textColor ?? colors.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -814,7 +1112,7 @@ class _TargetPaceSelector extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
-            icon: Icon(PhosphorIcons.minus(), color: colors.textPrimary),
+            icon: Icon(PhosphorIcons.minus, color: colors.textPrimary),
             onPressed: () {
               ref.read(hapticsServiceProvider).lightImpact();
               ref.read(soundServiceProvider).playPaceDown();
@@ -829,7 +1127,7 @@ class _TargetPaceSelector extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(PhosphorIcons.plus(), color: colors.textPrimary),
+            icon: Icon(PhosphorIcons.plus, color: colors.textPrimary),
             onPressed: () {
               ref.read(hapticsServiceProvider).lightImpact();
               ref.read(soundServiceProvider).playPaceUp();
@@ -897,7 +1195,7 @@ class _ActivityTypeSelector extends ConsumerWidget {
               Expanded(
                 child: _buildSegment(
                   title: 'Run',
-                  icon: PhosphorIcons.personSimpleRun(),
+                  icon: PhosphorIcons.personSimpleRun,
                   isSelected: isRun,
                   onTap: () {
                     ref.read(hapticsServiceProvider).lightImpact();
@@ -909,7 +1207,7 @@ class _ActivityTypeSelector extends ConsumerWidget {
               Expanded(
                 child: _buildSegment(
                   title: 'Walk',
-                  icon: PhosphorIcons.personSimpleWalk(),
+                  icon: PhosphorIcons.personSimpleWalk,
                   isSelected: !isRun,
                   onTap: () {
                     ref.read(hapticsServiceProvider).lightImpact();
@@ -1114,70 +1412,96 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
     final String paceStr = currentPace != null 
         ? '${(currentPace / 60).floor()}:${(currentPace % 60).toString().padLeft(2, '0')}'
         : 'None';
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(color: colors.border, borderRadius: BorderRadius.circular(2)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: isDark ? 0.85 : 0.90),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(
+              color: colors.border.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colors.textSecondary.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Target Pace',
+                    style: AppTextStyles.headline(color: colors.textPrimary),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: Icon(PhosphorIcons.minusCircleFill, color: colors.accent, size: 48),
+                        onPressed: () {
+                          ref.read(hapticsServiceProvider).lightImpact();
+                          ref.read(soundServiceProvider).playPaceDown();
+                          final newPace = (currentPace ?? 360) + 10;
+                          notifier.setTargetPace(newPace);
+                        },
+                      ),
+                      Text(paceStr, style: AppTextStyles.displayHero(color: colors.textPrimary)),
+                      IconButton(
+                        icon: Icon(PhosphorIcons.plusCircleFill, color: colors.accent, size: 48),
+                        onPressed: () {
+                          ref.read(hapticsServiceProvider).lightImpact();
+                          ref.read(soundServiceProvider).playPaceUp();
+                          final newPace = (currentPace ?? 360) - 10;
+                          if (newPace > 0) notifier.setTargetPace(newPace);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (currentPace == null) {
+                        notifier.setTargetPace(360);
+                      } else {
+                        notifier.setTargetPace(null); // Clear pace
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.surface.withValues(alpha: 0.4),
+                      foregroundColor: colors.textPrimary,
+                      elevation: 0,
+                      side: BorderSide(
+                        color: colors.border.withValues(alpha: 0.5),
+                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      currentPace == null ? 'Set Default (6:00/km)' : 'Clear Target Pace',
+                      style: AppTextStyles.bodyLargeBold(color: colors.textPrimary),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Target Pace',
-              style: AppTextStyles.headline(color: colors.textPrimary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: Icon(PhosphorIcons.minusCircle(PhosphorIconsStyle.fill), color: colors.accent, size: 48),
-                  onPressed: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playPaceDown();
-                    final newPace = (currentPace ?? 360) + 10;
-                    notifier.setTargetPace(newPace);
-                  },
-                ),
-                Text(paceStr, style: AppTextStyles.displayHero(color: colors.textPrimary)),
-                IconButton(
-                  icon: Icon(PhosphorIcons.plusCircle(PhosphorIconsStyle.fill), color: colors.accent, size: 48),
-                  onPressed: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playPaceUp();
-                    final newPace = (currentPace ?? 360) - 10;
-                    if (newPace > 0) notifier.setTargetPace(newPace);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            ElevatedButton(
-              onPressed: () {
-                if (currentPace == null) {
-                  notifier.setTargetPace(360);
-                } else {
-                  notifier.setTargetPace(null); // Clear pace
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.surfaceRaised,
-                foregroundColor: colors.textPrimary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: Text(currentPace == null ? 'Set Default Pace' : 'Clear Target Pace', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1197,7 +1521,6 @@ class _LocationButtonState extends ConsumerState<_LocationButton> {
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
     return Align(
       alignment: Alignment.centerRight,
       child: Padding(
@@ -1207,44 +1530,42 @@ class _LocationButtonState extends ConsumerState<_LocationButton> {
           mini: true,
           elevation: 0,
           highlightElevation: 0,
-          backgroundColor: widget.colors.surface.withValues(alpha: 0.7),
+          backgroundColor: widget.colors.surface.withValues(alpha: 0.45),
           onPressed: _isFetching ? null : () async {
-            setState(() {
-              _isFetching = true;
-            });
+            setState(() => _isFetching = true);
             ref.read(hapticsServiceProvider).lightImpact();
+            // 1️⃣ Signal the map to re-center immediately on the currently
+            //    known position — this works even if coordinates haven't
+            //    changed (user panned away and wants to come back).
+            ref.read(recenterSignalProvider.notifier).state++;
             try {
-              final pos = await Geolocator.getCurrentPosition(
-                desiredAccuracy: LocationAccuracy.high,
-                timeLimit: const Duration(seconds: 10),
-              );
-              ref.read(runTrackerProvider.notifier).updateInitialPosition(pos);
-            } catch (_) {
+              // 2️⃣ Also fetch a fresh GPS fix so the position updates if the
+              //    user has moved since the last known fix. force=true bypasses
+              //    the "already have position" guard in fetchInitialLocation().
+              await ref.read(runTrackerProvider.notifier).fetchInitialLocation(force: true);
+            } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Could not fetch location')),
+                  const SnackBar(content: Text('Could not fetch location. Check GPS is enabled.')),
                 );
               }
             } finally {
-              if (mounted) {
-                setState(() {
-                  _isFetching = false;
-                });
-              }
+              if (mounted) setState(() => _isFetching = false);
             }
           },
-          child: _isFetching 
+          child: _isFetching
               ? SizedBox(
-                  width: 16, 
-                  height: 16, 
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: widget.colors.accent),
                 )
-              : Icon(PhosphorIcons.gpsFix(PhosphorIconsStyle.fill), color: widget.colors.accent),
+              : Icon(Icons.gps_fixed, color: widget.colors.accent),
         ),
       ),
     );
   }
 }
+
 
 class _ShoeSelectorSheet extends ConsumerWidget {
   const _ShoeSelectorSheet({
@@ -1259,99 +1580,185 @@ class _ShoeSelectorSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.only(top: 24, bottom: 48, left: 24, right: 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Select Gear', style: AppTextStyles.headline(color: colors.textPrimary)),
-              IconButton(
-                icon: Icon(PhosphorIcons.x(), color: colors.textSecondary),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          InkWell(
-            onTap: () {
-              ref.read(runTrackerProvider.notifier).setSelectedShoe(null);
-              Navigator.pop(context);
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(PhosphorIcons.prohibit(), color: colors.textSecondary),
-                  const SizedBox(width: 16),
-                  Text('No Shoe', style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
-                  const Spacer(),
-                  if (selectedShoeId == null) Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), color: colors.accent),
-                ],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: isDark ? 0.85 : 0.90),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border.all(
+                color: colors.border.withValues(alpha: 0.5),
+                width: 1,
               ),
             ),
-          ),
-          
-          const Divider(),
-          
-          Expanded(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: shoes.length,
-              itemBuilder: (ctx, i) {
-                final shoe = shoes[i];
-                final isSelected = shoe.clientShoeId == selectedShoeId;
-                return InkWell(
+            padding: const EdgeInsets.only(top: 16, bottom: 48, left: 24, right: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: colors.textSecondary.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Select Gear', style: AppTextStyles.headline(color: colors.textPrimary)),
+                    IconButton(
+                      icon: Icon(PhosphorIcons.x, color: colors.textSecondary),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                InkWell(
                   onTap: () {
-                    ref.read(runTrackerProvider.notifier).setSelectedShoe(shoe.clientShoeId);
+                    ref.read(runTrackerProvider.notifier).setSelectedShoe(null);
                     Navigator.pop(context);
                   },
                   borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceRaised.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Row(
                       children: [
-                        Icon(PhosphorIcons.sneaker(), color: isSelected ? colors.accent : colors.textSecondary),
+                        Icon(PhosphorIcons.prohibit, color: colors.textSecondary),
                         const SizedBox(width: 16),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(shoe.name ?? '', style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
-                            if (shoe.brand != null && shoe.brand!.isNotEmpty)
-                              Text(shoe.brand!, style: AppTextStyles.label(color: colors.textSecondary)),
-                          ],
-                        ),
+                        Text('No Shoe', style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
                         const Spacer(),
-                        if (isSelected) Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill), color: colors.accent),
+                        if (selectedShoeId == null) Icon(PhosphorIcons.checkCircleFill, color: colors.accent),
                       ],
                     ),
                   ),
-                );
-              },
+                ),
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(color: colors.border.withValues(alpha: 0.4)),
+                ),
+                
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: shoes.length,
+                    itemBuilder: (ctx, i) {
+                      final shoe = shoes[i];
+                      final isSelected = shoe.clientShoeId == selectedShoeId;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? colors.accent.withValues(alpha: 0.18)
+                              : colors.surfaceRaised.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? colors.accent.withValues(alpha: 0.5)
+                                : Colors.transparent,
+                          ),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            ref.read(runTrackerProvider.notifier).setSelectedShoe(shoe.clientShoeId);
+                            Navigator.pop(context);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                            child: Row(
+                              children: [
+                                if (shoe.imageUrl != null)
+                                  _buildShoeThumb(shoe.imageUrl!, 24, isSelected ? colors.accent : colors.textSecondary, colors)
+                                else
+                                  Icon(PhosphorIcons.sneaker, color: isSelected ? colors.accent : colors.textSecondary),
+                                const SizedBox(width: 16),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(shoe.name ?? '', style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
+                                    if (shoe.brand != null && shoe.brand!.isNotEmpty)
+                                      Text(shoe.brand!, style: AppTextStyles.label(color: colors.textSecondary)),
+                                  ],
+                                ),
+                                const Spacer(),
+                                if (isSelected) Icon(PhosphorIcons.checkCircleFill, color: colors.accent),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.surfaceRaised,
+                    foregroundColor: colors.textPrimary,
+                    elevation: 0,
+                    side: BorderSide(
+                      color: colors.border.withValues(alpha: 0.5),
+                    ),
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
+                  },
+                  child: Text('Manage Gear', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
+                ),
+              ],
             ),
           ),
-          
-          const SizedBox(height: 16),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colors.surface,
-              side: BorderSide(color: colors.border),
-              shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
-            },
-            child: Text('Manage Gear', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
+
+/// Renders a shoe image thumbnail, handling both local file paths and network URLs.
+Widget _buildShoeThumb(String imageUrl, double size, Color fallbackColor, AppColors colors) {
+  if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+    final file = File(imageUrl);
+    if (file.existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.file(
+          file,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Icon(PhosphorIcons.sneaker, color: fallbackColor, size: size),
+        ),
+      );
+    }
+    return Icon(PhosphorIcons.sneaker, color: fallbackColor, size: size);
+  }
+  return CachedNetworkImage(
+    imageUrl: imageUrl,
+    width: size,
+    height: size,
+    fit: BoxFit.contain,
+    errorWidget: (_, __, ___) => Icon(PhosphorIcons.sneaker, color: fallbackColor, size: size),
+  );
 }

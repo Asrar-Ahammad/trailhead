@@ -1,12 +1,16 @@
+import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../application/shoe_service.dart';
 import '../data/models/shoe_isar.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../haptics/application/haptics_service.dart';
 import 'shoe_dashboard_screen.dart';
+import '../../run_tracking/application/run_tracker_controller.dart';
 
 class ShoeManagementScreen extends ConsumerWidget {
   const ShoeManagementScreen({super.key});
@@ -18,11 +22,18 @@ class ShoeManagementScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: colors.surface,
+        backgroundColor: colors.surface.withValues(alpha: 0.7),
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(PhosphorIcons.arrowLeft(), color: colors.textPrimary),
+          icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text('My Shoes', style: AppTextStyles.headline(color: colors.textPrimary)),
@@ -34,7 +45,7 @@ class ShoeManagementScreen extends ConsumerWidget {
         },
         backgroundColor: colors.accent,
         shape: const CircleBorder(),
-        child: Icon(PhosphorIcons.plus(), color: Colors.white),
+        child: Icon(PhosphorIcons.plus, color: Colors.white),
       ),
       body: shoesAsync.when(
         data: (shoes) {
@@ -52,7 +63,12 @@ class ShoeManagementScreen extends ConsumerWidget {
           final retiredShoes = shoes.where((s) => !s.isActive).toList();
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+              left: 16,
+              right: 16,
+              bottom: 16,
+            ),
             children: [
               if (activeShoes.isNotEmpty) ...[
                 Text('ACTIVE GEAR', style: AppTextStyles.label(color: colors.accent)),
@@ -93,13 +109,9 @@ class ShoeManagementScreen extends ConsumerWidget {
           );
         },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: colors.accent.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(PhosphorIcons.sneaker(), color: colors.accent),
+        leading: Hero(
+          tag: 'shoe_image_${shoe.clientShoeId}',
+          child: _buildShoeImage(shoe, colors),
         ),
         title: Text(shoe.name ?? 'Unknown Shoe', style: AppTextStyles.title(color: colors.textPrimary)),
         subtitle: Text(
@@ -109,9 +121,14 @@ class ShoeManagementScreen extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: Icon(PhosphorIcons.pencilSimple, color: colors.textSecondary),
+              tooltip: 'Edit Shoe',
+              onPressed: () => _showEditShoeDialog(context, ref, colors, shoe),
+            ),
             if (shoe.isActive)
               IconButton(
-                icon: Icon(PhosphorIcons.archive(), color: colors.textSecondary),
+                icon: Icon(PhosphorIcons.archive, color: colors.textSecondary),
                 onPressed: () {
                   showDialog(
                     context: context,
@@ -146,8 +163,8 @@ class ShoeManagementScreen extends ConsumerWidget {
                                 onPressed: () async {
                                   setState(() => isRetiring = true);
                                   await ref.read(shoeServiceProvider).retireShoe(shoe.id);
-                                  ref.refresh(allShoesProvider);
-                                  ref.refresh(activeShoesProvider);
+                                  ref.invalidate(allShoesProvider);
+                                  ref.invalidate(activeShoesProvider);
                                   if (ctx.mounted) Navigator.pop(ctx);
                                 },
                                 child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -160,7 +177,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                 },
               ),
             IconButton(
-              icon: Icon(PhosphorIcons.trash(), color: colors.error),
+              icon: Icon(PhosphorIcons.trash, color: colors.error),
               onPressed: () {
                 showDialog(
                   context: context,
@@ -195,8 +212,8 @@ class ShoeManagementScreen extends ConsumerWidget {
                               onPressed: () async {
                                 setState(() => isDeleting = true);
                                 await ref.read(shoeServiceProvider).deleteShoe(shoe.id);
-                                ref.refresh(allShoesProvider);
-                                ref.refresh(activeShoesProvider);
+                                ref.invalidate(allShoesProvider);
+                                ref.invalidate(activeShoesProvider);
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                               child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -210,6 +227,79 @@ class ShoeManagementScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildShoeImage(ShoeIsar shoe, AppColors colors) {
+    final imageUrl = shoe.imageUrl;
+    if (imageUrl == null) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.accent.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(PhosphorIcons.sneaker, color: colors.accent),
+      );
+    }
+
+    // Local file path
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      final file = File(imageUrl);
+      if (file.existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(
+            file,
+            width: 48,
+            height: 48,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(PhosphorIcons.sneaker, color: colors.accent),
+            ),
+          ),
+        );
+      }
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.accent.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(PhosphorIcons.sneaker, color: colors.accent),
+      );
+    }
+
+    // Network URL
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      width: 48,
+      height: 48,
+      fit: BoxFit.contain,
+      placeholder: (context, url) => Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: colors.accent.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      ),
+      errorWidget: (context, url, error) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colors.accent.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(PhosphorIcons.sneaker, color: colors.accent),
       ),
     );
   }
@@ -270,9 +360,86 @@ class ShoeManagementScreen extends ConsumerWidget {
                     final name = nameController.text.trim();
                     if (name.isNotEmpty) {
                       setState(() => isSaving = true);
-                      await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
-                      ref.refresh(allShoesProvider);
-                      ref.refresh(activeShoesProvider);
+                      final newShoe = await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
+                      ref.read(runTrackerProvider.notifier).setSelectedShoe(newShoe.clientShoeId);
+                      ref.invalidate(allShoesProvider);
+                      ref.invalidate(activeShoesProvider);
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    }
+                  },
+                  child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditShoeDialog(BuildContext context, WidgetRef ref, AppColors colors, ShoeIsar shoe) {
+    final nameController = TextEditingController(text: shoe.name ?? '');
+    final brandController = TextEditingController(text: shoe.brand ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            backgroundColor: colors.surface,
+            title: Text('Edit Shoe', style: AppTextStyles.headline(color: colors.textPrimary)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  style: TextStyle(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Shoe Name',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: brandController,
+                  style: TextStyle(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Brand / Company',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
+                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              if (!isSaving)
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+                ),
+              if (isSaving)
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else
+                TextButton(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isNotEmpty) {
+                      setState(() => isSaving = true);
+                      await ref.read(shoeServiceProvider).updateShoe(
+                        shoe.id,
+                        name: name,
+                        brand: brandController.text.trim(),
+                      );
+                      ref.invalidate(allShoesProvider);
+                      ref.invalidate(activeShoesProvider);
                       if (ctx.mounted) Navigator.pop(ctx);
                     }
                   },

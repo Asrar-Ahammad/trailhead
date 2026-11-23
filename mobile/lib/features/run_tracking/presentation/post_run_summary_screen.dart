@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../data/models/run_isar.dart';
 import '../application/run_format_utils.dart';
 import '../application/ai_summary_service.dart';
@@ -11,12 +11,11 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../../shared/widgets/count_up_text.dart';
-import '../../history/data/run_history_repository.dart';
 import '../../stats/application/pr_engine.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'dart:math';
+import '../../history/presentation/share_activity_screen.dart';
 
 final postRunPRProvider = FutureProvider.family<bool, String?>((ref, clientRunId) async {
   if (clientRunId == null) return false;
@@ -169,8 +168,11 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 48), // Top padding for status bar
-                  Text('RUN COMPLETED', style: AppTextStyles.labelCaps(color: colors.textPrimary), textAlign: TextAlign.center),
-                  const SizedBox(height: AppSpacing.lg),
+                  Center(
+                    child: Text('RUN COMPLETED', style: AppTextStyles.labelCaps(color: colors.textPrimary)),
+                  ),
+
+                  const SizedBox(height: AppSpacing.sm),
 
                   // 1. Fading/Drawing Map
                   AnimatedBuilder(
@@ -183,6 +185,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                           child: StaticRouteMap(
                             points: widget.points,
                             animationProgress: _mapDraw.value,
+                            isMonochrome: true,
                           ),
                         ),
                       );
@@ -219,7 +222,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: colors.accent, size: 32),
+                                    Icon(PhosphorIcons.trophyFill, color: colors.accent, size: 32),
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Column(
@@ -264,7 +267,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                         children: [
                           Row(
                             children: [
-                              Icon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill), color: colors.accent, size: 20),
+                              Icon(PhosphorIcons.sparkleFill, color: colors.accent, size: 20),
                               const SizedBox(width: AppSpacing.sm),
                               Text('AI COACH', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
                             ],
@@ -313,15 +316,43 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                 top: false,
                 child: SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _saveRun,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                    ),
-                    child: Text('SAVE RUN', style: AppTextStyles.bodyLargeBold(color: Colors.white)),
+                  child: Row(
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ShareActivityScreen(
+                                run: widget.run,
+                                points: widget.points,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: Icon(PhosphorIcons.shareNetworkBold, color: colors.textPrimary),
+                        style: IconButton.styleFrom(
+                          backgroundColor: colors.surfaceRaised,
+                          padding: const EdgeInsets.all(16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                            side: BorderSide(color: colors.border.withValues(alpha: 0.5)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _saveRun,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.accent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                          ),
+                          child: Text('SAVE RUN', style: AppTextStyles.bodyLargeBold(color: Colors.white)),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

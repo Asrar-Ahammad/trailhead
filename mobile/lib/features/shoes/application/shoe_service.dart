@@ -3,20 +3,15 @@ import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
 import '../data/shoe_repository.dart';
 import '../data/models/shoe_isar.dart';
-import '../../sync/application/sync_service.dart';
 import '../../../main.dart'; // For isarInstance
 
-import '../../sync/data/api_client.dart';
-
 final shoeRepositoryProvider = Provider<ShoeRepository>((ref) {
-  return ShoeRepository(isarInstance!);
+  return ShoeRepository(isarInstance);
 });
 
 final shoeServiceProvider = Provider<ShoeService>((ref) {
   final repo = ref.watch(shoeRepositoryProvider);
-  final apiClient = ref.watch(apiClientProvider);
-  final syncService = SyncService(isar: isarInstance!, apiClient: apiClient);
-  return ShoeService(repo, syncService);
+  return ShoeService(repo);
 });
 
 // Provides all shoes
@@ -33,9 +28,8 @@ final activeShoesProvider = FutureProvider<List<ShoeIsar>>((ref) async {
 
 class ShoeService {
   final ShoeRepository repository;
-  final SyncService syncService;
 
-  ShoeService(this.repository, this.syncService);
+  ShoeService(this.repository);
 
   Future<List<ShoeIsar>> getAllShoes() => repository.getAllShoes();
   
@@ -51,15 +45,18 @@ class ShoeService {
       ..createdAt = DateTime.now();
       
     await repository.saveShoe(shoe);
-    
-    // Attempt background sync
-    try {
-      await syncService.syncShoe(shoe);
-    } catch (e) {
-      // Ignored: will be handled by regular sync job or just silently fail and sync later
-    }
-    
     return shoe;
+  }
+
+  Future<ShoeIsar?> updateShoe(Id id, {required String name, String? brand}) async {
+    final shoe = await repository.getShoeById(id);
+    if (shoe != null) {
+      shoe.name = name;
+      shoe.brand = brand?.trim().isEmpty == true ? null : brand?.trim();
+      await repository.saveShoe(shoe);
+      return shoe;
+    }
+    return null;
   }
 
   Future<void> retireShoe(Id id) async {
@@ -67,10 +64,6 @@ class ShoeService {
     if (shoe != null) {
       shoe.isActive = false;
       await repository.saveShoe(shoe);
-      
-      try {
-        await syncService.syncShoe(shoe);
-      } catch (e) {}
     }
   }
 
@@ -79,26 +72,19 @@ class ShoeService {
     if (shoe != null) {
       shoe.distanceM += distanceM;
       await repository.saveShoe(shoe);
-      
-      try {
-        await syncService.syncShoe(shoe);
-      } catch (e) {}
     }
   }
 
   Future<void> deleteShoe(Id id) async {
-    final shoe = await repository.getShoeById(id);
+    await repository.deleteShoe(id);
+  }
+
+  Future<void> uploadShoeImage(String clientShoeId, String imagePath) async {
+    // Local-only shoe images: store local file path as imageUrl
+    final shoe = await repository.getShoeByClientId(clientShoeId);
     if (shoe != null) {
-      final clientShoeId = shoe.clientShoeId;
-      await repository.deleteShoe(id);
-      
-      try {
-        if (clientShoeId != null) {
-          await syncService.deleteShoe(clientShoeId);
-        }
-      } catch (e) {
-        // Silently fail if offline, a robust system would queue delete operations.
-      }
+      shoe.imageUrl = imagePath;
+      await repository.saveShoe(shoe);
     }
   }
 }

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../sync/data/api_client.dart';
+import '../../ai/application/ai_config_provider.dart';
+import '../../ai/application/ai_client.dart';
 
 class ParsedRunLog {
   final double? distanceKm;
@@ -31,17 +33,45 @@ class NlLoggingService {
   NlLoggingService(this._ref);
 
   Future<ParsedRunLog?> parseLog(String text) async {
-    final apiClient = _ref.read(apiClientProvider);
+    final aiConfig = _ref.read(aiConfigProvider);
+    if (!aiConfig.isConfigured) return null;
+
+    final aiClient = AiClient(aiConfig);
     try {
-      final response = await apiClient.client.post(
-        '/runs/parse-log',
-        data: {'text': text},
-      );
-      if (response.statusCode == 200 && response.data != null) {
-        return ParsedRunLog.fromJson(response.data);
+      final prompt = 'Parse this run description into a clean JSON structure. Only return the raw JSON object, no markdown code blocks.\n'
+          'Description: "$text"\n\n'
+          'JSON Schema:\n'
+          '{\n'
+          '  "distanceKm": float or null,\n'
+          '  "subjectiveEffort": "easy" | "moderate" | "hard" or null,\n'
+          '  "conditions": string describing weather/terrain or null,\n'
+          '  "timeOfDay": "morning" | "afternoon" | "evening" | "night" or null\n'
+          '}';
+
+      final response = await aiClient.chat([
+        {'role': 'system', 'content': 'You are a parsing engine. You output ONLY valid JSON.'},
+        {'role': 'user', 'content': prompt}
+      ]);
+
+      if (response != null && response.isNotEmpty) {
+        // Clean JSON formatting if LLM wrapped in markdown blocks
+        var cleaned = response.trim();
+        if (cleaned.startsWith('```json')) {
+          cleaned = cleaned.substring(7);
+        }
+        if (cleaned.startsWith('```')) {
+          cleaned = cleaned.substring(3);
+        }
+        if (cleaned.endsWith('```')) {
+          cleaned = cleaned.substring(0, cleaned.length - 3);
+        }
+        cleaned = cleaned.trim();
+
+        final Map<String, dynamic> decoded = jsonDecode(cleaned);
+        return ParsedRunLog.fromJson(decoded);
       }
     } catch (e) {
-      print('NL parse error: $e');
+      print('Local NL parse error: $e');
     }
     return null;
   }

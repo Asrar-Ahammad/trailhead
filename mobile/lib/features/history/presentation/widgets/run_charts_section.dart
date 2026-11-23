@@ -60,10 +60,16 @@ class RunChartsSection extends ConsumerWidget {
 
       // Pace (only if speed > 0)
       if (currentSpeed != null && currentSpeed > 0.1) {
-        final paceSeconds = 1000.0 / currentSpeed;
-        // Cap pace to reasonable running/walking bounds (e.g. max 20 min/km = 1200s)
-        if (paceSeconds < 1200) {
-          paceData.add(ChartDataPoint(currentDistKm, paceSeconds));
+        final rawPaceSeconds = 1000.0 / currentSpeed;
+        if (rawPaceSeconds < 1200) {
+          // Simple smoothing using previous points
+          double smoothedPace = rawPaceSeconds;
+          if (paceData.length >= 2) {
+            smoothedPace = (paceData[paceData.length - 2].y + paceData[paceData.length - 1].y + rawPaceSeconds) / 3.0;
+          } else if (paceData.isNotEmpty) {
+            smoothedPace = (paceData.last.y + rawPaceSeconds) / 2.0;
+          }
+          paceData.add(ChartDataPoint(currentDistKm, smoothedPace));
         }
         maxSpeed = max(maxSpeed, currentSpeed);
       }
@@ -145,11 +151,11 @@ class RunChartsSection extends ConsumerWidget {
             data: elevationData,
             color: Colors.grey.shade400,
           ),
-          const SizedBox(height: 16),
-          _buildStatRow(colors, [
-            _StatItem('Elevation Gain', '${elevationGain.round()} m'),
-            _StatItem('Max Elevation', maxElevation > -9999 ? '${maxElevation.round()} m' : '--'),
-          ]),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Elevation Gain', '${elevationGain.round()} m'),
+          const SizedBox(height: 24),
+          _buildStatListRow(colors, 'Max Elevation', maxElevation > -9999 ? '${maxElevation.round()} m' : '--'),
+          const SizedBox(height: 32),
         ],
       ],
     );

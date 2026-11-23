@@ -4,10 +4,42 @@ import 'package:share_plus/share_plus.dart';
 import '../../run_tracking/application/run_format_utils.dart';
 import '../../run_tracking/data/models/run_isar.dart';
 import '../../run_tracking/data/models/run_point_isar.dart';
+import '../../data_management/application/data_export_service.dart';
 
 class GpxExportUtil {
+  /// Saves a single run's GPX file into Downloads/Trailhead_GPX/
+  static Future<File> saveRunGpxToDownloads(RunIsar run, List<RunPointIsar> points) async {
+    final gpxXml = generateGpxXml(run, points);
+
+    final downloadDir = await DataExportService.getDownloadsDirectoryPath();
+    final gpxDir = Directory('${downloadDir.path}/Trailhead_GPX');
+    if (!await gpxDir.exists()) {
+      await gpxDir.create(recursive: true);
+    }
+
+    final dateStr = run.startTime != null
+        ? '${run.startTime!.year}${run.startTime!.month.toString().padLeft(2, '0')}${run.startTime!.day.toString().padLeft(2, '0')}'
+        : 'unknown_date';
+    final distKm = ((run.distanceM ?? 0) / 1000).toStringAsFixed(1);
+    final rawTitle = run.title ?? RunFormatUtils.getRunTitle(
+      run.title,
+      run.startTime,
+      activityType: run.activityType ?? 'run',
+      distanceM: run.distanceM,
+      subjectiveEffort: run.subjectiveEffort,
+      conditions: run.conditions,
+    );
+    final safeTitle = rawTitle.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_').replaceAll(RegExp(r'_+'), '_');
+    final cleanTitle = safeTitle.isEmpty || safeTitle == '_' ? 'run' : safeTitle;
+    final fileName = 'trailhead_${cleanTitle}_${distKm}km_$dateStr.gpx';
+
+    final file = File('${gpxDir.path}/$fileName');
+    await file.writeAsString(gpxXml);
+    return file;
+  }
+
   static Future<void> exportAndShareRun(RunIsar run, List<RunPointIsar> points) async {
-    final gpxXml = _generateGpxXml(run, points);
+    final gpxXml = generateGpxXml(run, points);
     
     // Generate a reasonable file name based on date and distance
     final dateStr = run.startTime != null 
@@ -26,7 +58,7 @@ class GpxExportUtil {
     await Share.shareXFiles([XFile(file.path)], text: 'My run on Trailhead ($distanceKm km)');
   }
 
-  static String _generateGpxXml(RunIsar run, List<RunPointIsar> points) {
+  static String generateGpxXml(RunIsar run, List<RunPointIsar> points) {
     final buffer = StringBuffer();
     
     buffer.writeln('<?xml version="1.0" encoding="UTF-8"?>');

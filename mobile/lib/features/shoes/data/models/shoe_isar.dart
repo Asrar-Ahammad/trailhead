@@ -11,6 +11,7 @@ class ShoeIsar {
 
   String? name;
   String? brand;
+  String? imageUrl;
   
   double distanceM = 0;
   

@@ -22,11 +22,11 @@ final todayStepsProvider = StreamProvider.autoDispose<int>((ref) async* {
   }
 });
 
-/// Provides the background step count for a specific date
-final dailyStepsForDateProvider = FutureProvider.autoDispose.family<int, String>((ref, dateKey) async {
+/// Provides the background step count record for a specific date
+final dailyStepsForDateProvider = FutureProvider.autoDispose.family<DailyStepsIsar?, String>((ref, dateKey) async {
   final record = await isarInstance.dailyStepsIsars
       .filter()
       .dateKeyEqualTo(dateKey)
       .findFirst();
-  return record?.steps ?? 0;
+  return record;
 });

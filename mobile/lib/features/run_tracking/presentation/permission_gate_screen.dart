@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../profile/presentation/settings_screen.dart';
 import '../application/run_tracker_controller.dart';
 import '../../navigation/presentation/main_scaffold.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/retro_loading_indicator.dart';
 import 'package:disable_battery_optimization/disable_battery_optimization.dart';
+import '../../../shared/theme/app_colors.dart';
 
 class PermissionGateScreen extends ConsumerStatefulWidget {
   const PermissionGateScreen({super.key});
@@ -16,7 +17,8 @@ class PermissionGateScreen extends ConsumerStatefulWidget {
   ConsumerState<PermissionGateScreen> createState() => _PermissionGateScreenState();
 }
 
-class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
+class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
+    with WidgetsBindingObserver {
   bool _requestingForeground = false;
   bool _requestingBackground = false;
   String _errorMsg = "";
@@ -24,10 +26,27 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
   @override
   void initState() {
     super.initState();
-    // Check permission status on startup, if already granted, go to ActiveRunScreen directly after build
+    WidgetsBinding.instance.addObserver(this);
+    // Check permission status on startup; if already granted, skip the gate.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkPermissionsAndNavigate();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Called whenever the app lifecycle changes. Re-check permissions on resume
+  /// so the gate dismisses automatically if the user granted access in the
+  /// system settings and then returned to the app.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(runTrackerProvider.notifier).recheckPermissions();
+    }
   }
 
   void _checkPermissionsAndNavigate() {
@@ -42,6 +61,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
   @override
   Widget build(BuildContext context) {
     final trackerState = ref.watch(runTrackerProvider);
+    final retroColors = Theme.of(context).extension<AppColors>()!;
     
     // Automatically redirect if permission gets granted
     ref.listen(runTrackerProvider, (prev, next) {
@@ -53,14 +73,14 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
     });
 
     if (!trackerState.permissionsChecked) {
-      return const Scaffold(
-        backgroundColor: Color(0xff121212),
-        body: Center(child: RetroLoadingIndicator(text: 'INITIALIZING')),
+      return Scaffold(
+        backgroundColor: retroColors.background,
+        body: const Center(child: RetroLoadingIndicator(text: 'INITIALIZING')),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xff121212),
+      backgroundColor: retroColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
@@ -78,8 +98,8 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        PhosphorIcons.navigationArrow(PhosphorIconsStyle.fill),
-                        color: const Color(0xffff5a3c),
+                        PhosphorIcons.navigationArrowFill,
+                        color: retroColors.accent,
                         size: 32,
                       ),
                       const SizedBox(width: 8),
@@ -89,13 +109,13 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2.0,
-                          color: Colors.white,
+                          color: retroColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
                   IconButton(
-                    icon: Icon(PhosphorIcons.gear(PhosphorIconsStyle.regular), color: Colors.white),
+                    icon: Icon(PhosphorIcons.gear, color: retroColors.textPrimary),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -111,16 +131,17 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: const Color(0xff1c1c1e),
+                    color: retroColors.surfaceRaised,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xff2e2e30)),
+                    border: Border.all(color: retroColors.border),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
                       Icon(
-                        PhosphorIcons.shieldCheck(PhosphorIconsStyle.bold),
-                        color: const Color(0xffff5a3c),
+                        PhosphorIcons.shieldCheckBold,
+                        color: retroColors.accent,
                         size: 64,
                       ),
                       const SizedBox(height: 24),
@@ -129,7 +150,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: retroColors.textPrimary,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -138,7 +159,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                         'Trailhead requires these permissions to work perfectly:\n\n• Location: To accurately map your route and calculate your pace.\n• Background Location: To keep tracking even when your screen is locked.\n• Physical Activity: To count your steps and track your cadence.\n• Notifications: To send you important milestone alerts and audio cues.',
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 14,
-                          color: const Color(0xffa0a0a3),
+                          color: retroColors.textSecondary,
                           height: 1.5,
                         ),
                         textAlign: TextAlign.left,
@@ -149,12 +170,13 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                           _errorMsg,
                           style: GoogleFonts.spaceGrotesk(
                             fontSize: 14,
-                            color: Colors.redAccent,
+                            color: retroColors.error,
                           ),
                           textAlign: TextAlign.center,
                         ),
                       ],
                     ],
+                  ),
                   ),
                 ),
               ),
@@ -169,7 +191,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                     child: Container(
                       height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xffff5a3c),
+                        color: retroColors.accent,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.center,
@@ -193,7 +215,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                       decoration: BoxDecoration(
                         color: Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xffff5a3c), width: 2),
+                        border: Border.all(color: retroColors.accent, width: 2),
                       ),
                       alignment: Alignment.center,
                       child: _requestingBackground
@@ -203,7 +225,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                               style: GoogleFonts.spaceGrotesk(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xffff5a3c),
+                                color: retroColors.accent,
                               ),
                             ),
                     ),
@@ -213,7 +235,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen> {
                     'Note: Please select "Allow all the time" in the system settings dialog for background tracking to work.',
                     style: GoogleFonts.spaceGrotesk(
                       fontSize: 12,
-                      color: const Color(0xff5c5c5e),
+                      color: retroColors.textSecondary.withValues(alpha: 0.7),
                     ),
                     textAlign: TextAlign.center,
                   ),

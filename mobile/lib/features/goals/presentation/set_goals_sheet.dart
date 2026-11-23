@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../application/goals_provider.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 class SetGoalsSheet extends ConsumerStatefulWidget {
   final AppColors retroColors;
@@ -28,8 +28,8 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
     final goals = ref.read(goalsProvider).valueOrNull ?? Goals.empty();
     _dailyMetric = goals.dailyGoalMetric;
     _dailyTarget = goals.dailyGoalTarget;
-    _monthlyMetric = goals.monthlyGoalMetric;
-    _monthlyTarget = goals.monthlyGoalTarget;
+    _monthlyMetric = goals.monthlyGoalMetric == 'steps' ? 'distance' : goals.monthlyGoalMetric;
+    _monthlyTarget = goals.monthlyGoalMetric == 'steps' ? 50.0 : goals.monthlyGoalTarget;
     
     _dCtrl.text = _dailyTarget.toInt().toString();
     _mCtrl.text = _monthlyTarget.toInt().toString();
@@ -74,7 +74,7 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
               Text('SET GOALS', style: AppTextStyles.title(color: widget.retroColors.textPrimary)),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(PhosphorIcons.x(), color: widget.retroColors.textSecondary),
+                icon: Icon(PhosphorIcons.x, color: widget.retroColors.textSecondary),
               ),
             ],
           ),
@@ -129,7 +129,6 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
                   dropdownColor: widget.retroColors.surfaceRaised,
                   style: AppTextStyles.bodyMedium(color: widget.retroColors.textPrimary),
                   items: const [
-                    DropdownMenuItem(value: 'steps', child: Text('Steps')),
                     DropdownMenuItem(value: 'distance', child: Text('Distance (km)')),
                     DropdownMenuItem(value: 'duration', child: Text('Duration (min)')),
                   ],

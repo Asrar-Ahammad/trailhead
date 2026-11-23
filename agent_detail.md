@@ -171,6 +171,7 @@ model Run {
   distanceM     Float      // meters
   durationS     Int        // seconds, excludes paused time
   avgPaceSPerKm Float
+  avgGapSPerKm  Float?     // grade-adjusted pace, seconds per km — null if elevation data insufficient, see Phase 8b
   elevationGainM Float?
   stepCount     Int?       // from device pedometer, excludes paused intervals
   avgStrideLengthM Float?  // distanceM / stepCount, null if step data unavailable
@@ -601,6 +602,42 @@ Android: enable `android:allowBackup="false"` or configure backup rules carefull
 
 ---
 
+## Phase 8b: Grade-adjusted pace (GAP)
+
+Backend-computed, stored on `Run.avgGapSPerKm` (already added to schema above), surfaced in Run Detail and completion screen alongside raw avg pace. Computed server-side, not on-device — same rationale as PR/Best Effort detection: keep the analytical logic centralized in one place (the backend), not duplicated between Flutter and any future client.
+
+### Module structure (strict — this is the point of "modular")
+Isolate this entirely from existing pace/PR logic, don't bolt it onto an existing file:
+- `lib/gap/gradeCost.ts` (or `.js`, matching your existing backend file extensions) — pure function, no DB/IO. Implements the Minetti et al. (2002) metabolic cost-of-running-on-gradient equation:
+  ```
+  C(i) = 155.4·i⁵ − 30.4·i⁴ − 43.3·i³ + 46.3·i² + 19.5·i + 3.6
+  ```
+  where `i` is gradient as a decimal fraction (0.1 = 10% grade, can be negative for downhill), `C(i)` is energy cost in J/kg/m. `C(0) = 3.6` is the flat-ground baseline cost — this constant recurs everywhere below, define it once, reference it, don't re-type the literal.
+  Export a single function: `gradeCostFactor(gradeDecimal: number): number` returning `C(i) / C(0)` — the multiplier applied to pace, not the raw cost value. Unit-testable in isolation, no dependencies.
+- `lib/gap/segmentGrade.ts` — takes an array of `RunPoint`-shaped objects (lat, lng, elevation, timestamp), returns per-segment grade + distance + duration, using the same smoothed-elevation input already produced by the Phase 8 elevation-gain moving-average step (reuse that smoothing, don't recompute it a second way). Segment = consecutive accepted point pairs, same point set already used for distance/pace calc — don't introduce a second point-filtering pass.
+- `lib/gap/computeGap.ts` — orchestrates: takes a run's full point set, calls `segmentGrade` for per-segment grade, applies `gradeCostFactor` per segment, produces a distance-weighted average GAP for the whole run. This is the only function the API route calls — route handlers stay thin, all math lives here, importable/unit-testable independent of any HTTP context.
+
+### Calculation logic (inside `computeGap.ts`)
+1. For each segment: `gradeDecimal = elevationDeltaM / segmentDistanceM` (guard divide-by-zero on near-zero-distance segments — skip them, don't let them blow up the grade calc, consistent with existing divide-by-zero guards elsewhere in this doc).
+2. Clamp extreme grades before applying the formula — GPS elevation noise can produce nonsensical spikes (e.g. 80% grade from a single bad point). Cap at a realistic running range (roughly ±30-40%); beyond that, treat as noise and fall back to the previous valid segment's grade rather than feeding a garbage value into the Minetti formula.
+3. `segmentGapPace = segmentActualPace × gradeCostFactor(gradeDecimal)` — steeper uphill inflates the effective pace (makes it look slower/harder), downhill reduces it, matching the physiological intent (uphill running costs more energy per unit pace than flat, so GAP "charges" for that).
+4. Weight each segment's contribution by its distance, sum, divide by total distance → single `avgGapSPerKm` for the run.
+5. Null-safe: if elevation data is missing/entirely flat/insufficient point density for meaningful segments, set `avgGapSPerKm = null` rather than returning a GAP equal to raw pace (a GAP identical to pace on a genuinely flat run is fine and correct — only return null when the underlying data genuinely isn't there to compute it, not just when the result happens to equal actual pace).
+
+### Storage + trigger
+- Computed once, server-side, in the same points-insert route handler pass where PR/Best-Effort detection already runs (Phase 5) — one additional call to `computeGap()`, write result to `Run.avgGapSPerKm` on the same write, not a separate round-trip.
+- Prisma migration: add `avgGapSPerKm Float?` to the `Run` model (already reflected in the schema block above) — `npx prisma migrate dev` for local, standard migration flow for deploy, nothing unusual here.
+
+### API + display
+- No new dedicated endpoint needed — `avgGapSPerKm` rides along on the existing `GET /api/runs/:id` response, same object as everything else on that run.
+- Run Detail + completion screen: display GAP alongside raw avg pace, not replacing it — label clearly ("Pace" vs "Grade-Adjusted Pace") so the two numbers aren't confused for each other. Null-safe display ("—") if `avgGapSPerKm` is null, same convention as stride/cadence/calories elsewhere.
+- Optional, lower priority: per-split GAP (would require extending the splits computation, currently derived on-the-fly from points rather than stored — if adding, keep it computed in the same `lib/gap/` module, called per-split-window instead of whole-run, don't fork the logic into a second implementation).
+
+### Testing
+Since `gradeCostFactor` and `segmentGrade` are pure functions with no DB/IO dependency, unit test them directly: known grade inputs (0%, +10%, -10%, +20%) against expected Minetti cost ratios, and a synthetic point set with known elevation profile to verify `computeGap` produces the expected weighted average. This is exactly the kind of logic that's cheap to get subtly wrong (sign error on downhill, weighting by point-count instead of distance, etc.) and expensive to debug later from real run data alone — write the unit tests before wiring it into the route handler, not after.
+
+---
+
 ## Phase 9: AI layer (OpenAI, backend-mediated — unchanged logic from original plan)
 
 All AI calls happen in your Next.js backend, same as originally speced. The Flutter app calls your own API routes (e.g. `POST /api/runs/:id/summary`), which internally call OpenAI. Nothing here changes with the platform switch except the client is now Flutter instead of a web PWA.
@@ -621,7 +658,7 @@ General rules for every sub-feature:
 
 ### 9.1 Run summary / finish-workout comment
 - Trigger: moment user taps "Finish" on active run — fire request immediately, completion screen shows stats instantly, comment slots in when ready
-- Input: this workout's own stats only — distance, duration, pace, splits, time of day, weather if available, calories/stride/cadence if available (null-safe, don't pass "—" placeholder text into the prompt, just omit the field when null). Age + gender optional context (only if set) — lets the comment reference age-appropriate pace context without being asked; weight already factors into the calorie number itself, doesn't need separate mention here.
+- Input: this workout's own stats only — distance, duration, pace, splits, time of day, weather if available, calories/stride/cadence/grade-adjusted pace if available (null-safe, don't pass "—" placeholder text into the prompt, just omit the field when null). Age + gender optional context (only if set) — lets the comment reference age-appropriate pace context without being asked; weight already factors into the calorie number itself, doesn't need separate mention here. GAP is worth including specifically when it diverges notably from raw pace (a hilly run) — gives the model grounds to say something like "strong pace given the climb" instead of misreading a slow raw pace as a weak effort.
 - Model: gpt-4o-mini
 - Output: 1-2 sentence comment specific to this workout's numbers, plain text
 - Latency: show "Generating insights…" placeholder immediately, replace with real text on arrival

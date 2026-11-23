@@ -2,7 +2,7 @@ import 'package:trailhead_mobile/features/run_tracking/application/run_format_ut
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,7 +114,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                 color: colors.textPrimary,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(PhosphorIcons.info(), color: colors.textSecondary, size: 20),
+              child: Icon(PhosphorIcons.info, color: colors.textSecondary, size: 20),
             ),
           ],
         ),

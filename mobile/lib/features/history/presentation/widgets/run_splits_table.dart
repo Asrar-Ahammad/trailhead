@@ -42,6 +42,7 @@ class RunSplitsTable extends StatelessWidget {
         Divider(color: colors.border, height: 1),
         const SizedBox(height: 16),
         ListView.separated(
+          padding: EdgeInsets.zero,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: splits.length,
@@ -71,13 +72,13 @@ class RunSplitsTable extends StatelessWidget {
                   ),
                 ),
                 SizedBox(
-                  width: 50,
+                  width: 60,
                   child: Text(
                     paceStr,
                     style: AppTextStyles.bodyMedium(color: colors.textPrimary),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 8),
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {

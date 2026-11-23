@@ -22,18 +22,23 @@ const DailyStepsIsarSchema = CollectionSchema(
       name: r'dateKey',
       type: IsarType.string,
     ),
-    r'lastPedometerValue': PropertySchema(
+    r'hourlySteps': PropertySchema(
       id: 1,
+      name: r'hourlySteps',
+      type: IsarType.longList,
+    ),
+    r'lastPedometerValue': PropertySchema(
+      id: 2,
       name: r'lastPedometerValue',
       type: IsarType.long,
     ),
     r'lastUpdated': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'lastUpdated',
       type: IsarType.dateTime,
     ),
     r'steps': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'steps',
       type: IsarType.long,
     )
@@ -78,6 +83,7 @@ int _dailyStepsIsarEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  bytesCount += 3 + object.hourlySteps.length * 8;
   return bytesCount;
 }
 
@@ -88,9 +94,10 @@ void _dailyStepsIsarSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.dateKey);
-  writer.writeLong(offsets[1], object.lastPedometerValue);
-  writer.writeDateTime(offsets[2], object.lastUpdated);
-  writer.writeLong(offsets[3], object.steps);
+  writer.writeLongList(offsets[1], object.hourlySteps);
+  writer.writeLong(offsets[2], object.lastPedometerValue);
+  writer.writeDateTime(offsets[3], object.lastUpdated);
+  writer.writeLong(offsets[4], object.steps);
 }
 
 DailyStepsIsar _dailyStepsIsarDeserialize(
@@ -101,10 +108,11 @@ DailyStepsIsar _dailyStepsIsarDeserialize(
 ) {
   final object = DailyStepsIsar();
   object.dateKey = reader.readStringOrNull(offsets[0]);
+  object.hourlySteps = reader.readLongList(offsets[1]) ?? [];
   object.id = id;
-  object.lastPedometerValue = reader.readLong(offsets[1]);
-  object.lastUpdated = reader.readDateTimeOrNull(offsets[2]);
-  object.steps = reader.readLong(offsets[3]);
+  object.lastPedometerValue = reader.readLong(offsets[2]);
+  object.lastUpdated = reader.readDateTimeOrNull(offsets[3]);
+  object.steps = reader.readLong(offsets[4]);
   return object;
 }
 
@@ -118,10 +126,12 @@ P _dailyStepsIsarDeserializeProp<P>(
     case 0:
       return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readLongList(offset) ?? []) as P;
     case 2:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 3:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 4:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -497,6 +507,151 @@ extension DailyStepsIsarQueryFilter
         property: r'dateKey',
         value: '',
       ));
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsElementEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'hourlySteps',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsElementGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'hourlySteps',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsElementLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'hourlySteps',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsElementBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'hourlySteps',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'hourlySteps',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'hourlySteps',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'hourlySteps',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'hourlySteps',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'hourlySteps',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QAfterFilterCondition>
+      hourlyStepsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'hourlySteps',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -882,6 +1037,13 @@ extension DailyStepsIsarQueryWhereDistinct
   }
 
   QueryBuilder<DailyStepsIsar, DailyStepsIsar, QDistinct>
+      distinctByHourlySteps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'hourlySteps');
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, DailyStepsIsar, QDistinct>
       distinctByLastPedometerValue() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lastPedometerValue');
@@ -913,6 +1075,13 @@ extension DailyStepsIsarQueryProperty
   QueryBuilder<DailyStepsIsar, String?, QQueryOperations> dateKeyProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'dateKey');
+    });
+  }
+
+  QueryBuilder<DailyStepsIsar, List<int>, QQueryOperations>
+      hourlyStepsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'hourlySteps');
     });
   }
 

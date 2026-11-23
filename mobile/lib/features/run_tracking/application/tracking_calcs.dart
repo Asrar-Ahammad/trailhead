@@ -14,9 +14,9 @@ class TrackingCalcs {
   }
 
   /// Filters GPS jumps and poor accuracy coordinates.
-  /// Rejects if accuracy is above 30m or if calculated velocity exceeds 12 m/s (~43 km/h).
-  static bool isGpsJump(double deltaDist, double deltaTimeS, double accuracy) {
-    if (accuracy > 30.0) return true;
+  /// Rejects if accuracy is above [maxAccuracy] (default 30m) or if calculated velocity exceeds 12 m/s (~43 km/h).
+  static bool isGpsJump(double deltaDist, double deltaTimeS, double accuracy, {double maxAccuracy = 30.0}) {
+    if (accuracy > maxAccuracy) return true;
     if (deltaTimeS <= 0.0) return false;
     final speed = deltaDist / deltaTimeS;
     if (speed > 12.0) return true;
@@ -24,22 +24,28 @@ class TrackingCalcs {
   }
 
   /// Estimates energy expenditure (calories in Kcal) using MET tables.
+  /// Returns null if weightKg is null or durationS <= 0.
   static double? estimateCalories({
     required double? weightKg,
     required double distanceM,
     required int durationS,
   }) {
     if (weightKg == null || durationS <= 0) return null;
-    final avgSpeed = distanceM / durationS;
-    double met = 1.0;
-    if (avgSpeed < 1.38) { // Walk < 5 km/h
-      met = 3.5;
-    } else if (avgSpeed < 2.22) { // Jog < 8 km/h
+    double met;
+    if (distanceM > 0) {
+      final avgSpeed = distanceM / durationS; // m/s
+      if (avgSpeed < 1.38) { // Walk < 5 km/h
+        met = 3.5;
+      } else if (avgSpeed < 2.22) { // Jog < 8 km/h
+        met = 7.0;
+      } else if (avgSpeed < 3.33) { // Run < 12 km/h
+        met = 10.0;
+      } else { // Fast run
+        met = 12.5;
+      }
+    } else {
+      // No GPS distance yet — assume light jogging so calories appear immediately
       met = 7.0;
-    } else if (avgSpeed < 3.33) { // Run < 12 km/h
-      met = 10.0;
-    } else { // Run fast
-      met = 12.5;
     }
     return met * weightKg * (durationS / 3600.0);
   }

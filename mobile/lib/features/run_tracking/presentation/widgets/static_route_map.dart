@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
-import '../../data/map_tile_cache_manager.dart';
 import '../../../../shared/theme/app_colors.dart';
+import '../../application/tracking_calcs.dart';
 
 /// Static, read-only route map shown after a run is completed.
 ///
-/// Renders the full route polyline, a green start marker, and a coral/red end
-/// marker. Used on the post-run completion screen (Phase 3).
+/// Renders the full route polyline, Strava-style kilometer/milestone markers,
+/// green start marker, and coral finish flag.
 ///
 /// [points] must be in chronological order (start → end).
 class StaticRouteMap extends StatelessWidget {
@@ -16,22 +17,73 @@ class StaticRouteMap extends StatelessWidget {
     required this.points,
     this.showBaseMap = true,
     this.showMarkers = true,
+    this.showKilometerMarkers = true,
+    this.useMiles = false,
     this.padding = const EdgeInsets.all(32.0),
     this.animationProgress,
+    this.isMonochrome = false,
   });
 
   final List<LatLng> points;
   final bool showBaseMap;
   final bool showMarkers;
+  final bool showKilometerMarkers;
+  final bool useMiles;
   final EdgeInsets padding;
   final double? animationProgress;
+  final bool isMonochrome;
 
-  String _tileUrl(Brightness brightness) {
-    if (brightness == Brightness.dark) {
-      return 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png';
+  // Single free OSM tile URL — no API key needed.
+  static const String _osmTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  /// Builds the tile layer with optional monochrome (grayscale) or dark mode filtering.
+  Widget _buildTileLayer(Brightness brightness) {
+    final tileLayer = TileLayer(
+      urlTemplate: _osmTileUrl,
+      tileProvider: NetworkTileProvider(),
+      userAgentPackageName: 'com.trailhead.mobile',
+    );
+
+    if (isMonochrome) {
+      if (brightness == Brightness.dark) {
+        // High-contrast dark monochrome (grayscale inverted)
+        return ColorFiltered(
+          colorFilter: const ColorFilter.matrix([
+            -0.2126, -0.7152, -0.0722, 0, 240,
+            -0.2126, -0.7152, -0.0722, 0, 240,
+            -0.2126, -0.7152, -0.0722, 0, 240,
+             0,       0,       0,      1, 0,
+          ]),
+          child: tileLayer,
+        );
+      } else {
+        // Crisp light grayscale monochrome
+        return ColorFiltered(
+          colorFilter: const ColorFilter.matrix([
+            0.2126, 0.7152, 0.0722, 0, 0,
+            0.2126, 0.7152, 0.0722, 0, 0,
+            0.2126, 0.7152, 0.0722, 0, 0,
+            0,      0,      0,      1, 0,
+          ]),
+          child: tileLayer,
+        );
+      }
     }
-    return 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png';
+
+    if (brightness == Brightness.dark) {
+      return ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          -1,  0,  0, 0, 255,
+           0, -1,  0, 0, 255,
+           0,  0, -1, 0, 255,
+           0,  0,  0, 1,   0,
+        ]),
+        child: tileLayer,
+      );
+    }
+    return tileLayer;
   }
+
 
   /// Computes a [LatLngBounds] that fits all [points] with padding.
   /// Returns null if there are fewer than 2 distinct points (zero-area bounds
@@ -42,6 +94,42 @@ class StaticRouteMap extends StatelessWidget {
     // Guard against zero-area bounds (all points identical)
     if (bounds.north == bounds.south && bounds.east == bounds.west) return null;
     return bounds;
+  }
+
+  /// Calculates exact milestone coordinates along the path (e.g. 1 km, 2 km...).
+  List<_MilestonePoint> _calculateMilestones(List<LatLng> pts) {
+    if (pts.length < 2) return const [];
+    final intervalM = useMiles ? 1609.344 : 1000.0;
+    final milestones = <_MilestonePoint>[];
+    double accumulatedM = 0.0;
+    int nextMilestone = 1;
+
+    for (int i = 1; i < pts.length; i++) {
+      final prev = pts[i - 1];
+      final curr = pts[i];
+      final dist = TrackingCalcs.calculateDistance(
+        prev.latitude,
+        prev.longitude,
+        curr.latitude,
+        curr.longitude,
+      );
+
+      final nextTargetM = nextMilestone * intervalM;
+      if (accumulatedM + dist >= nextTargetM) {
+        final excess = nextTargetM - accumulatedM;
+        final fraction = (dist > 0.001) ? (excess / dist).clamp(0.0, 1.0) : 0.0;
+        final lat = prev.latitude + (curr.latitude - prev.latitude) * fraction;
+        final lng = prev.longitude + (curr.longitude - prev.longitude) * fraction;
+
+        milestones.add(_MilestonePoint(
+          number: nextMilestone,
+          point: LatLng(lat, lng),
+        ));
+        nextMilestone++;
+      }
+      accumulatedM += dist;
+    }
+    return milestones;
   }
 
   @override
@@ -87,12 +175,7 @@ class StaticRouteMap extends StatelessWidget {
         ),
         children: [
           if (showBaseMap)
-            TileLayer(
-              urlTemplate: _tileUrl(brightness),
-              subdomains: const ['a', 'b', 'c'],
-              tileProvider: MapTileCacheManager.instance.tileProvider,
-              userAgentPackageName: 'com.trailhead.mobile',
-            ),
+            _buildTileLayer(brightness),
 
 
           // Full route polyline
@@ -107,30 +190,117 @@ class StaticRouteMap extends StatelessWidget {
               ],
             ),
 
-          // Start marker — green
-          if (showMarkers)
-            CircleLayer(
-              circles: [
-                CircleMarker(
-                  point: renderPoints.first,
-                  radius: 8,
-                  color: colors.success,
-                  borderColor: Colors.white,
-                  borderStrokeWidth: 2,
+          // Strava-style kilometer / milestone markers along route polyline
+          if (showMarkers && showKilometerMarkers)
+            MarkerLayer(
+              markers: [
+                ..._calculateMilestones(renderPoints).map(
+                  (m) => Marker(
+                    point: m.point,
+                    width: 22,
+                    height: 22,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colors.textPrimary,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1.5),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${m.number}',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: colors.textPrimary,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
 
-          // End marker — coral/accent
+          // Start marker (Green circle with white inner dot)
+          if (showMarkers)
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: renderPoints.first,
+                  width: 22,
+                  height: 22,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colors.success,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colors.surface,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1.5),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+          // End marker (Checkerboard finish pattern)
           if (showMarkers && renderPoints.length > 1 && (animationProgress == null || animationProgress! >= 1.0))
-            CircleLayer(
-              circles: [
-                CircleMarker(
+            MarkerLayer(
+              markers: [
+                Marker(
                   point: renderPoints.last,
-                  radius: 8,
-                  color: colors.accent,
-                  borderColor: Colors.white,
-                  borderStrokeWidth: 2,
+                  width: 24,
+                  height: 24,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: colors.surface,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1.5),
+                        ),
+                      ],
+                    ),
+                    child: const ClipOval(
+                      child: CustomPaint(
+                        size: Size(20, 20),
+                        painter: _CheckerboardPainter(),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -138,8 +308,7 @@ class StaticRouteMap extends StatelessWidget {
           if (showBaseMap)
             const RichAttributionWidget(
               attributions: [
-                TextSourceAttribution('\u00a9 OpenStreetMap contributors'),
-                TextSourceAttribution('\u00a9 CARTO'),
+                TextSourceAttribution('© OpenStreetMap contributors'),
               ],
               showFlutterMapAttribution: false,
             ),
@@ -173,4 +342,45 @@ class _EmptyMapPlaceholder extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MilestonePoint {
+  final int number;
+  final LatLng point;
+
+  const _MilestonePoint({
+    required this.number,
+    required this.point,
+  });
+}
+
+/// Custom painter rendering a classic racing finish line checkerboard pattern.
+class _CheckerboardPainter extends CustomPainter {
+  const _CheckerboardPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const divisions = 4;
+    final cellW = size.width / divisions;
+    final cellH = size.height / divisions;
+
+    final paintLight = Paint()..color = Colors.white;
+    final paintDark = Paint()..color = Colors.black;
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paintLight);
+
+    for (int row = 0; row < divisions; row++) {
+      for (int col = 0; col < divisions; col++) {
+        if ((row + col) % 2 == 1) {
+          canvas.drawRect(
+            Rect.fromLTWH(col * cellW, row * cellH, cellW, cellH),
+            paintDark,
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CheckerboardPainter oldDelegate) => false;
 }

@@ -44,12 +44,17 @@ final weatherPacingProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final seconds = adjustedPaceS % 60;
   final adjustedPaceStr = '$minutes:${seconds.toString().padLeft(2, '0')} / km';
 
+  final int rawWeatherCode = (weatherData['weathercode'] ?? weatherData['weather_code'] as num?)?.toInt() ?? 0;
+  final int rawIsDay = (weatherData['is_day'] as num?)?.toInt() ?? 1;
+
   return {
     'temperature': tempC,
     'windSpeed': windSpeed,
     'adjustmentSeconds': paceAdjustmentSeconds,
     'adjustedPace': adjustedPaceStr,
-    'weatherCode': weatherData['weathercode'],
+    'adjustedPaceSeconds': adjustedPaceS,
+    'weatherCode': rawWeatherCode,
+    'isDay': rawIsDay,
     'advice': advice,
     'city': weatherData['city'] ?? 'Unknown',
   };

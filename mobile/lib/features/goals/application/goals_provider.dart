@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../sync/data/api_client.dart';
+import '../../../main.dart'; // import global isarInstance
+import '../data/models/goal_isar.dart';
 
 class Goals {
   final String dailyGoalMetric; // 'steps', 'distance', 'duration'
@@ -19,16 +21,16 @@ class Goals {
     return Goals(
       dailyGoalMetric: 'steps',
       dailyGoalTarget: 5000,
-      monthlyGoalMetric: 'steps',
-      monthlyGoalTarget: 150000,
+      monthlyGoalMetric: 'distance',
+      monthlyGoalTarget: 50,
     );
   }
 }
 
 class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
-  final ApiClient apiClient;
+  final Isar _isar;
 
-  GoalsNotifier({required this.apiClient}) : super(const AsyncValue.loading()) {
+  GoalsNotifier(this._isar) : super(const AsyncValue.loading()) {
     _loadGoals();
   }
 
@@ -36,45 +38,41 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Load local cache first
+      // Load local SharedPreferences cache first
       final dMetric = prefs.getString('dailyGoalMetric');
       final dTarget = prefs.getDouble('dailyGoalTarget');
       final mMetric = prefs.getString('monthlyGoalMetric');
       final mTarget = prefs.getDouble('monthlyGoalTarget');
 
       if (dMetric != null && dTarget != null && mMetric != null && mTarget != null) {
-        state = AsyncValue.data(Goals(
+        final cleanMMetric = mMetric == 'steps' ? 'distance' : mMetric;
+        final cleanMTarget = mMetric == 'steps' ? 50.0 : mTarget;
+        final goals = Goals(
           dailyGoalMetric: dMetric,
           dailyGoalTarget: dTarget,
-          monthlyGoalMetric: mMetric,
-          monthlyGoalTarget: mTarget,
-        ));
+          monthlyGoalMetric: cleanMMetric,
+          monthlyGoalTarget: cleanMTarget,
+        );
+        if (mMetric == 'steps') {
+          await _saveToPrefs(goals, prefs);
+        }
+        state = AsyncValue.data(goals);
       } else {
-        state = AsyncValue.data(Goals.empty());
-      }
-
-      // Fetch from API
-      final response = await apiClient.client.get('/auth/me');
-      if (response.statusCode == 200) {
-        final data = response.data;
-        
-        final dailyMetric = data['dailyGoalMetric'] as String?;
-        final dailyTarget = (data['dailyGoalTarget'] as num?)?.toDouble();
-        final monthlyMetric = data['monthlyGoalMetric'] as String?;
-        final monthlyTarget = (data['monthlyGoalTarget'] as num?)?.toDouble();
-
-        if (dailyMetric != null && dailyTarget != null && monthlyMetric != null && monthlyTarget != null) {
+        // Try loading from Isar
+        final goalIsar = await _isar.goalIsars.filter().keyEqualTo('user_goals').findFirst();
+        if (goalIsar != null) {
+          final cleanMMetric = goalIsar.monthlyGoalMetric == 'steps' ? 'distance' : goalIsar.monthlyGoalMetric;
+          final cleanMTarget = goalIsar.monthlyGoalMetric == 'steps' ? 50.0 : goalIsar.monthlyGoalTarget;
           final goals = Goals(
-            dailyGoalMetric: dailyMetric,
-            dailyGoalTarget: dailyTarget,
-            monthlyGoalMetric: monthlyMetric,
-            monthlyGoalTarget: monthlyTarget,
+            dailyGoalMetric: goalIsar.dailyGoalMetric,
+            dailyGoalTarget: goalIsar.dailyGoalTarget,
+            monthlyGoalMetric: cleanMMetric,
+            monthlyGoalTarget: cleanMTarget,
           );
-          
-          await _saveToLocal(goals, prefs);
-          if (mounted) {
-            state = AsyncValue.data(goals);
-          }
+          await _saveToPrefs(goals, prefs);
+          state = AsyncValue.data(goals);
+        } else {
+          state = AsyncValue.data(Goals.empty());
         }
       }
     } catch (e, st) {
@@ -84,7 +82,7 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
     }
   }
 
-  Future<void> _saveToLocal(Goals goals, SharedPreferences prefs) async {
+  Future<void> _saveToPrefs(Goals goals, SharedPreferences prefs) async {
     await prefs.setString('dailyGoalMetric', goals.dailyGoalMetric);
     await prefs.setDouble('dailyGoalTarget', goals.dailyGoalTarget);
     await prefs.setString('monthlyGoalMetric', goals.monthlyGoalMetric);
@@ -95,20 +93,24 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
     try {
       state = const AsyncValue.loading();
       
-      final response = await apiClient.client.put('/auth/me', data: {
-        'dailyGoalMetric': newGoals.dailyGoalMetric,
-        'dailyGoalTarget': newGoals.dailyGoalTarget,
-        'monthlyGoalMetric': newGoals.monthlyGoalMetric,
-        'monthlyGoalTarget': newGoals.monthlyGoalTarget,
+      // Save to Isar
+      await _isar.writeTxn(() async {
+        var goalIsar = await _isar.goalIsars.filter().keyEqualTo('user_goals').findFirst();
+        if (goalIsar == null) {
+          goalIsar = GoalIsar();
+        }
+        goalIsar
+          ..dailyGoalMetric = newGoals.dailyGoalMetric
+          ..dailyGoalTarget = newGoals.dailyGoalTarget
+          ..monthlyGoalMetric = newGoals.monthlyGoalMetric
+          ..monthlyGoalTarget = newGoals.monthlyGoalTarget;
+        await _isar.goalIsars.put(goalIsar);
       });
 
-      if (response.statusCode == 200) {
-        final prefs = await SharedPreferences.getInstance();
-        await _saveToLocal(newGoals, prefs);
-        state = AsyncValue.data(newGoals);
-      } else {
-        throw Exception('Failed to save goals');
-      }
+      // Save to preferences
+      final prefs = await SharedPreferences.getInstance();
+      await _saveToPrefs(newGoals, prefs);
+      state = AsyncValue.data(newGoals);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -116,6 +118,5 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
 }
 
 final goalsProvider = StateNotifierProvider<GoalsNotifier, AsyncValue<Goals>>((ref) {
-  final apiClient = ref.read(apiClientProvider);
-  return GoalsNotifier(apiClient: apiClient);
+  return GoalsNotifier(isarInstance);
 });

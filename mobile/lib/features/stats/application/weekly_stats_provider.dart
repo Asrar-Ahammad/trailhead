@@ -97,7 +97,7 @@ final weeklySummaryProvider = StreamProvider<WeeklySummary>((ref) {
           final missedDays = diff - 1;
           if (missedDays <= restDaysRemaining) {
             restDaysRemaining -= missedDays;
-            currentCount++; // Count only the run day
+            currentCount += missedDays + 1;
           } else {
             currentCount = 1;
             restDaysRemaining = (restDaysRemaining - missedDays) > 0 ? (restDaysRemaining - missedDays) : 0;
@@ -120,8 +120,9 @@ final weeklySummaryProvider = StreamProvider<WeeklySummary>((ref) {
         if (missedDays > restDaysRemaining) {
           currentCount = 0;
         } else {
-          // Streak is still alive but we haven't run today, so count remains the same
+          // Streak is still alive but we haven't run today, so add the rest days to the streak
           restDaysRemaining -= missedDays;
+          currentCount += missedDays;
         }
       }
     } else {

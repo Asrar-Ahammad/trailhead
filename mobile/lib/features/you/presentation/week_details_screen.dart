@@ -1,7 +1,8 @@
+import 'dart:ui';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
@@ -32,17 +33,29 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
     
     return Scaffold(
       backgroundColor: retroColors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text('WEEK ${widget.report.weekNumber}, ${widget.report.year}', style: AppTextStyles.title(color: retroColors.textPrimary)),
-        backgroundColor: retroColors.surface,
+        backgroundColor: retroColors.surface.withValues(alpha: 0.7),
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+            child: Container(color: Colors.transparent),
+          ),
+        ),
         leading: IconButton(
-          icon: Icon(PhosphorIcons.arrowLeft(), color: retroColors.textPrimary),
+          icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+          left: 16,
+          right: 16,
+          bottom: 16,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -92,9 +105,9 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildPill(retroColors, PhosphorIcons.personSimpleRun(), '${widget.report.runCount} Runs'),
+              _buildPill(retroColors, PhosphorIcons.personSimpleRun, '${widget.report.runCount} Runs'),
               const SizedBox(width: 12),
-              _buildPill(retroColors, PhosphorIcons.personSimpleWalk(), '${widget.report.walkCount} Walks'),
+              _buildPill(retroColors, PhosphorIcons.personSimpleWalk, '${widget.report.walkCount} Walks'),
             ],
           )
         ],
@@ -128,25 +141,25 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
       children: [
         Row(
           children: [
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.fire(), 'Calories', '${widget.report.totalCalories.round()} kcal')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.fire, 'Calories', '${widget.report.totalCalories.round()} kcal')),
             const SizedBox(width: 16),
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.sneaker(), 'Steps', '${widget.report.totalSteps}')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.sneaker, 'Steps', '${widget.report.totalSteps}')),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.timer(), 'Duration', workoutTime)),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.timer, 'Duration', workoutTime)),
             const SizedBox(width: 16),
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.lightning(), 'Avg Pace', '$avgPace/km')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.lightning, 'Avg Pace', '$avgPace/km')),
           ],
         ),
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.chartLine(), 'Avg Cadence', '${widget.report.avgCadenceSpm.round()} spm')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.chartLine, 'Avg Cadence', '${widget.report.avgCadenceSpm.round()} spm')),
             const SizedBox(width: 16),
-            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.ruler(), 'Avg Stride', '${widget.report.avgStrideLengthM.toStringAsFixed(2)} m')),
+            Expanded(child: _buildStatCard(retroColors, PhosphorIcons.ruler, 'Avg Stride', '${widget.report.avgStrideLengthM.toStringAsFixed(2)} m')),
           ],
         ),
       ],
@@ -210,7 +223,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(PhosphorIcons.listBullets(PhosphorIconsStyle.fill), color: retroColors.accent, size: 32),
+                Icon(PhosphorIcons.listBulletsFill, color: retroColors.accent, size: 32),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -225,7 +238,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
                     ],
                   ),
                 ),
-                Icon(PhosphorIcons.caretRight(), color: retroColors.textSecondary),
+                Icon(PhosphorIcons.caretRight, color: retroColors.textSecondary),
               ],
             ),
           ),
@@ -252,7 +265,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
     return _buildChartContainer(
       retroColors,
       title: 'Pace (min/km)',
-      icon: PhosphorIcons.lightning(),
+      icon: PhosphorIcons.lightning,
       child: LineChart(
         LineChartData(
           minX: 0,
@@ -385,7 +398,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
     return _buildChartContainer(
       retroColors,
       title: 'Cadence (spm)',
-      icon: PhosphorIcons.chartLine(),
+      icon: PhosphorIcons.chartLine,
       child: LineChart(
         LineChartData(
           minX: 0,

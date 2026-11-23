@@ -2,13 +2,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/active_run_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
+import 'package:trailhead_mobile/features/run_tracking/application/route_provider.dart';
 import 'package:trailhead_mobile/features/home/presentation/home_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 
@@ -56,6 +57,19 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         setState(() {
           _isAtBottom = false;
         });
+
+        // Whenever the user navigates TO the Record tab (index 1), immediately
+        // fetch a fresh GPS fix and re-center the map. force=true bypasses the
+        // "already have position" guard so we always get an up-to-date location.
+        // Skip if a run is already active — the background service handles GPS.
+        if (next == 1) {
+          final runStatus = ref.read(runTrackerProvider).status;
+          if (runStatus == 'idle') {
+            // Re-center immediately on last-known position while fresh fix loads.
+            ref.read(recenterSignalProvider.notifier).state++;
+            ref.read(runTrackerProvider.notifier).fetchInitialLocation(force: true);
+          }
+        }
       }
     });
 
@@ -64,7 +78,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     final isRunning = runState.status != 'idle';
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final gradientOpacity = isDarkMode ? 0.9 : 0.1;
+    final gradientOpacity = isDarkMode ? 0.15 : 0.04;
 
     final screens = [
       const HomeScreen(),
@@ -149,7 +163,9 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
                     colors: [
-                      (_isAtBottom || currentIndex == 1) ? Colors.transparent : Colors.black.withOpacity(gradientOpacity),
+                      (_isAtBottom || currentIndex == 1)
+                          ? Colors.transparent
+                          : Colors.black.withValues(alpha: gradientOpacity),
                       Colors.transparent,
                     ],
                   ),
@@ -160,18 +176,18 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(32),
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
+                        filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: retroColors.surface.withOpacity(0.7),
+                            color: retroColors.surface.withValues(alpha: isDarkMode ? 0.35 : 0.45),
                             borderRadius: BorderRadius.circular(32),
                             border: Border.all(
-                              color: retroColors.border.withOpacity(0.4), 
+                              color: retroColors.border.withValues(alpha: 0.5),
                               width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: retroColors.border.withValues(alpha: 0.12),
                                 blurRadius: 20,
                                 offset: const Offset(0, 8),
                               ),

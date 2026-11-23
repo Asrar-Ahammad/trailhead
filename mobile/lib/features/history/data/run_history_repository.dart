@@ -2,17 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
+import 'package:trailhead_mobile/features/stats/data/models/personal_record_isar.dart';
 import 'package:trailhead_mobile/main.dart'; // To access isarInstance
-import 'package:trailhead_mobile/features/sync/data/api_client.dart';
-import 'package:flutter/foundation.dart';
 
-final runHistoryRepositoryProvider = Provider((ref) => RunHistoryRepository(isarInstance, ref.read(apiClientProvider)));
+final runHistoryRepositoryProvider = Provider((ref) => RunHistoryRepository(isarInstance));
 
 class RunHistoryRepository {
   final Isar _isar;
-  final ApiClient _apiClient;
 
-  RunHistoryRepository(this._isar, this._apiClient);
+  RunHistoryRepository(this._isar);
 
   Future<List<RunIsar>> getCompletedRuns({int limit = 50, int offset = 0}) async {
     return _isar.runIsars
@@ -50,18 +48,40 @@ class RunHistoryRepository {
         .findAll();
   }
 
-  Future<void> deleteRun(int id) async {
-    final run = await _isar.runIsars.get(id);
-    if (run != null && run.clientRunId != null) {
-      try {
-        await _apiClient.client.delete('/runs/${run.clientRunId}');
-      } catch (e) {
-        debugPrint('Failed to delete on server: $e');
-      }
+  Future<void> deleteRun(int id, {String? clientRunId}) async {
+    RunIsar? run = await _isar.runIsars.get(id);
+    if (run == null && clientRunId != null && clientRunId.isNotEmpty) {
+      run = await _isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+    }
+    if (run == null && (clientRunId == null || clientRunId.isEmpty)) return;
+
+    final resolvedClientRunId = run?.clientRunId ?? clientRunId;
+    final resolvedId = run?.id ?? id;
+
+    List<int> pointIds = [];
+    List<int> prIds = [];
+    if (resolvedClientRunId != null && resolvedClientRunId.isNotEmpty) {
+      final points = await _isar.runPointIsars
+          .filter()
+          .clientRunIdEqualTo(resolvedClientRunId)
+          .findAll();
+      pointIds = points.map((p) => p.id).toList();
+
+      final prs = await _isar.personalRecordIsars
+          .filter()
+          .runIdEqualTo(resolvedClientRunId)
+          .findAll();
+      prIds = prs.map((p) => p.id).toList();
     }
 
     await _isar.writeTxn(() async {
-      await _isar.runIsars.delete(id);
+      await _isar.runIsars.delete(resolvedId);
+      if (pointIds.isNotEmpty) {
+        await _isar.runPointIsars.deleteAll(pointIds);
+      }
+      if (prIds.isNotEmpty) {
+        await _isar.personalRecordIsars.deleteAll(prIds);
+      }
     });
   }
 
