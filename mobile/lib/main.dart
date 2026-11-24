@@ -26,7 +26,9 @@ late Isar isarInstance;
 
 final initialThemeModeProvider = Provider<ThemeMode>((ref) => ThemeMode.system);
 
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((
+  ref,
+) {
   final initial = ref.watch(initialThemeModeProvider);
   return ThemeModeNotifier(initial);
 });
@@ -47,18 +49,15 @@ void main() async {
 
   // Initialize Isar
   final dir = await getApplicationDocumentsDirectory();
-  isarInstance = await Isar.open(
-    [
-      RunIsarSchema,
-      RunPointIsarSchema,
-      ShoeIsarSchema,
-      DailyStepsIsarSchema,
-      PersonalRecordIsarSchema,
-      WeeklyReportIsarSchema,
-      GoalIsarSchema,
-    ],
-    directory: dir.path,
-  );
+  isarInstance = await Isar.open([
+    RunIsarSchema,
+    RunPointIsarSchema,
+    ShoeIsarSchema,
+    DailyStepsIsarSchema,
+    PersonalRecordIsarSchema,
+    WeeklyReportIsarSchema,
+    GoalIsarSchema,
+  ], directory: dir.path);
 
   // Initialize Notifications
   try {
@@ -83,7 +82,9 @@ void main() async {
         playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(60000), // Update notification every 60s
+        eventAction: ForegroundTaskEventAction.repeat(
+          60000,
+        ), // Update notification every 60s
         autoRunOnBoot: false,
         autoRunOnMyPackageReplaced: false,
         allowWakeLock: true,
@@ -101,7 +102,9 @@ void main() async {
           callback: backgroundStepCallback,
         );
       } else {
-        debugPrint('Activity recognition permission not granted. Skipping background step counter.');
+        debugPrint(
+          'Activity recognition permission not granted. Skipping background step counter.',
+        );
       }
     }
   } catch (e, st) {
@@ -136,10 +139,12 @@ class TrailheadApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
-    final isDark = themeMode == ThemeMode.dark || 
-                  (themeMode == ThemeMode.system && 
-                   WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
-                   
+    final isDark =
+        themeMode == ThemeMode.dark ||
+        (themeMode == ThemeMode.system &&
+            WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                Brightness.dark);
+
     final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
     final soundService = ref.read(soundServiceProvider);
     final hasSeenOnboarding = ref.watch(onboardingCompletedProvider);
