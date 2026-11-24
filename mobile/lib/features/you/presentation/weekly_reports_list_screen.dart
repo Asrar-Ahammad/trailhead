@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/stats/data/weekly_report_service.dart';
@@ -199,7 +200,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
           onTap: () {
             ref.read(soundServiceProvider).playWeekCardTap();
             ref.read(hapticsServiceProvider).lightImpact();
-            Navigator.push(context, MaterialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
+            AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
           },
           child: Padding(
             padding: const EdgeInsets.all(16),

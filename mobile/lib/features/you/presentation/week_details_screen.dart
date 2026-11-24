@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -217,7 +218,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
           onTap: () {
             ref.read(soundServiceProvider).playActivitiesCardTap();
             ref.read(hapticsServiceProvider).lightImpact();
-            Navigator.push(context, MaterialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
+            AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
           },
           child: Padding(
             padding: const EdgeInsets.all(16),

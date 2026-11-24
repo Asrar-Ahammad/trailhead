@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -52,8 +53,8 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
   void _checkPermissionsAndNavigate() {
     final state = ref.read(runTrackerProvider);
     if (state.permissionsGranted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScaffold()),
+      AppNavigator.replace(context,
+        AppNavigator.materialPageRoute(builder: (_) => const MainScaffold()),
       );
     }
   }
@@ -66,8 +67,8 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
     // Automatically redirect if permission gets granted
     ref.listen(runTrackerProvider, (prev, next) {
       if (next.permissionsGranted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScaffold()),
+        AppNavigator.replace(context,
+          AppNavigator.materialPageRoute(builder: (_) => const MainScaffold()),
         );
       }
     });
@@ -117,8 +118,8 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
                   IconButton(
                     icon: Icon(PhosphorIcons.gear, color: retroColors.textPrimary),
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      AppNavigator.push(context,
+                        AppNavigator.materialPageRoute(builder: (_) => const SettingsScreen()),
                       );
                     },
                   ),

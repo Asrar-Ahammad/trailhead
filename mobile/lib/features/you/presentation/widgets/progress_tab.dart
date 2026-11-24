@@ -1,6 +1,7 @@
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -120,7 +121,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             onTap: () {
               ref.read(soundServiceProvider).playWeeklyReportsTap();
               ref.read(hapticsServiceProvider).lightImpact();
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const WeeklyReportsListScreen()));
+              AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const WeeklyReportsListScreen()));
             },
           ),
 
@@ -137,7 +138,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             onTap: () {
               ref.read(soundServiceProvider).playRacePredictorTap();
               ref.read(hapticsServiceProvider).lightImpact();
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PredictionScreen()));
+              AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const PredictionScreen()));
             },
           ),
 
@@ -356,7 +357,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             : () {
                 ref.read(soundServiceProvider).playCalendarDayTap();
                 ref.read(hapticsServiceProvider).lightImpact();
-                Navigator.of(context).push(MaterialPageRoute(
+                AppNavigator.push(context, AppNavigator.materialPageRoute(
                   builder: (_) => DailyActivitiesScreen(
                     date: DateTime(month.year, month.month, day),
                     runs: dayRuns,

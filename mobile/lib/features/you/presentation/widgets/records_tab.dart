@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -488,8 +489,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
             final runs = ref.read(historyProvider).valueOrNull ?? [];
             try {
               final run = runs.firstWhere((r) => r.clientRunId == pr.runId);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => RunDetailScreen(run: run)),
+              AppNavigator.push(context,
+                AppNavigator.materialPageRoute(builder: (_) => RunDetailScreen(run: run)),
               );
             } catch (e) {
               ScaffoldMessenger.of(context).showSnackBar(

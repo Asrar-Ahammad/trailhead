@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:latlong2/latlong.dart';
@@ -137,7 +138,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   void _saveRun() {
     ref.read(hapticsServiceProvider).mediumImpact();
     ref.read(navigationProvider.notifier).state = 0; // Go to home
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    AppNavigator.popUntil(context, (route) => route.isFirst);
   }
 
   @override
@@ -320,8 +321,8 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                     children: [
                       IconButton.filledTonal(
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
+                          AppNavigator.push(context,
+                            AppNavigator.materialPageRoute(
                               builder: (_) => ShareActivityScreen(
                                 run: widget.run,
                                 points: widget.points,

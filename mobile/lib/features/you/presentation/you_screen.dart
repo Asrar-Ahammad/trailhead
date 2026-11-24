@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -206,8 +207,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                     onPressed: () {
                       ref.read(hapticsServiceProvider).lightImpact();
                       ref.read(soundServiceProvider).playSettingsTap();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      AppNavigator.push(context,
+                        AppNavigator.materialPageRoute(builder: (context) => const SettingsScreen()),
                       );
                     },
                   ),

@@ -1,0 +1,35 @@
+import 'package:flutter/material.dart';
+
+/// Builds the app's standard page route in one reusable place.
+///
+/// Keeping page-route construction centralized makes it easy to apply common
+/// transitions or route settings consistently across features later.
+class AppNavigator {
+  const AppNavigator._();
+
+  static Future<T?> push<T>(BuildContext context, Route<T> route) {
+    return Navigator.of(context).push<T>(route);
+  }
+
+  static Future<T?> replace<T, TO>(
+    BuildContext context,
+    Route<T> route, {
+    TO? result,
+  }) {
+    return Navigator.of(context).pushReplacement<T, TO>(route, result: result);
+  }
+
+  static void popUntil(
+    BuildContext context,
+    RoutePredicate predicate,
+  ) {
+    Navigator.of(context).popUntil(predicate);
+  }
+
+  static MaterialPageRoute<T> materialPageRoute<T>({
+    required WidgetBuilder builder,
+    RouteSettings? settings,
+  }) {
+    return MaterialPageRoute<T>(builder: builder, settings: settings);
+  }
+}

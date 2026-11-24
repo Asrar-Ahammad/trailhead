@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -262,8 +263,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         .where((p) => p.lat != null && p.lng != null)
                         .map((p) => LatLng(p.lat!, p.lng!))
                         .toList();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
+                    AppNavigator.push(context,
+                      AppNavigator.materialPageRoute(
                         builder: (_) => ShareActivityScreen(
                           run: run,
                           points: latLngPoints,
@@ -410,8 +411,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                                           rawPoints = await repo.getRunPoints(run.clientRunId!);
                                         }
                                         if (context.mounted && rawPoints.isNotEmpty) {
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
+                                          AppNavigator.push(context,
+                                            AppNavigator.materialPageRoute(
                                               builder: (_) => RunFlyoverScreen(
                                                 run: run,
                                                 points: rawPoints,
@@ -552,9 +553,9 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         padding: const EdgeInsets.only(bottom: 20.0),
                         child: InkWell(
                           onTap: () {
-                            Navigator.push(
+                            AppNavigator.push(
                               context,
-                              MaterialPageRoute(
+                              AppNavigator.materialPageRoute(
                                 builder: (context) => ShoeDashboardScreen(shoe: shoe),
                               ),
                             );
