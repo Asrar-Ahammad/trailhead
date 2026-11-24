@@ -140,11 +140,11 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                             content: Text('Are you sure you want to delete ${selectedIds.length} activities?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
+                                onPressed: () => AppNavigator.pop(ctx, false),
                                 child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
+                                onPressed: () => AppNavigator.pop(ctx, true),
                                 child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
                               ),
                             ],

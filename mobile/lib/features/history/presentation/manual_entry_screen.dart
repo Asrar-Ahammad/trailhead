@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,7 +163,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -277,7 +278,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       case ManualRunSaveResult.saved:
         ref.read(soundServiceProvider).playRunFinish();
         ref.read(hapticsServiceProvider).heavyImpact();
-        Navigator.pop(context);
+        AppNavigator.pop(context);
         break;
       case ManualRunSaveResult.invalidDistance:
         ref.read(soundServiceProvider).playError();

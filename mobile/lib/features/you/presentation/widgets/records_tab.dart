@@ -610,11 +610,11 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         content: Text('Remove this manual record from your all-time PRs?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
+                            onPressed: () => AppNavigator.pop(ctx, false),
                             child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
+                            onPressed: () => AppNavigator.pop(ctx, true),
                             child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
                           ),
                         ],
@@ -699,7 +699,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         ),
                         IconButton(
                           icon: Icon(PhosphorIcons.x, color: retroColors.textSecondary, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
+                          onPressed: () => AppNavigator.pop(ctx),
                         ),
                       ],
                     ),
@@ -819,7 +819,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                               null,
                             );
                             if (ctx.mounted) {
-                              Navigator.pop(ctx);
+                              AppNavigator.pop(ctx);
                             }
                             ref.invalidate(prsProvider);
                           } catch (e) {

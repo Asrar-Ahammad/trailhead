@@ -249,7 +249,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             ),
             leading: IconButton(
               icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => AppNavigator.pop(context),
             ),
             actions: [
               IconButton(
@@ -289,7 +289,6 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                   if (value == 'download_gpx') {
                     await _downloadGpx();
                   } else if (value == 'delete') {
-                    final navigator = Navigator.of(context);
                     final messenger = ScaffoldMessenger.of(context);
                     final confirm = await showDialog<bool>(
                       context: context,
@@ -299,11 +298,11 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         content: Text('This workout data will be permanently removed.', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
+                            onPressed: () => AppNavigator.pop(context, false),
                             child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
+                            onPressed: () => AppNavigator.pop(context, true),
                             child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
                           ),
                         ],
@@ -321,8 +320,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         ref.invalidate(historyProvider);
                         ref.invalidate(prsProvider);
                         ref.invalidate(weeklySummaryProvider);
-                        if (mounted && navigator.canPop()) {
-                          navigator.pop(true);
+                        if (mounted && AppNavigator.canPop(context)) {
+                          AppNavigator.pop(context, true);
                         }
                       } catch (e) {
                         if (mounted) {

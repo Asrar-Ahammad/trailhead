@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../application/goals_cubit.dart';
@@ -52,7 +53,7 @@ class _SetGoalsSheetState extends State<SetGoalsSheet> {
       monthlyGoalMetric: _monthlyMetric,
       monthlyGoalTarget: mTarget,
     ));
-    Navigator.of(context).pop();
+    AppNavigator.pop(context);
   }
 
   @override
@@ -73,7 +74,7 @@ class _SetGoalsSheetState extends State<SetGoalsSheet> {
             children: [
               Text('SET GOALS', style: AppTextStyles.title(color: widget.retroColors.textPrimary)),
               IconButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => AppNavigator.pop(context),
                 icon: Icon(PhosphorIcons.x, color: widget.retroColors.textSecondary),
               ),
             ],

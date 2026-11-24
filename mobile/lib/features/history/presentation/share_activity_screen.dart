@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -173,7 +174,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.x, color: colors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => AppNavigator.pop(context),
         ),
         actions: [
           Padding(

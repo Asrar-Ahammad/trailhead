@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -117,7 +118,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
         title: Text(_currentShoe.name ?? 'Gear Stats', style: AppTextStyles.headline(color: colors.textPrimary)),
         actions: [
@@ -397,7 +398,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
             actions: [
               if (!isSaving)
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => AppNavigator.pop(ctx),
                   child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                 ),
               if (isSaving)
@@ -423,7 +424,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
                         ref.invalidate(allShoesProvider);
                         ref.invalidate(activeShoesProvider);
                       }
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) AppNavigator.pop(ctx);
                     }
                   },
                   child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),

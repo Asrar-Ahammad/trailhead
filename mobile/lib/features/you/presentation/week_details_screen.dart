@@ -48,7 +48,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(

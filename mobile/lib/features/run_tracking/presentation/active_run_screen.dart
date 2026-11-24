@@ -172,11 +172,11 @@ class ActiveRunScreen extends ConsumerWidget {
           content: Text('Are you sure you want to discard this ${activityType.toLowerCase()}? This action cannot be undone.', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
+              onPressed: () => AppNavigator.pop(ctx, false),
               child: Text('Cancel', style: AppTextStyles.bodyLarge(color: colors.textSecondary)),
             ),
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
+              onPressed: () => AppNavigator.pop(ctx, true),
               child: Text('Discard', style: AppTextStyles.bodyLargeBold(color: colors.error)),
             ),
           ],
@@ -262,7 +262,7 @@ class _WeightInputSheetState extends State<_WeightInputSheet> {
     setState(() { _saving = true; _error = null; });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('user_weight_kg', weight);
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) AppNavigator.pop(context);
   }
 
   @override
@@ -402,7 +402,7 @@ class _WeightInputSheetState extends State<_WeightInputSheet> {
 
           // Skip button
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () => AppNavigator.pop(context),
             child: Container(
               height: 48,
               alignment: Alignment.center,
@@ -1329,7 +1329,7 @@ class _StopBottomSheet extends ConsumerWidget {
 
             // Resume
             PressableScale(
-              onTap: () => Navigator.pop(context, 'resume'),
+              onTap: () => AppNavigator.pop(context, 'resume'),
               child: _SheetButton(
                 label: 'Resume Tracking',
                 backgroundColor: colors.surfaceRaised,
@@ -1340,7 +1340,7 @@ class _StopBottomSheet extends ConsumerWidget {
 
             // Save
             PressableScale(
-              onTap: () => Navigator.pop(context, 'save'),
+              onTap: () => AppNavigator.pop(context, 'save'),
               child: _SheetButton(
                 label: 'Finish & Save',
                 backgroundColor: colors.accent,
@@ -1351,7 +1351,7 @@ class _StopBottomSheet extends ConsumerWidget {
 
             // Discard
             PressableScale(
-              onTap: () => Navigator.pop(context, 'discard'),
+              onTap: () => AppNavigator.pop(context, 'discard'),
               child: _SheetButton(
                 label: 'Discard $activityStr',
                 backgroundColor: Colors.transparent,
@@ -1622,7 +1622,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                     Text('Select Gear', style: AppTextStyles.headline(color: colors.textPrimary)),
                     IconButton(
                       icon: Icon(PhosphorIcons.x, color: colors.textSecondary),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => AppNavigator.pop(context),
                     ),
                   ],
                 ),
@@ -1631,7 +1631,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                 InkWell(
                   onTap: () {
                     context.read<RunTrackerCubit>().setSelectedShoe(null);
-                    Navigator.pop(context);
+                    AppNavigator.pop(context);
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
@@ -1680,7 +1680,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                         child: InkWell(
                           onTap: () {
                             context.read<RunTrackerCubit>().setSelectedShoe(shoe.clientShoeId);
-                            Navigator.pop(context);
+                            AppNavigator.pop(context);
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
@@ -1724,7 +1724,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   onPressed: () {
-                    Navigator.pop(context);
+                    AppNavigator.pop(context);
                     AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const ShoeManagementScreen()));
                   },
                   child: Text('Manage Gear', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),

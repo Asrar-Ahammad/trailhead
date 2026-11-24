@@ -36,7 +36,7 @@ class ShoeManagementScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
         title: Text('My Shoes', style: AppTextStyles.headline(color: colors.textPrimary)),
       ),
@@ -148,7 +148,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                           actions: [
                             if (!isRetiring)
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx),
+                                onPressed: () => AppNavigator.pop(ctx),
                                 child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                               ),
                             if (isRetiring)
@@ -167,7 +167,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                                   await ref.read(shoeServiceProvider).retireShoe(shoe.id);
                                   ref.invalidate(allShoesProvider);
                                   ref.invalidate(activeShoesProvider);
-                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  if (ctx.mounted) AppNavigator.pop(ctx);
                                 },
                                 child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                               ),
@@ -197,7 +197,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                         actions: [
                           if (!isDeleting)
                             TextButton(
-                              onPressed: () => Navigator.pop(ctx),
+                              onPressed: () => AppNavigator.pop(ctx),
                               child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                             ),
                           if (isDeleting)
@@ -216,7 +216,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                                 await ref.read(shoeServiceProvider).deleteShoe(shoe.id);
                                 ref.invalidate(allShoesProvider);
                                 ref.invalidate(activeShoesProvider);
-                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (ctx.mounted) AppNavigator.pop(ctx);
                               },
                               child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
@@ -348,7 +348,7 @@ class ShoeManagementScreen extends ConsumerWidget {
             actions: [
               if (!isSaving)
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => AppNavigator.pop(ctx),
                   child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                 ),
               if (isSaving)
@@ -366,7 +366,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                       context.read<RunTrackerCubit>().setSelectedShoe(newShoe.clientShoeId);
                       ref.invalidate(allShoesProvider);
                       ref.invalidate(activeShoesProvider);
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) AppNavigator.pop(ctx);
                     }
                   },
                   child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
@@ -421,7 +421,7 @@ class ShoeManagementScreen extends ConsumerWidget {
             actions: [
               if (!isSaving)
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => AppNavigator.pop(ctx),
                   child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                 ),
               if (isSaving)
@@ -442,7 +442,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                       );
                       ref.invalidate(allShoesProvider);
                       ref.invalidate(activeShoesProvider);
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) AppNavigator.pop(ctx);
                     }
                   },
                   child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),

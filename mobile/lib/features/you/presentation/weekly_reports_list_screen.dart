@@ -38,7 +38,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
       ),
       body: RefreshIndicator(

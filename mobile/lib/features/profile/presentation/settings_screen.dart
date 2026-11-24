@@ -126,11 +126,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => AppNavigator.pop(context),
             child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
+            onPressed: () => AppNavigator.pop(context, controller.text),
             child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -230,15 +230,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         actions: [
           if (_userWeightKg != null)
             TextButton(
-              onPressed: () => Navigator.of(context).pop('CLEAR'),
+              onPressed: () => AppNavigator.pop(context, 'CLEAR'),
               child: Text('Reset to Not set', style: TextStyle(color: colors.error)),
             ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => AppNavigator.pop(context),
             child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
+            onPressed: () => AppNavigator.pop(context, controller.text),
             child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -294,11 +294,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => AppNavigator.pop(context),
             child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
+            onPressed: () => AppNavigator.pop(context, controller.text),
             child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
           ),
         ],
@@ -355,7 +355,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         backgroundColor: colors.surface,
         title: Text('Gender', style: AppTextStyles.title(color: colors.textPrimary)),
         children: ['Male', 'Female', 'Prefer not to say'].map((g) => SimpleDialogOption(
-          onPressed: () => Navigator.of(context).pop(g),
+          onPressed: () => AppNavigator.pop(context, g),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: Text(g, style: AppTextStyles.bodyLarge(color: colors.textPrimary)),
@@ -584,11 +584,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             content: Text('Do you want to overwrite your existing local data, or merge?', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () => AppNavigator.pop(context, false),
                 child: Text('Merge', style: TextStyle(color: colors.accent)),
               ),
               TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => AppNavigator.pop(context, true),
                 child: Text('Overwrite', style: TextStyle(color: colors.error)),
               ),
             ],

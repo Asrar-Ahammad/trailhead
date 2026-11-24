@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,7 +47,7 @@ class WeeklyActivitiesScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => AppNavigator.pop(context),
         ),
       ),
       body: runsAsync.when(

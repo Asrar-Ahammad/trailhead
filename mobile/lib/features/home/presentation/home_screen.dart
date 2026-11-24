@@ -1344,7 +1344,7 @@ class _WeatherDetailsSheet extends StatelessWidget {
                   ),
                   IconButton(
                     icon: Icon(PhosphorIcons.x, color: colors.textSecondary),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => AppNavigator.pop(context),
                   ),
                 ],
               ),

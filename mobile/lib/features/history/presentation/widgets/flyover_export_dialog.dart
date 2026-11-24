@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,7 +79,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
 
       if (outputPath != null) {
         _isFinished = true;
-        Navigator.of(context).pop();
+        AppNavigator.pop(context);
         await FlyoverVideoExporter.shareVideo(
           filePath: outputPath,
           run: widget.run,
@@ -86,7 +87,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pop();
+      AppNavigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to export video: $e'),
@@ -99,7 +100,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
   void _onCancel() {
     _exporter.cancel();
     if (mounted) {
-      Navigator.of(context).pop();
+      AppNavigator.pop(context);
     }
   }
 
@@ -215,7 +216,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
           children: [
             Expanded(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => AppNavigator.pop(context),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(

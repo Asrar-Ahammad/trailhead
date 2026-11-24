@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -52,7 +53,7 @@ class _CountdownOverlayState extends ConsumerState<CountdownOverlay> with Single
          _animationController.forward(from: 0.0);
       } else {
          _timer.cancel();
-         Navigator.of(context).pop();
+         AppNavigator.pop(context);
       }
     });
   }
