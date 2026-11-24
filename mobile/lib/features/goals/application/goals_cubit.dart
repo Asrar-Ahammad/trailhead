@@ -1,8 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../main.dart'; // import global isarInstance
 import '../data/models/goal_isar.dart';
+import '../../../shared/state_management/async_value.dart';
 
 class Goals {
   final String dailyGoalMetric; // 'steps', 'distance', 'duration'
@@ -27,22 +27,24 @@ class Goals {
   }
 }
 
-class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
+class GoalsCubit extends Cubit<AsyncValue<Goals>> {
   final Isar _isar;
+  final SharedPreferences _preferences;
 
-  GoalsNotifier(this._isar) : super(const AsyncValue.loading()) {
+  GoalsCubit({required Isar isar, required SharedPreferences preferences})
+      : _isar = isar,
+        _preferences = preferences,
+        super(const AsyncValue.loading()) {
     _loadGoals();
   }
 
   Future<void> _loadGoals() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
       // Load local SharedPreferences cache first
-      final dMetric = prefs.getString('dailyGoalMetric');
-      final dTarget = prefs.getDouble('dailyGoalTarget');
-      final mMetric = prefs.getString('monthlyGoalMetric');
-      final mTarget = prefs.getDouble('monthlyGoalTarget');
+      final dMetric = _preferences.getString('dailyGoalMetric');
+      final dTarget = _preferences.getDouble('dailyGoalTarget');
+      final mMetric = _preferences.getString('monthlyGoalMetric');
+      final mTarget = _preferences.getDouble('monthlyGoalTarget');
 
       if (dMetric != null && dTarget != null && mMetric != null && mTarget != null) {
         final cleanMMetric = mMetric == 'steps' ? 'distance' : mMetric;
@@ -54,9 +56,9 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
           monthlyGoalTarget: cleanMTarget,
         );
         if (mMetric == 'steps') {
-          await _saveToPrefs(goals, prefs);
+          await _saveToPrefs(goals);
         }
-        state = AsyncValue.data(goals);
+        emit(AsyncValue.data(goals));
       } else {
         // Try loading from Isar
         final goalIsar = await _isar.goalIsars.filter().keyEqualTo('user_goals').findFirst();
@@ -69,29 +71,29 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
             monthlyGoalMetric: cleanMMetric,
             monthlyGoalTarget: cleanMTarget,
           );
-          await _saveToPrefs(goals, prefs);
-          state = AsyncValue.data(goals);
+          await _saveToPrefs(goals);
+          emit(AsyncValue.data(goals));
         } else {
-          state = AsyncValue.data(Goals.empty());
+          emit(AsyncValue.data(Goals.empty()));
         }
       }
     } catch (e, st) {
       if (!state.hasValue) {
-        state = AsyncValue.error(e, st);
+        emit(AsyncValue.error(e, st));
       }
     }
   }
 
-  Future<void> _saveToPrefs(Goals goals, SharedPreferences prefs) async {
-    await prefs.setString('dailyGoalMetric', goals.dailyGoalMetric);
-    await prefs.setDouble('dailyGoalTarget', goals.dailyGoalTarget);
-    await prefs.setString('monthlyGoalMetric', goals.monthlyGoalMetric);
-    await prefs.setDouble('monthlyGoalTarget', goals.monthlyGoalTarget);
+  Future<void> _saveToPrefs(Goals goals) async {
+    await _preferences.setString('dailyGoalMetric', goals.dailyGoalMetric);
+    await _preferences.setDouble('dailyGoalTarget', goals.dailyGoalTarget);
+    await _preferences.setString('monthlyGoalMetric', goals.monthlyGoalMetric);
+    await _preferences.setDouble('monthlyGoalTarget', goals.monthlyGoalTarget);
   }
 
   Future<void> saveGoals(Goals newGoals) async {
     try {
-      state = const AsyncValue.loading();
+      emit(const AsyncValue.loading());
       
       // Save to Isar
       await _isar.writeTxn(() async {
@@ -108,15 +110,10 @@ class GoalsNotifier extends StateNotifier<AsyncValue<Goals>> {
       });
 
       // Save to preferences
-      final prefs = await SharedPreferences.getInstance();
-      await _saveToPrefs(newGoals, prefs);
-      state = AsyncValue.data(newGoals);
+      await _saveToPrefs(newGoals);
+      emit(AsyncValue.data(newGoals));
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      emit(AsyncValue.error(e, st));
     }
   }
 }
-
-final goalsProvider = StateNotifierProvider<GoalsNotifier, AsyncValue<Goals>>((ref) {
-  return GoalsNotifier(isarInstance);
-});

@@ -1,10 +1,14 @@
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
+import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/active_run_screen.dart';
@@ -12,8 +16,6 @@ import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_c
 import 'package:trailhead_mobile/features/run_tracking/application/route_provider.dart';
 import 'package:trailhead_mobile/features/home/presentation/home_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
-
-final navigationProvider = StateProvider<int>((ref) => 0);
 
 class MainScaffold extends ConsumerStatefulWidget {
   const MainScaffold({super.key});
@@ -26,6 +28,26 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   bool _isAtBottom = false;
   DateTime? _lastBackPressedAt;
   OverlayEntry? _toastEntry;
+  StreamSubscription<int>? _navigationSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _navigationSubscription = context.read<NavigationCubit>().stream.listen((next) {
+      if (!mounted) return;
+      setState(() => _isAtBottom = false);
+      if (next == 1 && context.read<RunTrackerCubit>().state.status == 'idle') {
+        ref.read(recenterSignalProvider.notifier).state++;
+        context.read<RunTrackerCubit>().fetchInitialLocation(force: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _navigationSubscription?.cancel();
+    super.dispose();
+  }
 
   void _showExitToast(BuildContext context) {
     _toastEntry?.remove();
@@ -52,29 +74,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(navigationProvider, (previous, next) {
-      if (previous != next && mounted) {
-        setState(() {
-          _isAtBottom = false;
-        });
-
-        // Whenever the user navigates TO the Record tab (index 1), immediately
-        // fetch a fresh GPS fix and re-center the map. force=true bypasses the
-        // "already have position" guard so we always get an up-to-date location.
-        // Skip if a run is already active — the background service handles GPS.
-        if (next == 1) {
-          final runStatus = ref.read(runTrackerProvider).status;
-          if (runStatus == 'idle') {
-            // Re-center immediately on last-known position while fresh fix loads.
-            ref.read(recenterSignalProvider.notifier).state++;
-            ref.read(runTrackerProvider.notifier).fetchInitialLocation(force: true);
-          }
-        }
-      }
-    });
-
-    final currentIndex = ref.watch(navigationProvider);
-    final runState = ref.watch(runTrackerProvider);
+    final currentIndex = context.watch<NavigationCubit>().state;
+    final runState = context.watch<RunTrackerCubit>().state;
     final isRunning = runState.status != 'idle';
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -97,7 +98,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       } else if (index == 2) {
         soundService.playNavYou();
       }
-      ref.read(navigationProvider.notifier).state = index;
+      context.read<NavigationCubit>().selectTab(index);
     }
 
     return PopScope(

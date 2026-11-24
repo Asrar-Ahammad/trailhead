@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'features/run_tracking/data/models/run_isar.dart';
 import 'features/run_tracking/data/models/run_point_isar.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
-import 'features/onboarding/application/onboarding_provider.dart';
 import 'package:trailhead_mobile/features/shoes/data/models/shoe_isar.dart';
 import 'features/run_tracking/data/models/daily_steps_isar.dart';
 import 'features/stats/data/models/personal_record_isar.dart';
@@ -17,31 +18,20 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'features/notifications/application/notification_service.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'shared/theme/app_themes.dart';
-import 'features/audio/application/sound_service.dart';
 import 'shared/navigation/sound_navigator_observer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'features/navigation/presentation/main_scaffold.dart';
+import 'core/di/dependency_injection.dart';
+import 'shared/state_management/global/ai_config_cubit.dart';
+import 'shared/state_management/global/distance_unit_cubit.dart';
+import 'shared/state_management/global/navigation_cubit.dart';
+import 'shared/state_management/global/onboarding_cubit.dart';
+import 'shared/state_management/global/theme_mode_cubit.dart';
+import 'features/run_tracking/application/run_tracker_controller.dart';
+import 'features/goals/application/goals_cubit.dart';
+import 'features/history/state_management/manual_entry_bloc.dart';
 
 late Isar isarInstance;
-
-final initialThemeModeProvider = Provider<ThemeMode>((ref) => ThemeMode.system);
-
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((
-  ref,
-) {
-  final initial = ref.watch(initialThemeModeProvider);
-  return ThemeModeNotifier(initial);
-});
-
-class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier(ThemeMode initial) : super(initial);
-
-  Future<void> setMode(ThemeMode mode) async {
-    state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('themeMode', mode.name);
-  }
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -122,23 +112,38 @@ void main() async {
 
   final bool seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
 
+  await DependencyInjection.initialize(
+    isar: isarInstance,
+    preferences: prefs,
+    initialThemeMode: initialThemeMode,
+    onboardingCompleted: seenOnboarding,
+  );
+
   runApp(
-    ProviderScope(
-      overrides: [
-        initialThemeModeProvider.overrideWithValue(initialThemeMode),
-        initialOnboardingProvider.overrideWithValue(seenOnboarding),
+    MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: getIt<ThemeModeCubit>()),
+        BlocProvider.value(value: getIt<OnboardingCubit>()),
+        BlocProvider.value(value: getIt<DistanceUnitCubit>()),
+        BlocProvider.value(value: getIt<NavigationCubit>()),
+        BlocProvider.value(value: getIt<AiConfigCubit>()),
+        BlocProvider.value(value: getIt<RunTrackerCubit>()),
+        BlocProvider.value(value: getIt<GoalsCubit>()),
+        BlocProvider<ManualEntryBloc>(
+          create: (_) => getIt<ManualEntryBloc>(),
+        ),
       ],
-      child: const TrailheadApp(),
+      child: const ProviderScope(child: TrailheadApp()),
     ),
   );
 }
 
-class TrailheadApp extends ConsumerWidget {
+class TrailheadApp extends StatelessWidget {
   const TrailheadApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+  Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeModeCubit>().state;
     final isDark =
         themeMode == ThemeMode.dark ||
         (themeMode == ThemeMode.system &&
@@ -146,8 +151,8 @@ class TrailheadApp extends ConsumerWidget {
                 Brightness.dark);
 
     final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
-    final soundService = ref.read(soundServiceProvider);
-    final hasSeenOnboarding = ref.watch(onboardingCompletedProvider);
+    final soundService = getIt<SoundService>();
+    final hasSeenOnboarding = context.watch<OnboardingCubit>().state;
 
     final Widget homeScreen = hasSeenOnboarding
         ? const MainScaffold()

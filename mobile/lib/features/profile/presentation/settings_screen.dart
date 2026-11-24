@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,9 @@ import '../../audio/application/sound_service.dart';
 import '../../../main.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import '../../../shared/theme/app_themes.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
+import 'package:trailhead_mobile/shared/state_management/global/ai_config_cubit.dart';
+import 'package:trailhead_mobile/shared/state_management/global/theme_mode_cubit.dart';
 import '../../shoes/presentation/shoe_management_screen.dart';
 import '../../ai/application/ai_config_provider.dart';
 import '../../ai/application/ai_client.dart';
@@ -64,7 +67,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final aiConfig = ref.read(aiConfigProvider);
+    final aiConfig = context.read<AiConfigCubit>().state;
     _apiKeyController.text = aiConfig.apiKey;
 
     setState(() {
@@ -400,8 +403,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    await ref.read(aiConfigProvider.notifier).updateConfig(apiKey: key);
-    final currentConfig = ref.read(aiConfigProvider);
+    await context.read<AiConfigCubit>().updateConfig(apiKey: key);
+    final currentConfig = context.read<AiConfigCubit>().state;
 
     setState(() {
       _isTestingApiKey = true;
@@ -658,8 +661,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final themeMode = ref.watch(themeModeProvider);
-    final aiConfig = ref.watch(aiConfigProvider);
+    final themeMode = context.watch<ThemeModeCubit>().state;
+    final aiConfig = context.watch<AiConfigCubit>().state;
     
     return Scaffold(
       backgroundColor: colors.background,
@@ -766,8 +769,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: AppTextStyles.bodyLarge(color: colors.textPrimary),
                       underline: const SizedBox.shrink(),
                       items: [
-                        DropdownMenuItem(value: 1.0, child: Text('Every 1 ${ref.watch(distanceUnitProvider) ? 'mi' : 'km'}')),
-                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 ${ref.watch(distanceUnitProvider) ? 'mi' : 'km'}')),
+                        DropdownMenuItem(value: 1.0, child: Text('Every 1 ${context.watch<DistanceUnitCubit>().state ? 'mi' : 'km'}')),
+                        DropdownMenuItem(value: 0.5, child: Text('Every 0.5 ${context.watch<DistanceUnitCubit>().state ? 'mi' : 'km'}')),
                       ],
                       onChanged: (value) {
                         if (value != null) _updateAudioCueFrequency(value);
@@ -803,7 +806,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     final defaultModel = val == 'openai'
                         ? 'gpt-5'
                         : (val == 'gemini' ? 'gemini-3.8-flash' : 'claude-5-sonnet');
-                    ref.read(aiConfigProvider.notifier).updateConfig(provider: val, model: defaultModel);
+                    context.read<AiConfigCubit>().updateConfig(provider: val, model: defaultModel);
                   }
                 },
               ),
@@ -853,7 +856,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 }(),
                 onChanged: (val) {
                   if (val != null) {
-                    ref.read(aiConfigProvider.notifier).updateConfig(model: val);
+                    context.read<AiConfigCubit>().updateConfig(model: val);
                   }
                 },
               ),
@@ -875,7 +878,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 onChanged: (val) {
-                  ref.read(aiConfigProvider.notifier).updateConfig(apiKey: val.trim());
+                  context.read<AiConfigCubit>().updateConfig(apiKey: val.trim());
                 },
               ),
             ),
@@ -992,7 +995,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                   onChanged: (mode) {
                     if (mode != null) {
-                      ref.read(themeModeProvider.notifier).setMode(mode);
+                      context.read<ThemeModeCubit>().setMode(mode);
                       final isDark = mode == ThemeMode.dark || (mode == ThemeMode.system && WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark);
                       final newTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
                       

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:isar/isar.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../run_tracking/data/models/run_isar.dart';
 import '../../../run_tracking/data/models/daily_steps_isar.dart';
-import '../../../goals/application/goals_provider.dart';
+import '../../../goals/application/goals_cubit.dart';
 import '../../../goals/presentation/set_goals_sheet.dart';
 import '../../../haptics/application/haptics_service.dart';
 import '../../../../shared/theme/app_colors.dart';
@@ -20,8 +22,7 @@ class GoalProgressData {
 }
 
 final goalProgressProvider = StreamProvider.autoDispose<GoalProgressData>((ref) async* {
-  final goalsAsync = ref.watch(goalsProvider);
-  final goals = goalsAsync.valueOrNull ?? Goals.empty();
+  final goals = GetIt.instance<GoalsCubit>().state.valueOrNull ?? Goals.empty();
   
   // Watch all completed runs
   final query = isarInstance.runIsars.filter().statusEqualTo('completed').build();
@@ -128,7 +129,7 @@ class GoalsProgressCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final goalsAsync = ref.watch(goalsProvider);
+    final goalsAsync = context.watch<GoalsCubit>().state;
     final progressAsync = ref.watch(goalProgressProvider);
     
     final goals = goalsAsync.valueOrNull ?? Goals.empty();

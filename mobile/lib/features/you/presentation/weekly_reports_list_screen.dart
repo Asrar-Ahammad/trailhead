@@ -1,6 +1,7 @@
 import 'dart:ui';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -221,7 +222,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        RunFormatUtils.formatDistance(report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+                        RunFormatUtils.formatDistance(report.totalDistanceM, context.watch<DistanceUnitCubit>().state) + ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
                         style: AppTextStyles.bodyLargeBold(color: retroColors.accent),
                       ),
                       const SizedBox(height: 4),

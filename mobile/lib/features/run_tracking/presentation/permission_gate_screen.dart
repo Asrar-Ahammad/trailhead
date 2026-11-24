@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -46,12 +47,12 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      ref.read(runTrackerProvider.notifier).recheckPermissions();
+      context.read<RunTrackerCubit>().recheckPermissions();
     }
   }
 
   void _checkPermissionsAndNavigate() {
-    final state = ref.read(runTrackerProvider);
+    final state = context.read<RunTrackerCubit>().state;
     if (state.permissionsGranted) {
       AppNavigator.replace(context,
         AppNavigator.materialPageRoute(builder: (_) => const MainScaffold()),
@@ -61,18 +62,9 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
 
   @override
   Widget build(BuildContext context) {
-    final trackerState = ref.watch(runTrackerProvider);
+    final trackerState = context.watch<RunTrackerCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
     
-    // Automatically redirect if permission gets granted
-    ref.listen(runTrackerProvider, (prev, next) {
-      if (next.permissionsGranted) {
-        AppNavigator.replace(context,
-          AppNavigator.materialPageRoute(builder: (_) => const MainScaffold()),
-        );
-      }
-    });
-
     if (!trackerState.permissionsChecked) {
       return Scaffold(
         backgroundColor: retroColors.background,
@@ -255,7 +247,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
       _errorMsg = "";
     });
     try {
-      final granted = await ref.read(runTrackerProvider.notifier).requestForegroundPermission();
+      final granted = await context.read<RunTrackerCubit>().requestForegroundPermission();
       if (!granted) {
         setState(() {
           _errorMsg = "Foreground location permission denied. Please enable location permissions.";
@@ -278,7 +270,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
       _errorMsg = "";
     });
     try {
-      final granted = await ref.read(runTrackerProvider.notifier).requestBackgroundPermission();
+      final granted = await context.read<RunTrackerCubit>().requestBackgroundPermission();
       if (!granted) {
         setState(() {
           _errorMsg = "Background location permission denied. Change permission to 'Allow all the time' in settings.";

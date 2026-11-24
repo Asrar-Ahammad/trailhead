@@ -1,6 +1,11 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -11,13 +16,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
-import 'package:trailhead_mobile/features/stats/application/ai_coach_provider.dart';
+import 'package:trailhead_mobile/features/stats/application/ai_coach_service.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import '../../run_tracking/application/run_format_utils.dart';
-import '../../run_tracking/application/run_analysis_service.dart';
+import '../../../shared/state_management/async_value.dart' as StateAsync;
+import '../../../shared/state_management/local/async_resource_bloc.dart';
 
 import '../../haptics/application/haptics_service.dart';
-import '../../navigation/presentation/main_scaffold.dart';
 import '../../audio/application/sound_service.dart';
 
 import 'package:trailhead_mobile/features/home/presentation/widgets/goals_progress_card.dart';
@@ -37,11 +42,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   late ScrollController _scrollController;
+  late AsyncResourceBloc<AiCoachData> _aiCoachBloc;
+  late AsyncResourceBloc<String?> _trendMessageBloc;
   bool _isScrolled = false;
 
   @override
   void initState() {
     super.initState();
+    _aiCoachBloc = AsyncResourceBloc<AiCoachData>()
+      ..add(LoadResource(() => GetIt.instance<AiCoachService>().loadCoachData()));
+    _trendMessageBloc = AsyncResourceBloc<String?>()
+      ..add(LoadResource(_loadTrendMessage));
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       final isScrolled = _scrollController.hasClients && _scrollController.offset > 10;
@@ -60,7 +71,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _aiCoachBloc.close();
+    _trendMessageBloc.close();
     super.dispose();
+  }
+
+  Future<String?> _loadTrendMessage() async {
+    final summaryJson = GetIt.instance<SharedPreferences>()
+        .getString('user_performance_summary');
+    if (summaryJson == null) return null;
+    final summary = jsonDecode(summaryJson) as Map<String, dynamic>;
+    return summary['trendMessage'] as String?;
   }
 
   String _getFormattedDate() {
@@ -74,10 +95,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final summaryAsync = ref.watch(weeklySummaryProvider);
-    final aiCoachAsync = ref.watch(aiCoachProvider);
-    final trendMessageAsync = ref.watch(performanceTrendProvider);
     
-    return Scaffold(
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider.value(value: _aiCoachBloc),
+        BlocProvider.value(value: _trendMessageBloc),
+      ],
+      child: BlocBuilder<AsyncResourceBloc<AiCoachData>, StateAsync.AsyncValue<AiCoachData>>(
+        bloc: _aiCoachBloc,
+        builder: (context, aiCoachAsync) =>
+            BlocBuilder<AsyncResourceBloc<String?>, StateAsync.AsyncValue<String?>>(
+          bloc: _trendMessageBloc,
+          builder: (context, trendMessageAsync) => Scaffold(
       backgroundColor: retroColors.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -273,10 +302,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Icon(PhosphorIcons.sparkleFill, color: retroColors.background),
         ),
       ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildContent(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklySummary summary, AsyncValue<AiCoachData> aiCoachAsync, AsyncValue<String?> trendMessageAsync) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklySummary summary, StateAsync.AsyncValue<AiCoachData> aiCoachAsync, StateAsync.AsyncValue<String?> trendMessageAsync) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -302,7 +334,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: _WeeklySummaryCard(
             summary: summary,
             colors: retroColors,
-            useMiles: ref.watch(distanceUnitProvider),
+            useMiles: context.watch<DistanceUnitCubit>().state,
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -325,7 +357,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onTap: () {
                   ref.read(hapticsServiceProvider).lightImpact();
                   ref.read(soundServiceProvider).playButtonTap();
-                  ref.read(navigationProvider.notifier).state = 1; // Jump to record tab
+                  context.read<NavigationCubit>().selectTab(1); // Jump to record tab
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -369,7 +401,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: _DistanceOverTimeCard(
               chartData: summary.chartData,
               colors: retroColors,
-              useMiles: ref.watch(distanceUnitProvider),
+              useMiles: context.watch<DistanceUnitCubit>().state,
             ),
           ),
         ),
@@ -440,7 +472,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${RunFormatUtils.formatDistance(summary.mostRecentRun!.distanceM ?? 0, ref.watch(distanceUnitProvider))} ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+                                    '${RunFormatUtils.formatDistance(summary.mostRecentRun!.distanceM ?? 0, context.watch<DistanceUnitCubit>().state)} ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
                                     style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
                                   ),
                                 ],
@@ -1404,4 +1436,3 @@ class _WeatherDetailsSheet extends StatelessWidget {
     );
   }
 }
-

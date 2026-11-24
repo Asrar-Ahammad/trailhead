@@ -1,10 +1,14 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/run_isar.dart';
-import '../../ai/application/ai_config_provider.dart';
 import '../../ai/application/ai_client.dart';
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 
-final aiSummaryProvider = FutureProvider.family<String, RunIsar>((ref, run) async {
-  final aiConfig = ref.read(aiConfigProvider);
+class AiSummaryService {
+  AiSummaryService(this._aiConfigCubit);
+
+  final AiConfigCubit _aiConfigCubit;
+
+  Future<String> summarize(RunIsar run) async {
+  final aiConfig = _aiConfigCubit.state;
   if (!aiConfig.isConfigured) {
     return 'Great effort out there! Keep stacking those miles.';
   }
@@ -32,4 +36,5 @@ final aiSummaryProvider = FutureProvider.family<String, RunIsar>((ref, run) asyn
   }
 
   return 'Great effort out there! Keep stacking those miles.';
-});
+  }
+}

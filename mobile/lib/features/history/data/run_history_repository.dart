@@ -4,10 +4,12 @@ import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/features/stats/data/models/personal_record_isar.dart';
 import 'package:trailhead_mobile/main.dart'; // To access isarInstance
+import '../domain/entities/manual_run.dart';
+import '../domain/repositories/manual_run_repository.dart';
 
 final runHistoryRepositoryProvider = Provider((ref) => RunHistoryRepository(isarInstance));
 
-class RunHistoryRepository {
+class RunHistoryRepository implements ManualRunRepository {
   final Isar _isar;
 
   RunHistoryRepository(this._isar);
@@ -92,5 +94,25 @@ class RunHistoryRepository {
         await _isar.runPointIsars.putAll(points);
       }
     });
+  }
+
+  @override
+  Future<void> saveManualRun(ManualRun manualRun) {
+    final now = manualRun.endTime;
+    final distanceMeters = manualRun.distanceKm * 1000;
+    final run = RunIsar()
+      ..clientRunId = manualRun.clientRunId
+      ..startTime = manualRun.startTime
+      ..endTime = manualRun.endTime
+      ..distanceM = distanceMeters
+      ..durationS = 3600
+      ..avgPaceSPerKm = 3600 / manualRun.distanceKm
+      ..title = 'Manual Run'
+      ..synced = false
+      ..status = 'completed'
+      ..subjectiveEffort = manualRun.subjectiveEffort
+      ..conditions = manualRun.conditions
+      ..lastModifiedAt = now;
+    return saveRun(run);
   }
 }

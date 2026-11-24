@@ -1,6 +1,7 @@
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
@@ -62,7 +63,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
 

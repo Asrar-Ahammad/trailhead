@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -6,10 +7,9 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/nl_logging_service.dart';
-import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
+import 'package:trailhead_mobile/features/history/state_management/manual_entry_bloc.dart';
+import 'package:trailhead_mobile/features/history/domain/use_cases/save_manual_run.dart';
 
 class ManualEntryScreen extends ConsumerStatefulWidget {
   const ManualEntryScreen({super.key});
@@ -28,10 +28,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   final TextEditingController _effortController = TextEditingController();
   final TextEditingController _conditionsController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController(); // Just as an extra
 
-  bool _isParsing = false;
-  
   String _textBeforeCursor = '';
   String _textAfterCursor = '';
   
@@ -132,66 +129,32 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     }
   }
 
-  Future<void> _parseText() async {
+  void _parseText() {
     if (_textController.text.trim().isEmpty) return;
 
-    setState(() => _isParsing = true);
     ref.read(soundServiceProvider).playButtonTap();
-    final parsed = await ref.read(nlLoggingProvider).parseLog(_textController.text);
-    setState(() => _isParsing = false);
-
-    if (parsed != null) {
-      ref.read(hapticsServiceProvider).mediumImpact();
-      ref.read(soundServiceProvider).playSuccess();
-      if (parsed.distanceKm != null) _distanceController.text = parsed.distanceKm.toString();
-      if (parsed.subjectiveEffort != null) _effortController.text = parsed.subjectiveEffort!;
-      if (parsed.conditions != null) _conditionsController.text = parsed.conditions!;
-      if (parsed.timeOfDay != null) _timeController.text = parsed.timeOfDay!;
-    } else {
-      ref.read(soundServiceProvider).playError();
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to parse text.')));
-      }
-    }
+    context.read<ManualEntryBloc>().add(ParseManualEntry(_textController.text));
   }
 
-  Future<void> _saveRun() async {
-    final distance = double.tryParse(_distanceController.text);
-    if (distance == null) {
-       ref.read(soundServiceProvider).playError();
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Valid distance required')));
-       return;
-    }
-    
-    final repo = ref.read(runHistoryRepositoryProvider);
-    final now = DateTime.now();
-    
-    // Create run
-    final run = RunIsar()
-      ..clientRunId = DateTime.now().millisecondsSinceEpoch.toString()
-      ..startTime = now.subtract(const Duration(hours: 1)) // rough guess
-      ..endTime = now
-      ..distanceM = distance * 1000
-      ..durationS = 3600 // placeholder
-      ..avgPaceSPerKm = 3600 / distance
-      ..title = "Manual Run"
-      ..synced = false
-      ..status = "completed"
-      ..subjectiveEffort = _effortController.text.isNotEmpty ? _effortController.text : null
-      ..conditions = _conditionsController.text.isNotEmpty ? _conditionsController.text : null;
-      
-    await repo.saveRun(run, []);
-    
-    ref.read(soundServiceProvider).playRunFinish();
-    ref.read(hapticsServiceProvider).heavyImpact();
-    if(mounted) Navigator.pop(context);
+  void _saveRun() {
+    context.read<ManualEntryBloc>().add(
+      SaveManualEntry(
+        distanceText: _distanceController.text,
+        effort: _effortController.text,
+        conditions: _conditionsController.text,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
+    final manualEntryState = context.watch<ManualEntryBloc>().state;
+    final isParsing = manualEntryState.isParsing;
     
-    return Scaffold(
+    return BlocListener<ManualEntryBloc, ManualEntryState>(
+      listener: _handleManualEntryState,
+      child: Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
         title: Text('LOG RUN', style: AppTextStyles.headline(color: colors.textPrimary)),
@@ -241,12 +204,12 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     builder: (context, value, child) {
                       final hasText = value.text.trim().isNotEmpty;
                       return ElevatedButton(
-                        onPressed: (_isParsing || !hasText) ? null : _parseText,
+                        onPressed: (isParsing || !hasText) ? null : _parseText,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colors.accent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                         ),
-                        child: _isParsing 
+                        child: isParsing
                           ? SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: colors.surface, strokeWidth: 2))
                           : Text('Parse', style: AppTextStyles.bodyMediumBold(color: colors.surface)),
                       );
@@ -267,18 +230,70 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
             _buildField('Time of Day', _timeController, colors, TextInputType.text),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: _saveRun,
+              onPressed: manualEntryState.isSaving ? null : _saveRun,
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.accent,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text('SAVE MANUAL RUN', style: AppTextStyles.bodyLargeBold(color: colors.surface)),
+              child: manualEntryState.isSaving
+                  ? const CircularProgressIndicator()
+                  : Text('SAVE MANUAL RUN', style: AppTextStyles.bodyLargeBold(color: colors.surface)),
             ),
           ],
         ),
       ),
+      ),
     );
+  }
+
+  void _handleManualEntryState(BuildContext context, ManualEntryState state) {
+    if (state.parseCompleted) {
+      final parsed = state.parsedLog;
+      if (parsed == null) {
+        ref.read(soundServiceProvider).playError();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to parse text.')),
+        );
+      } else {
+        ref.read(hapticsServiceProvider).mediumImpact();
+        ref.read(soundServiceProvider).playSuccess();
+        if (parsed.distanceKm != null) {
+          _distanceController.text = parsed.distanceKm.toString();
+        }
+        if (parsed.subjectiveEffort != null) {
+          _effortController.text = parsed.subjectiveEffort!;
+        }
+        if (parsed.conditions != null) {
+          _conditionsController.text = parsed.conditions!;
+        }
+        if (parsed.timeOfDay != null) {
+          _timeController.text = parsed.timeOfDay!;
+        }
+      }
+    }
+
+    switch (state.saveResult) {
+      case ManualRunSaveResult.saved:
+        ref.read(soundServiceProvider).playRunFinish();
+        ref.read(hapticsServiceProvider).heavyImpact();
+        Navigator.pop(context);
+        break;
+      case ManualRunSaveResult.invalidDistance:
+        ref.read(soundServiceProvider).playError();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Valid distance required')),
+        );
+        break;
+      case ManualRunSaveResult.failed:
+        ref.read(soundServiceProvider).playError();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save the run. Please try again.')),
+        );
+        break;
+      case null:
+        break;
+    }
   }
 
   Widget _buildField(String label, TextEditingController controller, AppColors colors, TextInputType type) {

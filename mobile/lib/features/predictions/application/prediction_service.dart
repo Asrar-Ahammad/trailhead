@@ -1,24 +1,19 @@
 import 'dart:math' as math;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../main.dart'; // import global isarInstance
 import '../../run_tracking/data/models/run_isar.dart';
-import '../../ai/application/ai_config_provider.dart';
 import '../../ai/application/ai_client.dart';
-
-final predictionServiceProvider = Provider<PredictionService>((ref) {
-  return PredictionService(ref);
-});
-
-final racePredictionsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final service = ref.read(predictionServiceProvider);
-  return await service.getPredictions();
-});
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 
 class PredictionService {
-  final Ref _ref;
+  PredictionService({required Isar isar, required SharedPreferences preferences, required AiConfigCubit aiConfigCubit})
+      : _isar = isar,
+        _preferences = preferences,
+        _aiConfigCubit = aiConfigCubit;
 
+  final Isar _isar;
+  final SharedPreferences _preferences;
+  final AiConfigCubit _aiConfigCubit;
   static const _predictDistances = [
     {'name': '100m', 'd': 100.0},
     {'name': '200m', 'd': 200.0},
@@ -29,10 +24,8 @@ class PredictionService {
     {'name': 'Marathon', 'd': 42195.0},
   ];
   
-  PredictionService(this._ref);
-
   Future<Map<String, dynamic>> getPredictions() async {
-    final runs = await isarInstance.runIsars
+    final runs = await _isar.runIsars
         .filter()
         .statusEqualTo('completed')
         .sortByStartTimeDesc()
@@ -77,14 +70,13 @@ class PredictionService {
     }).toList();
 
     var aiReasoning = 'Keep training to achieve these times!';
-    final aiConfig = _ref.read(aiConfigProvider);
+    final aiConfig = _aiConfigCubit.state;
     if (aiConfig.isConfigured) {
       try {
-        final prefs = await SharedPreferences.getInstance();
-        final age = prefs.getString('user_dob') != null
-            ? (DateTime.now().year - DateTime.parse(prefs.getString('user_dob')!).year).toString()
+        final age = _preferences.getString('user_dob') != null
+            ? (DateTime.now().year - DateTime.parse(_preferences.getString('user_dob')!).year).toString()
             : 'Unknown';
-        final gender = prefs.getString('user_gender') ?? 'Unknown';
+        final gender = _preferences.getString('user_gender') ?? 'Unknown';
 
         final prompt = 'User Context: Age: $age, Gender: $gender. Baseline run used: $d1 meters in $t1 seconds.\n'
             'Predictions: ${predictions.map((p) => '${p['distance']}: ${p['timeStr']}').join(', ')}\n\n'

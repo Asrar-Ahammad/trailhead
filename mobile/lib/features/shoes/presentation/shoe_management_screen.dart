@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -362,7 +363,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                     if (name.isNotEmpty) {
                       setState(() => isSaving = true);
                       final newShoe = await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
-                      ref.read(runTrackerProvider.notifier).setSelectedShoe(newShoe.clientShoeId);
+                      context.read<RunTrackerCubit>().setSelectedShoe(newShoe.clientShoeId);
                       ref.invalidate(allShoesProvider);
                       ref.invalidate(activeShoesProvider);
                       if (ctx.mounted) Navigator.pop(ctx);

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_it/get_it.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:isar/isar.dart';
-import '../../../main.dart';
 import '../data/models/run_point_isar.dart';
 import 'run_tracker_controller.dart';
 
@@ -11,26 +11,13 @@ import 'run_tracker_controller.dart';
 ///
 /// Emits an empty list when no run is active (status == 'idle' or no clientRunId).
 ///
-/// ⚠️ Why polling instead of watchLazy()?
-/// Isar 3's watchLazy() uses an isolate-local ReceivePort — it only fires for
-/// transactions committed in the SAME Dart isolate. The LocationTaskHandler
-/// background task runs in its own isolate (spawned by flutter_foreground_task)
-/// and writes GPS points from there. Those writes are invisible to the main
-/// isolate's watcher. Polling every 1.5 s is reliable regardless of isolate
-/// topology and adds negligible overhead during a run.
+/// Run tracker state changes trigger a fresh Isar snapshot. The background
+/// location task updates the tracker in the foreground isolate as GPS samples
+/// arrive, so the map does not rely on cross-isolate Isar notifications.
 final routePointsProvider = StreamProvider<List<LatLng>>((ref) async* {
-  final trackerState = ref.watch(runTrackerProvider);
-  final clientRunId = trackerState.clientRunId;
-
-  // No active run — yield empty and stop.
-  if (clientRunId == null || trackerState.status == 'idle') {
-    yield [];
-    return;
-  }
-
-  /// Helper that fetches the current sorted points from Isar.
-  Future<List<LatLng>> fetchPoints() async {
-    final points = await isarInstance.runPointIsars
+  final tracker = GetIt.instance<RunTrackerCubit>();
+  Future<List<LatLng>> fetchPoints(String clientRunId) async {
+    final points = await GetIt.instance<Isar>().runPointIsars
         .filter()
         .clientRunIdEqualTo(clientRunId)
         .findAll();
@@ -41,15 +28,15 @@ final routePointsProvider = StreamProvider<List<LatLng>>((ref) async* {
         .toList();
   }
 
-  // Emit the current snapshot immediately so the map shows existing points
-  // without waiting for the first poll tick (e.g. on resume after pause).
-  yield await fetchPoints();
+  Future<List<LatLng>> pointsForState(RunTrackerState state) async {
+    final clientRunId = state.clientRunId;
+    if (clientRunId == null || state.status == 'idle') return [];
+    return fetchPoints(clientRunId);
+  }
 
-  // Poll every 800 milliseconds for new points written to Isar.
-  // The timer is cancelled automatically when the StreamProvider is disposed
-  // (clientRunId changes or run ends) because the async* generator is torn down.
-  await for (final _ in Stream.periodic(const Duration(milliseconds: 800))) {
-    yield await fetchPoints();
+  yield await pointsForState(tracker.state);
+  await for (final state in tracker.stream) {
+    yield await pointsForState(state);
   }
 });
 

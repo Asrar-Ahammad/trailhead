@@ -1,9 +1,7 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar/isar.dart';
-import '../../../main.dart'; // import global isarInstance
 import '../../run_tracking/data/models/run_isar.dart';
-import '../../ai/application/ai_config_provider.dart';
 import '../../ai/application/ai_client.dart';
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 
 class AiCoachData {
   final String coachingFeedback;
@@ -19,8 +17,16 @@ class AiCoachData {
   });
 }
 
-final aiCoachProvider = FutureProvider<AiCoachData>((ref) async {
-  final aiConfig = ref.watch(aiConfigProvider);
+class AiCoachService {
+  AiCoachService({required Isar isar, required AiConfigCubit aiConfigCubit})
+      : _isar = isar,
+        _aiConfigCubit = aiConfigCubit;
+
+  final Isar _isar;
+  final AiConfigCubit _aiConfigCubit;
+
+  Future<AiCoachData> loadCoachData() async {
+  final aiConfig = _aiConfigCubit.state;
 
   try {
     final now = DateTime.now();
@@ -28,7 +34,7 @@ final aiCoachProvider = FutureProvider<AiCoachData>((ref) async {
     final threeWeeksAgo = startOfWeek.subtract(const Duration(days: 21));
 
     // Fetch runs from the last 4 weeks to compute workload and fatigue
-    final recentRuns = await isarInstance.runIsars
+    final recentRuns = await _isar.runIsars
         .filter()
         .statusEqualTo('completed')
         .startTimeGreaterThan(threeWeeksAgo)
@@ -153,4 +159,5 @@ final aiCoachProvider = FutureProvider<AiCoachData>((ref) async {
       isAiGenerated: false,
     );
   }
-});
+  }
+}

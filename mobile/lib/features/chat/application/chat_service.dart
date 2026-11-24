@@ -1,17 +1,14 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../ai/application/ai_config_provider.dart';
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 import '../../ai/application/ai_client.dart';
 
-final chatServiceProvider = Provider((ref) => ChatService(ref));
-
 class ChatService {
-  final Ref _ref;
-  
-  ChatService(this._ref);
+  ChatService(this._aiConfigCubit);
+
+  final AiConfigCubit _aiConfigCubit;
 
   Future<Map<String, dynamic>?> sendMessage(List<Map<String, dynamic>> messages) async {
-    final aiConfig = _ref.read(aiConfigProvider);
+    final aiConfig = _aiConfigCubit.state;
     if (!aiConfig.isConfigured) {
       return {'reply': 'AI feature is disabled. Please configure your API key in Settings.'};
     }
@@ -29,7 +26,7 @@ class ChatService {
   }
 
   Stream<String> streamMessage(List<Map<String, dynamic>> messages) async* {
-    final aiConfig = _ref.read(aiConfigProvider);
+    final aiConfig = _aiConfigCubit.state;
     if (!aiConfig.isConfigured) {
       const errorMsg = 'AI feature is disabled. Please configure your API key in Settings.';
       for (final word in errorMsg.split(' ')) {

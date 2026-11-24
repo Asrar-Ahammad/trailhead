@@ -1,22 +1,28 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/theme/app_spacing.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../application/prediction_service.dart';
+import '../../../shared/state_management/async_value.dart';
+import '../../../shared/state_management/local/async_resource_bloc.dart';
 
-class PredictionScreen extends ConsumerWidget {
+class PredictionScreen extends StatelessWidget {
   const PredictionScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).extension<AppColors>()!;
-    final predictionsAsync = ref.watch(racePredictionsProvider);
-
-    return Scaffold(
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => AsyncResourceBloc<Map<String, dynamic>>()
+        ..add(LoadResource(() => GetIt.instance<PredictionService>().getPredictions())),
+      child: BlocBuilder<AsyncResourceBloc<Map<String, dynamic>>, AsyncValue<Map<String, dynamic>>>(
+        builder: (context, predictionsAsync) {
+          final colors = Theme.of(context).extension<AppColors>()!;
+          return Scaffold(
       backgroundColor: colors.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -110,6 +116,9 @@ class PredictionScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+          );
+        },
       ),
     );
   }

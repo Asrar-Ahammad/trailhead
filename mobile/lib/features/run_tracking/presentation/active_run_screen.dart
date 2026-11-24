@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../application/run_tracker_controller.dart';
 import '../application/run_format_utils.dart';
@@ -35,7 +36,7 @@ class ActiveRunScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final trackerState = ref.watch(runTrackerProvider);
+    final trackerState = context.watch<RunTrackerCubit>().state;
     final colors = Theme.of(context).extension<AppColors>()!;
 
     if (!trackerState.permissionsChecked) {
@@ -102,7 +103,7 @@ class ActiveRunScreen extends ConsumerWidget {
                       trackerState: trackerState,
                       colors: colors,
                       onStop: () {
-                        ref.read(runTrackerProvider.notifier).pauseRun();
+                        context.read<RunTrackerCubit>().pauseRun();
                         _showStopSheet(context, ref, colors, trackerState.activityType);
                       },
                     ),
@@ -131,7 +132,7 @@ class ActiveRunScreen extends ConsumerWidget {
 
     if (!context.mounted) return;
 
-    final notifier = ref.read(runTrackerProvider.notifier);
+    final notifier = context.read<RunTrackerCubit>();
 
     if (result == 'save') {
       debugPrint('[SAVE_DEBUG] Starting save flow...');
@@ -203,7 +204,7 @@ Future<void> _maybePromptWeightAndStart(
   BuildContext context,
   WidgetRef ref,
   AppColors colors,
-  RunTrackerController notifier,
+  RunTrackerCubit notifier,
 ) async {
   final prefs = await SharedPreferences.getInstance();
   final existingWeight = prefs.getDouble('user_weight_kg');
@@ -432,7 +433,7 @@ class _GpsWeakBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       color: colors.warning,
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -475,7 +476,7 @@ class _StatusBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -526,7 +527,7 @@ class _StatPanelState extends ConsumerState<_StatPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       onVerticalDragEnd: (details) {
@@ -660,7 +661,7 @@ class _StatColumn extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Expanded(
       child: Column(
         children: [
@@ -691,7 +692,7 @@ class _PaceComparisonBadge extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final target = trackerState.targetPaceSPerKm!;
     // Use split pace if available, else fall back to average pace
     final int? currentRaw = trackerState.currentSplitPaceSPerKm ??
@@ -793,12 +794,12 @@ class _RunControlsState extends ConsumerState<_RunControls> {
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final trackerState = widget.trackerState;
     final colors = widget.colors;
     final onStop = widget.onStop;
 
-    final notifier = ref.read(runTrackerProvider.notifier);
+    final notifier = context.read<RunTrackerCubit>();
     final status = trackerState.status;
     final isIdle = status == 'idle';
     final isPaused = status == 'paused';
@@ -1085,12 +1086,12 @@ class _TargetPaceSelector extends ConsumerWidget {
 
   final RunTrackerState trackerState;
   final AppColors colors;
-  final RunTrackerController notifier;
+  final RunTrackerCubit notifier;
   final WidgetRef ref;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final currentPace = trackerState.targetPaceSPerKm;
     final String paceStr = currentPace != null 
         ? '${(currentPace / 60).floor()}:${(currentPace % 60).toString().padLeft(2, '0')} /km'
@@ -1152,12 +1153,12 @@ class _ActivityTypeSelector extends ConsumerWidget {
 
   final RunTrackerState trackerState;
   final AppColors colors;
-  final RunTrackerController notifier;
+  final RunTrackerCubit notifier;
   final WidgetRef ref;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final isRun = trackerState.activityType == 'run';
 
     return Container(
@@ -1272,7 +1273,7 @@ class _CircleButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       width: size,
       height: size,
@@ -1297,7 +1298,7 @@ class _StopBottomSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final activityStr = activityType.toLowerCase() == 'walk' ? 'Walk' : 'Run';
     return SafeArea(
       child: Padding(
@@ -1377,7 +1378,7 @@ class _SheetButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     return Container(
       height: 50,
       decoration: BoxDecoration(
@@ -1406,8 +1407,8 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final trackerState = ref.watch(runTrackerProvider);
-    final notifier = ref.read(runTrackerProvider.notifier);
+    final trackerState = context.watch<RunTrackerCubit>().state;
+    final notifier = context.read<RunTrackerCubit>();
     
     final currentPace = trackerState.targetPaceSPerKm;
     final String paceStr = currentPace != null 
@@ -1543,7 +1544,7 @@ class _LocationButtonState extends ConsumerState<_LocationButton> {
               // 2️⃣ Also fetch a fresh GPS fix so the position updates if the
               //    user has moved since the last known fix. force=true bypasses
               //    the "already have position" guard in fetchInitialLocation().
-              await ref.read(runTrackerProvider.notifier).fetchInitialLocation(force: true);
+              await context.read<RunTrackerCubit>().fetchInitialLocation(force: true);
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1629,7 +1630,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                 
                 InkWell(
                   onTap: () {
-                    ref.read(runTrackerProvider.notifier).setSelectedShoe(null);
+                    context.read<RunTrackerCubit>().setSelectedShoe(null);
                     Navigator.pop(context);
                   },
                   borderRadius: BorderRadius.circular(12),
@@ -1678,7 +1679,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                         ),
                         child: InkWell(
                           onTap: () {
-                            ref.read(runTrackerProvider.notifier).setSelectedShoe(shoe.clientShoeId);
+                            context.read<RunTrackerCubit>().setSelectedShoe(shoe.clientShoeId);
                             Navigator.pop(context);
                           },
                           borderRadius: BorderRadius.circular(12),

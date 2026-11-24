@@ -1,6 +1,7 @@
 import 'dart:ui';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -99,7 +100,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
           Text('TOTAL DISTANCE', style: AppTextStyles.label(color: retroColors.textSecondary)),
           const SizedBox(height: 8),
           Text(
-            RunFormatUtils.formatDistance(widget.report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+            RunFormatUtils.formatDistance(widget.report.totalDistanceM, context.watch<DistanceUnitCubit>().state) + ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
             style: AppTextStyles.displayHero(color: retroColors.textPrimary).copyWith(fontSize: 48),
           ),
           const SizedBox(height: 16),
@@ -136,7 +137,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
 
   Widget _buildStatsGrid(AppColors retroColors) {
     final workoutTime = RunFormatUtils.formatDuration(widget.report.totalDurationS);
-    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS, ref.watch(distanceUnitProvider));
+    final avgPace = RunFormatUtils.formatPace(widget.report.totalDistanceM, widget.report.totalDurationS, context.watch<DistanceUnitCubit>().state);
     
     return Column(
       children: [

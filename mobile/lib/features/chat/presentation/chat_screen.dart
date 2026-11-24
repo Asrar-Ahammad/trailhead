@@ -1,10 +1,11 @@
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:isar/isar.dart';
 import 'package:trailhead_mobile/main.dart' show isarInstance;
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:get_it/get_it.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
@@ -13,17 +14,18 @@ import 'package:trailhead_mobile/features/chat/application/chat_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../ai/application/ai_config_provider.dart';
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 
 
 
-class ChatScreen extends ConsumerStatefulWidget {
+class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
   @override
-  ConsumerState<ChatScreen> createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   
@@ -69,7 +71,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       final durMins = ((run.durationS ?? 0) / 60).floor();
       final date = run.startTime != null ? '${run.startTime!.year}-${run.startTime!.month.toString().padLeft(2, '0')}-${run.startTime!.day.toString().padLeft(2, '0')}' : 'Unknown date';
       
-      final useMiles = ref.read(distanceUnitProvider);
+      final useMiles = context.read<DistanceUnitCubit>().state;
       final distStr = RunFormatUtils.formatDistance(run.distanceM ?? 0, useMiles);
       final unitStr = RunFormatUtils.getUnitString(useMiles);
       buffer.writeln("- $date: $type, $distStr $unitStr in $durMins mins.");
@@ -87,8 +89,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (text.isEmpty || _isLoading) return;
 
     _textController.clear();
-    ref.read(soundServiceProvider).playButtonTap();
-    ref.read(hapticsServiceProvider).lightImpact();
+    GetIt.instance<SoundService>().playButtonTap();
+    GetIt.instance<HapticsService>().lightImpact();
 
     setState(() {
       _messages.add({'role': 'user', 'content': text});
@@ -105,7 +107,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _scrollToBottom();
 
     try {
-      final stream = ref.read(chatServiceProvider).streamMessage(_messages.sublist(0, assistantIndex));
+      final stream = GetIt.instance<ChatService>().streamMessage(_messages.sublist(0, assistantIndex));
       String accumulated = '';
 
       await for (final chunk in stream) {
@@ -137,8 +139,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _isLoading = false;
         });
       }
-      ref.read(soundServiceProvider).playChatBeep();
-      ref.read(hapticsServiceProvider).mediumImpact();
+      GetIt.instance<SoundService>().playChatBeep();
+      GetIt.instance<HapticsService>().mediumImpact();
       _scrollToBottom();
     }
   }
@@ -146,7 +148,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final aiConfig = ref.watch(aiConfigProvider);
+    final aiConfig = context.watch<AiConfigCubit>().state;
     final isAiConfigured = aiConfig.isConfigured;
 
     return Scaffold(

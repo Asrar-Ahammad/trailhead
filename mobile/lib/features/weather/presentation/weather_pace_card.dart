@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
 import '../application/weather_service.dart';
@@ -18,8 +19,8 @@ class WeatherPaceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final weatherAsync = ref.watch(weatherPacingProvider);
-    final useMiles = ref.watch(distanceUnitProvider);
-    final trackerState = ref.watch(runTrackerProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
+    final trackerState = context.watch<RunTrackerCubit>().state;
 
     return weatherAsync.when(
       data: (data) {
@@ -258,9 +259,9 @@ class WeatherPaceCard extends ConsumerWidget {
                 onTap: () {
                   ref.read(hapticsServiceProvider).mediumImpact();
                   if (isPaceApplied) {
-                    ref.read(runTrackerProvider.notifier).setTargetPace(null);
+                    context.read<RunTrackerCubit>().setTargetPace(null);
                   } else {
-                    ref.read(runTrackerProvider.notifier).setTargetPace(baseAdjustedPaceS);
+                    context.read<RunTrackerCubit>().setTargetPace(baseAdjustedPaceS);
                   }
                 },
                 child: Container(

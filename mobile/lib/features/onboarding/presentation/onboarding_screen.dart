@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,7 +8,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
 import 'package:trailhead_mobile/features/navigation/presentation/main_scaffold.dart';
-import 'package:trailhead_mobile/features/onboarding/application/onboarding_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/onboarding_cubit.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -54,7 +55,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _finishOnboarding() async {
     ref.read(soundServiceProvider).playRunStart();
     ref.read(hapticsServiceProvider).mediumImpact();
-    await ref.read(onboardingCompletedProvider.notifier).completeOnboarding();
+    await context.read<OnboardingCubit>().completeOnboarding();
     if (!mounted) return;
     AppNavigator.replace(context,
       AppNavigator.materialPageRoute(builder: (_) => const MainScaffold()),
@@ -65,7 +66,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _requestingPermissions = true);
     ref.read(hapticsServiceProvider).lightImpact();
     try {
-      final notifier = ref.read(runTrackerProvider.notifier);
+      final notifier = context.read<RunTrackerCubit>();
       await notifier.requestForegroundPermission();
       await notifier.requestBackgroundPermission();
       if (mounted) {
@@ -645,7 +646,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   // Preview 4: Permissions / Ready
   // ---------------------------------------------------------------------------
   Widget _buildPermissionsPreview(AppColors colors) {
-    final trackerState = ref.watch(runTrackerProvider);
+    final trackerState = context.watch<RunTrackerCubit>().state;
     final isGranted = trackerState.permissionsGranted;
 
     return Container(

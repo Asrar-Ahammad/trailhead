@@ -1,6 +1,7 @@
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -234,7 +235,7 @@ class _RunMetricChartState extends ConsumerState<RunMetricChart> {
                       return Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          RunFormatUtils.formatDistance(value * 1000, ref.watch(distanceUnitProvider)) + ' ' + RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider)),
+                          RunFormatUtils.formatDistance(value * 1000, context.watch<DistanceUnitCubit>().state) + ' ' + RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state),
                           style: AppTextStyles.label(color: colors.textSecondary).copyWith(fontSize: 10),
                         ),
                       );
