@@ -1,6 +1,7 @@
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
@@ -266,7 +267,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPressed: () {
             ref.read(hapticsServiceProvider).mediumImpact();
             ref.read(soundServiceProvider).playButtonTap();
-            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChatScreen()));
+            AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const ChatScreen()));
           },
           backgroundColor: retroColors.accent,
           child: Icon(PhosphorIcons.sparkleFill, color: retroColors.background),
@@ -402,8 +403,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onTap: () {
                         ref.read(hapticsServiceProvider).lightImpact();
                         ref.read(soundServiceProvider).playActivityTap();
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
+                        AppNavigator.push(context,
+                          AppNavigator.materialPageRoute(
                             builder: (context) => RunDetailScreen(run: summary.mostRecentRun!),
                           ),
                         );
@@ -780,8 +781,8 @@ class _AiCoachCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      AppNavigator.push(context,
+                        AppNavigator.materialPageRoute(builder: (_) => const ChatScreen()),
                       );
                     },
                     child: Container(
@@ -897,8 +898,8 @@ class _AiCoachCard extends StatelessWidget {
               ),
               GestureDetector(
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ChatScreen()),
+                  AppNavigator.push(context,
+                    AppNavigator.materialPageRoute(builder: (_) => const ChatScreen()),
                   );
                 },
                 child: Row(

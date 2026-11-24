@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -103,9 +104,9 @@ class ShoeManagementScreen extends ConsumerWidget {
       child: ListTile(
         onTap: () {
           ref.read(hapticsServiceProvider).lightImpact();
-          Navigator.push(
+          AppNavigator.push(
             context,
-            MaterialPageRoute(builder: (_) => ShoeDashboardScreen(shoe: shoe)),
+            AppNavigator.materialPageRoute(builder: (_) => ShoeDashboardScreen(shoe: shoe)),
           );
         },
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

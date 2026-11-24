@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -740,8 +741,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: Icon(PhosphorIcons.caretRight, color: colors.textSecondary, size: 20),
               onTap: () {
                 ref.read(hapticsServiceProvider).lightImpact();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ShoeManagementScreen()),
+                AppNavigator.push(context,
+                  AppNavigator.materialPageRoute(builder: (_) => const ShoeManagementScreen()),
                 );
               },
             ),
@@ -1014,8 +1015,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: Icon(PhosphorIcons.caretRight, color: colors.textSecondary),
               onTap: () {
                 ref.read(hapticsServiceProvider).lightImpact();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                AppNavigator.push(context,
+                  AppNavigator.materialPageRoute(builder: (_) => const OnboardingScreen()),
                 );
               },
             ),

@@ -1,5 +1,6 @@
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -59,8 +60,8 @@ class ActivityCard extends ConsumerWidget {
         }
         ref.read(hapticsServiceProvider).lightImpact();
         ref.read(soundServiceProvider).playActivityTap();
-        Navigator.of(context).push(
-          MaterialPageRoute(
+        AppNavigator.push(context,
+          AppNavigator.materialPageRoute(
             builder: (context) => RunDetailScreen(run: run),
           ),
         );

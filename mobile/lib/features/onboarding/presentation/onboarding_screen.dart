@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -55,8 +56,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     ref.read(hapticsServiceProvider).mediumImpact();
     await ref.read(onboardingCompletedProvider.notifier).completeOnboarding();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainScaffold()),
+    AppNavigator.replace(context,
+      AppNavigator.materialPageRoute(builder: (_) => const MainScaffold()),
     );
   }
 

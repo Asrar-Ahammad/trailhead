@@ -50,7 +50,7 @@ graph TD
 | Goals | `features/goals/` | Goal persistence and goal-setting UI. |
 | History | `features/history/` | Run history repository, details, manual entries, charts, GPX export, sharing, route flyover/playback/export. Uses Isar and map tiles. |
 | Home | `features/home/` | Main dashboard, summary/progress UI, weather pacing card. |
-| Navigation | `features/navigation/` | Main app scaffold and feature navigation. |
+| Navigation | `features/navigation/`, `shared/navigation/app_navigator.dart` | Main app scaffold plus the shared route push, replacement, pop-until, and page-route builder used by feature screens. |
 | Notifications | `features/notifications/` | Local notification service. |
 | Onboarding | `features/onboarding/` | Onboarding UI and Riverpod state. |
 | Predictions | `features/predictions/` | Prediction service and UI. |

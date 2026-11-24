@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:ui';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
@@ -146,8 +147,8 @@ class ActiveRunScreen extends ConsumerWidget {
         debugPrint('[SAVE_DEBUG] stopRun returned: ${savedRun?.clientRunId}, status=${savedRun?.status}');
         debugPrint('[SAVE_DEBUG] context.mounted after stopRun: ${context.mounted}');
         if (savedRun != null && context.mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
+          AppNavigator.push(context,
+            AppNavigator.materialPageRoute(
               builder: (_) => PostRunSummaryScreen(
                 run: savedRun,
                 points: points,
@@ -946,7 +947,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
           return GestureDetector(
             onTap: () {
               ref.read(hapticsServiceProvider).lightImpact();
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
+              AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const ShoeManagementScreen()));
             },
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -1723,7 +1724,7 @@ class _ShoeSelectorSheet extends ConsumerWidget {
                   ),
                   onPressed: () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const ShoeManagementScreen()));
+                    AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const ShoeManagementScreen()));
                   },
                   child: Text('Manage Gear', style: AppTextStyles.bodyLargeBold(color: colors.textPrimary)),
                 ),
