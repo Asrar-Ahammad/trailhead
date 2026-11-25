@@ -43,17 +43,17 @@ graph TD
 
 | Feature | Main code | Responsibility / connections |
 |---|---|---|
-| AI | `mobile/lib/features/ai/application/` | Shared Cubit configuration, direct HTTP client for OpenAI, Gemini, and Anthropic. Used by chat, summaries, coaching, and analysis. |
-| Audio and haptics | `features/audio/`, `features/haptics/` | Shared sound and haptic feedback; navigation sound observer lives in `shared/navigation/`. |
-| Chat | `features/chat/` | AI chat service and chat presentation. Depends on AI configuration/client. |
-| Data management | `features/data_management/` | Import/export app/run data. |
+| AI | `mobile/lib/features/ai/` | Shared configuration Cubit, Settings panel and connection Bloc, and typed AI repository. A shared service handles OpenAI, Gemini, and Anthropic requests in native worker isolates. Chat and Predictions reuse it, and older AI callers use the compatibility client. |
+| Audio and haptics | `features/audio/`, `features/haptics/` | Each has a global Cubit, a domain feedback use case, and a Flutter platform adapter. Audio groups cues into navigation, action, and alert channels. The navigation sound observer uses the same Audio Cubit as the screens. |
+| Chat | `features/chat/` | The route owns a conversation Bloc. The domain builds context from recent activities and handles reply fallback. The repository reads Isar and delegates typed requests to the AI service, which streams replies from a worker isolate on native platforms. |
+| Data management | `features/data_management/` | Settings hosts a local Bloc for JSON backup, restore, and bulk GPX export. A repository wraps Isar and file services. JSON encoding and decoding run in a native worker isolate. History and bulk GPX export share the Downloads directory resolver. |
 | Goals | `features/goals/` | Goal persistence and goal-setting UI. |
 | History | `features/history/` | Run history repository, details, manual entries, charts, GPX export, sharing, route flyover/playback/export. Uses Isar and map tiles. |
 | Home | `features/home/` | Main dashboard, summary/progress UI, weather pacing card. |
 | Navigation | `features/navigation/`, `shared/navigation/app_navigator.dart` | Main app scaffold plus the shared route push, replacement, pop-until, and page-route builder used by feature screens. |
-| Notifications | `features/notifications/` | Local notification service. |
+| Notifications | `features/notifications/` | App startup initializes a DI-managed local notification repository. Its platform service schedules streak nudges using a typed request. Scheduling is available through the repository and has no current caller. |
 | Onboarding | `features/onboarding/` | Onboarding UI; completion state is held by the shared `OnboardingCubit`. |
-| Predictions | `features/predictions/` | Prediction service and UI. |
+| Predictions | `features/predictions/` | Race estimates and optional AI coach advice. The domain selects a valid baseline and calculates Riegel times. The data adapter reads Isar and uses the existing AI client in a native worker isolate. |
 | Profile | `features/profile/` | Settings UI, AI provider/model/key configuration, preferences. |
 | Run tracking | `features/run_tracking/` | GPS/background tracking, steps, route, run calculations, Isar models, map widgets, post-run UI. Central cross-feature data source. |
 | Shoes | `features/shoes/` | Shoe repository/service, image processing, shoe management/dashboard. |
@@ -97,12 +97,15 @@ Image fields also accept HTTP(S) URLs in screens, but the repository does not es
 |---|---|---|
 | Global theme | `shared/state_management/global/theme_mode_cubit.dart` | Registered from `SharedModule`; initialized from saved preferences. |
 | Global onboarding | `shared/state_management/global/onboarding_cubit.dart` | Registered from `SharedModule`; completion persists to preferences. |
-| Global navigation | `shared/state_management/global/navigation_cubit.dart` | Shared by the app scaffold and feature navigation actions. |
+| Global navigation | `shared/state_management/global/navigation_cubit_main_tab.dart` | Holds the selected `MainTab`. The scaffold listens for tab changes, preserves the tab stack, and delegates the double-back exit rule to its domain policy. |
 | Global distance unit | `shared/state_management/global/distance_unit_cubit.dart` | Registered as a shared Cubit. |
+| Global haptics | `shared/state_management/global/haptics_cubit_feedback.dart` | One persisted setting controls UI feedback and run split feedback. |
+| Global UI sounds | `shared/state_management/global/audio_cubit_ui_sounds.dart` | One persisted setting controls UI cues, including navigation. The setting is refreshed after a backup restore. |
 | Global AI config | `shared/state_management/global/ai_config_cubit.dart` | Used by settings and AI services; persists provider/model/key. |
 | Run tracking | `features/run_tracking/application/run_tracker_controller.dart` | Converted to `RunTrackerCubit` and exposed at the app root. |
 | Goals | `features/goals/application/goals_cubit.dart` | Converted to `GoalsCubit`; home progress and goal editor consume this state. |
-| Feature-local async state | `shared/state_management/local/async_resource_bloc.dart` | Generic Future/Stream BLoC is used by predictions, the home coach/trend cards, and the post-run summary; many other feature providers still need conversion. |
+| Feature-local async state | `shared/state_management/local/async_resource_bloc.dart` | Generic Future/Stream BLoC is used by the home coach/trend cards and the post-run summary. |
+| Race predictions | `features/predictions/state_management/predictions_bloc_race_predictions.dart` | The route owns its Bloc. Feature DI registers the repository implementation, coach advice service, use case, and Bloc factory. The coach service uses separate request and response models. The screen renders typed results and navigates through AppNavigator. |
 | History manual entry | `features/history/state_management/manual_entry_bloc.dart` | Coordinates parsing and saving. `ParseManualRunLog` and `SaveManualRun` use cases own the workflows; domain repository contracts live in `features/history/domain/`, with the Isar adapter registered centrally in `core/di/feature_module.dart`. |
 
 This is an in-progress migration, not a completed Riverpod removal. The app still wraps `TrailheadApp` in `ProviderScope`; many feature-local async providers and Consumer widgets remain, including history, weekly stats/reports, shoes, weather, route display, and activity/records screens. Keep `flutter_riverpod` in the manifest until those call sites are migrated. The next migration work should convert each feature’s provider state to feature-scoped Bloc(s), replace Consumer widgets with BlocBuilder/BlocListener or ordinary Flutter widgets, then remove Riverpod imports, provider declarations, and the root `ProviderScope`.
@@ -120,7 +123,7 @@ This is an in-progress migration, not a completed Riverpod removal. The app stil
 1. Every new feature uses Clean Architecture and BLoC state management.
 2. Keep business logic in the domain layer. Presentation contains state management and clean UI only.
 3. Break code into small methods with simple, understandable names.
-4. Name new files using `feature_name_{directory_to_which_it_belongs}`.
+4. Name feature files using `feature_name_{layer_role}_{use_case_name}`. Each feature API uses a domain repository contract and separate data files for the implementation, service, request model, and response model.
 5. Use global/shared state when multiple features need the same common object.
 6. Put reusable components in new files. Generic components may be grouped together in a shared generic file.
 7. Preserve existing local conventions where practical, but do not copy the existing Riverpod layering into new feature architecture when it conflicts with these rules.
@@ -137,7 +140,7 @@ This is an in-progress migration, not a completed Riverpod removal. The app stil
 - Startup and Isar registration: `mobile/lib/main.dart`
 - Dependencies/platform stack: `mobile/pubspec.yaml`
 - AI endpoints and request formats: `mobile/lib/features/ai/application/ai_client.dart`
-- AI settings persistence: `mobile/lib/features/ai/application/ai_config_provider.dart`
+- AI settings persistence: `mobile/lib/features/ai/data/ai_repository_implementation_configuration.dart`
 - Weather and geocoding endpoints: `mobile/lib/features/weather/data/weather_repository.dart`
 - Run tracking controller: `mobile/lib/features/run_tracking/application/run_tracker_controller.dart`
 - Existing repository-specific agent guidance: `.agents/AGENTS.md` (includes the sound-on-toggle UI rule)
