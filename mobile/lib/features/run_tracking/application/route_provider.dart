@@ -14,7 +14,7 @@ import 'run_tracker_controller.dart';
 /// Run tracker state changes trigger a fresh Isar snapshot. The background
 /// location task updates the tracker in the foreground isolate as GPS samples
 /// arrive, so the map does not rely on cross-isolate Isar notifications.
-final routePointsProvider = StreamProvider<List<LatLng>>((ref) async* {
+final routePointsProvider = StreamProvider<List<LatLng>>((ref) {
   final tracker = GetIt.instance<RunTrackerCubit>();
   Future<List<LatLng>> fetchPoints(String clientRunId) async {
     final points = await GetIt.instance<Isar>().runPointIsars
@@ -34,11 +34,28 @@ final routePointsProvider = StreamProvider<List<LatLng>>((ref) async* {
     return fetchPoints(clientRunId);
   }
 
-  yield await pointsForState(tracker.state);
-  await for (final state in tracker.stream) {
-    yield await pointsForState(state);
-  }
+  return watchRunRouteSnapshots(
+    initial: tracker.state,
+    changes: tracker.stream,
+    read: pointsForState,
+  );
 });
+
+Stream<List<LatLng>> watchRunRouteSnapshots({
+  required RunTrackerState initial,
+  required Stream<RunTrackerState> changes,
+  required Future<List<LatLng>> Function(RunTrackerState state) read,
+}) => Stream<RunTrackerState>.multi((output) {
+  output.add(initial);
+  // Subscribe before the initial database read so a stop or pause cannot
+  // slip between the first snapshot and the subscription.
+  final subscription = changes.listen(
+    output.add,
+    onError: output.addError,
+    onDone: output.close,
+  );
+  output.onCancel = subscription.cancel;
+}).asyncMap(read);
 
 /// Integer counter used as a "re-center map now" signal.
 ///

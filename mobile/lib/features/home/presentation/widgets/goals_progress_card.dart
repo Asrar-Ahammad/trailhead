@@ -1,87 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:isar/isar.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import '../../../run_tracking/data/models/run_isar.dart';
-import '../../../run_tracking/data/models/daily_steps_isar.dart';
 import '../../../goals/application/goals_cubit.dart';
+import '../../../goals/application/goals_provider_progress.dart';
 import '../../../goals/presentation/set_goals_sheet.dart';
-import '../../../haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_text_styles.dart';
-import '../../../../main.dart'; // for isarInstance
-
-class GoalProgressData {
-  final double dailyProgress;
-  final double monthlyProgress;
-  
-  GoalProgressData(this.dailyProgress, this.monthlyProgress);
-}
-
-final goalProgressProvider = StreamProvider.autoDispose<GoalProgressData>((ref) async* {
-  final goals = GetIt.instance<GoalsCubit>().state.valueOrNull ?? Goals.empty();
-  
-  // Watch all completed runs
-  final query = isarInstance.runIsars.filter().statusEqualTo('completed').build();
-  
-  await for (final runs in query.watch(fireImmediately: true)) {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    
-    double dailyTotal = 0;
-    double monthlyTotal = 0;
-    
-    for (final run in runs) {
-      if (run.startTime == null) continue;
-      
-      final date = run.startTime!;
-      final isToday = date.isAfter(startOfDay) || date.isAtSameMomentAs(startOfDay);
-      final isThisMonth = date.isAfter(startOfMonth) || date.isAtSameMomentAs(startOfMonth);
-      
-      if (!isThisMonth) continue;
-      
-      double dailyVal = 0;
-      double monthlyVal = 0;
-      
-      // Daily Metric
-      if (goals.dailyGoalMetric == 'steps') {
-        dailyVal = (run.stepCount ?? 0).toDouble();
-      } else if (goals.dailyGoalMetric == 'distance') {
-        dailyVal = (run.distanceM ?? 0) / 1000.0;
-      } else if (goals.dailyGoalMetric == 'duration') {
-        dailyVal = (run.durationS ?? 0) / 60.0;
-      }
-      
-      // Monthly Metric (Distance or Duration only)
-      if (goals.monthlyGoalMetric == 'distance') {
-        monthlyVal = (run.distanceM ?? 0) / 1000.0;
-      } else if (goals.monthlyGoalMetric == 'duration') {
-        monthlyVal = (run.durationS ?? 0) / 60.0;
-      }
-      
-      if (isToday) dailyTotal += dailyVal;
-      monthlyTotal += monthlyVal;
-    }
-
-    // Adjust for steps double counting
-    if (goals.dailyGoalMetric == 'steps') {
-      final todayRecord = await isarInstance.dailyStepsIsars
-          .filter()
-          .dateKeyEqualTo(todayKey)
-          .findFirst();
-      if (todayRecord != null && todayRecord.steps.toDouble() > dailyTotal) {
-        dailyTotal = todayRecord.steps.toDouble();
-      }
-    }
-
-    yield GoalProgressData(dailyTotal, monthlyTotal);
-  }
-});
 
 class GoalsProgressCard extends ConsumerWidget {
   final AppColors retroColors;
@@ -130,10 +57,12 @@ class GoalsProgressCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goalsAsync = context.watch<GoalsCubit>().state;
-    final progressAsync = ref.watch(goalProgressProvider);
     
     final goals = goalsAsync.valueOrNull ?? Goals.empty();
-    final progress = progressAsync.valueOrNull ?? GoalProgressData(0, 0);
+    final progress = ref.watch(goalProgressProvider((
+      daily: goals.dailyGoalMetric,
+      monthly: goals.monthlyGoalMetric,
+    ))).valueOrNull ?? (dailyProgress: 0.0, monthlyProgress: 0.0);
 
     final dailyTarget = goals.dailyGoalTarget > 0 ? goals.dailyGoalTarget : 1.0;
     final dailyRatio = (progress.dailyProgress / dailyTarget).clamp(0.0, 1.0);
@@ -160,7 +89,7 @@ class GoalsProgressCard extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: () {
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<HapticsCubit>().lightImpact();
             showModalBottomSheet(
               context: context,
               backgroundColor: retroColors.surface,

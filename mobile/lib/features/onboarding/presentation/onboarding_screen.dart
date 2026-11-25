@@ -2,26 +2,25 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/navigation/presentation/main_scaffold.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/features/navigation/presentation/navigation_scaffold_main_tabs.dart';
 import 'package:trailhead_mobile/shared/state_management/global/onboarding_cubit.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/widgets/pressable_scale.dart';
 
-class OnboardingScreen extends ConsumerStatefulWidget {
+class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
   bool _requestingPermissions = false;
@@ -36,12 +35,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _onPageChanged(int index) {
     setState(() => _currentPage = index);
-    ref.read(hapticsServiceProvider).selectionClick();
+    context.read<HapticsCubit>().selectionClick();
   }
 
   void _nextPage() {
-    ref.read(soundServiceProvider).playNavRecord();
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<AudioCubit>().playNavRecord();
+    context.read<HapticsCubit>().lightImpact();
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 350),
@@ -53,8 +52,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finishOnboarding() async {
-    ref.read(soundServiceProvider).playRunStart();
-    ref.read(hapticsServiceProvider).mediumImpact();
+    context.read<AudioCubit>().playRunStart();
+    context.read<HapticsCubit>().mediumImpact();
     await context.read<OnboardingCubit>().completeOnboarding();
     if (!mounted) return;
     AppNavigator.replace(context,
@@ -64,7 +63,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _requestPermissions() async {
     setState(() => _requestingPermissions = true);
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<HapticsCubit>().lightImpact();
     try {
       final notifier = context.read<RunTrackerCubit>();
       await notifier.requestForegroundPermission();

@@ -30,8 +30,8 @@ import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/history/application/gpx_export_util.dart';
 import 'share_activity_screen.dart';
 import 'run_flyover_screen.dart';
@@ -93,7 +93,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     });
 
     try {
-      ref.read(hapticsServiceProvider).lightImpact();
+      context.read<HapticsCubit>().lightImpact();
       if (Platform.isAndroid) {
         final status = await Permission.storage.status;
         if (!status.isGranted && !status.isPermanentlyDenied) {
@@ -128,8 +128,9 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
       }
 
       final file = await GpxExportUtil.saveRunGpxToDownloads(run, validPoints);
-      ref.read(hapticsServiceProvider).mediumImpact();
-      ref.read(soundServiceProvider).playToggleSwitch();
+      if (!mounted) return;
+      context.read<HapticsCubit>().mediumImpact();
+      context.read<AudioCubit>().playToggleSwitch();
 
       if (mounted) {
         setState(() {

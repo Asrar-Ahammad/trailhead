@@ -14,7 +14,7 @@ class SaveManualRun {
     required String conditions,
   }) async {
     final distanceKm = double.tryParse(distanceText);
-    if (distanceKm == null || distanceKm <= 0) {
+    if (distanceKm == null || !distanceKm.isFinite || distanceKm <= 0) {
       return ManualRunSaveResult.invalidDistance;
     }
 

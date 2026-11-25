@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
@@ -35,6 +36,7 @@ class RunFlyoverScreen extends ConsumerStatefulWidget {
 
 class _RunFlyoverScreenState extends ConsumerState<RunFlyoverScreen> {
   late final FlyoverTimeline _timeline;
+  late final ({FlyoverTimeline timeline, Future<void> Function() playToggleSound}) _playbackInput;
   final GlobalKey _repaintKey = GlobalKey();
 
   @override
@@ -48,11 +50,15 @@ class _RunFlyoverScreenState extends ConsumerState<RunFlyoverScreen> {
       fallbackDistanceM: widget.run.distanceM,
       fallbackAvgPaceSPerKm: widget.run.avgPaceSPerKm,
     );
+    _playbackInput = (
+      timeline: _timeline,
+      playToggleSound: context.read<AudioCubit>().playToggleSwitch,
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Auto-start playback on screen open like Strava Flyover
-      ref.read(flyoverPlaybackProvider(_timeline).notifier).play();
+      ref.read(flyoverPlaybackProvider(_playbackInput).notifier).play();
     });
   }
 
@@ -61,8 +67,8 @@ class _RunFlyoverScreenState extends ConsumerState<RunFlyoverScreen> {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final brightness = Theme.of(context).brightness;
     final useMiles = context.watch<DistanceUnitCubit>().state;
-    final playbackState = ref.watch(flyoverPlaybackProvider(_timeline));
-    final controller = ref.read(flyoverPlaybackProvider(_timeline).notifier);
+    final playbackState = ref.watch(flyoverPlaybackProvider(_playbackInput));
+    final controller = ref.read(flyoverPlaybackProvider(_playbackInput).notifier);
 
     final title = RunFormatUtils.getRunTitle(
       widget.run.title,

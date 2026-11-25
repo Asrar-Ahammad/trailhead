@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../profile/presentation/settings_screen.dart';
 import '../application/run_tracker_controller.dart';
-import '../../navigation/presentation/main_scaffold.dart';
+import '../../navigation/presentation/navigation_scaffold_main_tabs.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/retro_loading_indicator.dart';
 import 'package:disable_battery_optimization/disable_battery_optimization.dart';

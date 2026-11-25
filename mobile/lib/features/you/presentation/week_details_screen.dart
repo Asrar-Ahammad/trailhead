@@ -10,10 +10,10 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
 import 'package:trailhead_mobile/features/you/presentation/weekly_activities_screen.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 
 class WeekDetailsScreen extends ConsumerStatefulWidget {
   final WeeklyReportModel report;
@@ -217,8 +217,8 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: () {
-            ref.read(soundServiceProvider).playActivitiesCardTap();
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<AudioCubit>().playActivitiesCardTap();
+            context.read<HapticsCubit>().lightImpact();
             AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => WeeklyActivitiesScreen(report: widget.report)));
           },
           child: Padding(
@@ -280,7 +280,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
                 final index = touchResponse.lineBarSpots![0].spotIndex;
                 if (_touchedPaceSpotIndex != index) {
                   _touchedPaceSpotIndex = index;
-                  ref.read(hapticsServiceProvider).lightImpact();
+                  context.read<HapticsCubit>().lightImpact();
                 }
               } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.lineBarSpots == null)) {
                 _touchedPaceSpotIndex = null;
@@ -413,7 +413,7 @@ class _WeekDetailsScreenState extends ConsumerState<WeekDetailsScreen> {
                 final index = touchResponse.lineBarSpots![0].spotIndex;
                 if (_touchedCadenceSpotIndex != index) {
                   _touchedCadenceSpotIndex = index;
-                  ref.read(hapticsServiceProvider).lightImpact();
+                  context.read<HapticsCubit>().lightImpact();
                 }
               } else if (event is FlPanEndEvent || event is FlPanCancelEvent || (event is FlPointerHoverEvent && touchResponse?.lineBarSpots == null)) {
                 _touchedCadenceSpotIndex = null;

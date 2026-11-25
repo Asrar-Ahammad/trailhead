@@ -10,7 +10,7 @@ import '../application/shoe_service.dart';
 import '../data/models/shoe_isar.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
-import '../../haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'shoe_dashboard_screen.dart';
 import '../../run_tracking/application/run_tracker_controller.dart';
 
@@ -42,7 +42,7 @@ class ShoeManagementScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsCubit>().lightImpact();
           _showAddShoeDialog(context, ref, colors);
         },
         backgroundColor: colors.accent,
@@ -104,7 +104,7 @@ class ShoeManagementScreen extends ConsumerWidget {
       ),
       child: ListTile(
         onTap: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsCubit>().lightImpact();
           AppNavigator.push(
             context,
             AppNavigator.materialPageRoute(builder: (_) => ShoeDashboardScreen(shoe: shoe)),

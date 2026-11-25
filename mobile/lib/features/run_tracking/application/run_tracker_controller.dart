@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter/services.dart';
+import '../../../shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -102,6 +102,7 @@ class RunTrackerCubit extends Cubit<RunTrackerState> {
   final ShoeService _shoeService;
   final WeatherRepository _weatherRepository;
   final RunAnalysisService _analysisService;
+  final HapticsCubit _haptics;
 
   // Live tracking resources
   Timer? _runTimer;
@@ -138,11 +139,13 @@ class RunTrackerCubit extends Cubit<RunTrackerState> {
     required ShoeService shoeService,
     required WeatherRepository weatherRepository,
     required RunAnalysisService analysisService,
+    required HapticsCubit haptics,
   }) : _isar = isar,
        _preferences = preferences,
        _shoeService = shoeService,
        _weatherRepository = weatherRepository,
        _analysisService = analysisService,
+       _haptics = haptics,
        super(RunTrackerState(status: 'idle', permissionsChecked: true)) {
     _initForegroundTask();
     _checkPermissionsSilently();
@@ -198,7 +201,7 @@ class RunTrackerCubit extends Cubit<RunTrackerState> {
   }
 
   void _handleSplitReached(double distance, int splitTimeS, int paceSPerKm) async {
-    HapticFeedback.heavyImpact();
+    unawaited(_haptics.heavyImpact());
 
     final prefs = _preferences;
     final audioCuesEnabled = prefs.getBool('audio_cues_enabled') ?? true;

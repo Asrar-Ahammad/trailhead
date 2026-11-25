@@ -9,9 +9,9 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../application/run_tracker_controller.dart';
 import '../application/run_format_utils.dart';
 import '../application/route_provider.dart';
-import '../../audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'post_run_summary_screen.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:latlong2/latlong.dart';
 import 'widgets/live_run_map.dart';
 import 'widgets/countdown_overlay.dart';
@@ -133,10 +133,11 @@ class ActiveRunScreen extends ConsumerWidget {
     if (!context.mounted) return;
 
     final notifier = context.read<RunTrackerCubit>();
+    final audio = context.read<AudioCubit>();
 
     if (result == 'save') {
       debugPrint('[SAVE_DEBUG] Starting save flow...');
-      ref.read(soundServiceProvider).playRunFinish();
+      audio.playRunFinish();
 
       // Read points BEFORE stopping the run (while ref is still valid)
       final pointsAsync = ref.read(routePointsProvider);
@@ -184,15 +185,15 @@ class ActiveRunScreen extends ConsumerWidget {
       );
 
       if (confirm == true) {
-        ref.read(soundServiceProvider).playRunDiscard();
+        audio.playRunDiscard();
         notifier.discardRun();
       } else {
-        ref.read(soundServiceProvider).playPauseResume();
+        audio.playPauseResume();
         notifier.resumeRun();
       }
     } else {
       // Dismissed or 'resume' — resume tracking
-      ref.read(soundServiceProvider).playPauseResume();
+      audio.playPauseResume();
       notifier.resumeRun();
     }
   }
@@ -202,7 +203,6 @@ class ActiveRunScreen extends ConsumerWidget {
 /// After confirming (or skipping), runs the countdown overlay and starts the activity.
 Future<void> _maybePromptWeightAndStart(
   BuildContext context,
-  WidgetRef ref,
   AppColors colors,
   RunTrackerCubit notifier,
 ) async {
@@ -224,7 +224,8 @@ Future<void> _maybePromptWeightAndStart(
   // Once weight prompt is handled (or if weight already exists), run countdown then start run
   if (context.mounted) {
     await CountdownOverlay.show(context);
-    ref.read(soundServiceProvider).playRunStart();
+    if (!context.mounted) return;
+    context.read<AudioCubit>().playRunStart();
     notifier.startRun();
   }
 }
@@ -856,7 +857,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                     textColor: colors.textPrimary,
                     onTap: () {
                       if (isIdle) {
-                        ref.read(hapticsServiceProvider).lightImpact();
+                        context.read<HapticsCubit>().lightImpact();
                         notifier.setActivityType(isRun ? 'walk' : 'run');
                       } else {
                         onStop();
@@ -871,7 +872,9 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                         if (!trackerState.permissionsGranted) {
                           notifier.requestForegroundPermission().then((granted) {
                             if (granted) {
-                              _maybePromptWeightAndStart(context, ref, colors, notifier);
+                              if (context.mounted) {
+                                _maybePromptWeightAndStart(context, colors, notifier);
+                              }
                             } else {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -883,13 +886,13 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                             }
                           });
                         } else {
-                          _maybePromptWeightAndStart(context, ref, colors, notifier);
+                          _maybePromptWeightAndStart(context, colors, notifier);
                         }
                       } else if (isPaused) {
-                        ref.read(soundServiceProvider).playPauseResume();
+                        context.read<AudioCubit>().playPauseResume();
                         notifier.resumeRun();
                       } else {
-                        ref.read(soundServiceProvider).playPauseResume();
+                        context.read<AudioCubit>().playPauseResume();
                         notifier.pauseRun();
                       }
                     },
@@ -917,7 +920,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
                     textColor: colors.textPrimary,
                     onTap: () {
                       if (isIdle) {
-                        ref.read(hapticsServiceProvider).lightImpact();
+                        context.read<HapticsCubit>().lightImpact();
                         showModalBottomSheet(
                           context: context,
                           backgroundColor: Colors.transparent,
@@ -947,7 +950,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
         if (shoes.isEmpty) {
           return GestureDetector(
             onTap: () {
-              ref.read(hapticsServiceProvider).lightImpact();
+              context.read<HapticsCubit>().lightImpact();
               AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const ShoeManagementScreen()));
             },
             child: Container(
@@ -977,7 +980,7 @@ class _RunControlsState extends ConsumerState<_RunControls> {
 
         return GestureDetector(
           onTap: () {
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<HapticsCubit>().lightImpact();
             showModalBottomSheet(
               context: context,
               backgroundColor: Colors.transparent,
@@ -1116,8 +1119,8 @@ class _TargetPaceSelector extends ConsumerWidget {
           IconButton(
             icon: Icon(PhosphorIcons.minus, color: colors.textPrimary),
             onPressed: () {
-              ref.read(hapticsServiceProvider).lightImpact();
-              ref.read(soundServiceProvider).playPaceDown();
+              context.read<HapticsCubit>().lightImpact();
+              context.read<AudioCubit>().playPaceDown();
               final newPace = (currentPace ?? 360) + 10; // Slower pace = more seconds
               notifier.setTargetPace(newPace);
             },
@@ -1131,8 +1134,8 @@ class _TargetPaceSelector extends ConsumerWidget {
           IconButton(
             icon: Icon(PhosphorIcons.plus, color: colors.textPrimary),
             onPressed: () {
-              ref.read(hapticsServiceProvider).lightImpact();
-              ref.read(soundServiceProvider).playPaceUp();
+              context.read<HapticsCubit>().lightImpact();
+              context.read<AudioCubit>().playPaceUp();
               final newPace = (currentPace ?? 360) - 10; // Faster pace = less seconds
               if (newPace > 0) notifier.setTargetPace(newPace);
             },
@@ -1200,8 +1203,8 @@ class _ActivityTypeSelector extends ConsumerWidget {
                   icon: PhosphorIcons.personSimpleRun,
                   isSelected: isRun,
                   onTap: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playSwitchRun();
+                    context.read<HapticsCubit>().lightImpact();
+                    context.read<AudioCubit>().playSwitchRun();
                     notifier.setActivityType('run');
                   },
                 ),
@@ -1212,8 +1215,8 @@ class _ActivityTypeSelector extends ConsumerWidget {
                   icon: PhosphorIcons.personSimpleWalk,
                   isSelected: !isRun,
                   onTap: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
-                    ref.read(soundServiceProvider).playSwitchWalk();
+                    context.read<HapticsCubit>().lightImpact();
+                    context.read<AudioCubit>().playSwitchWalk();
                     notifier.setActivityType('walk');
                   },
                 ),
@@ -1458,8 +1461,8 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
                       IconButton(
                         icon: Icon(PhosphorIcons.minusCircleFill, color: colors.accent, size: 48),
                         onPressed: () {
-                          ref.read(hapticsServiceProvider).lightImpact();
-                          ref.read(soundServiceProvider).playPaceDown();
+                          context.read<HapticsCubit>().lightImpact();
+                          context.read<AudioCubit>().playPaceDown();
                           final newPace = (currentPace ?? 360) + 10;
                           notifier.setTargetPace(newPace);
                         },
@@ -1468,8 +1471,8 @@ class _TargetPaceSelectorSheet extends ConsumerWidget {
                       IconButton(
                         icon: Icon(PhosphorIcons.plusCircleFill, color: colors.accent, size: 48),
                         onPressed: () {
-                          ref.read(hapticsServiceProvider).lightImpact();
-                          ref.read(soundServiceProvider).playPaceUp();
+                          context.read<HapticsCubit>().lightImpact();
+                          context.read<AudioCubit>().playPaceUp();
                           final newPace = (currentPace ?? 360) - 10;
                           if (newPace > 0) notifier.setTargetPace(newPace);
                         },
@@ -1535,7 +1538,7 @@ class _LocationButtonState extends ConsumerState<_LocationButton> {
           backgroundColor: widget.colors.surface.withValues(alpha: 0.45),
           onPressed: _isFetching ? null : () async {
             setState(() => _isFetching = true);
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<HapticsCubit>().lightImpact();
             // 1️⃣ Signal the map to re-center immediately on the currently
             //    known position — this works even if coordinates haven't
             //    changed (user panned away and wants to come back).

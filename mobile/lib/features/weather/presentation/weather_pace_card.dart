@@ -6,7 +6,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
 import '../application/weather_service.dart';
 import '../application/weather_utils.dart';
@@ -257,7 +257,7 @@ class WeatherPaceCard extends ConsumerWidget {
               // Interactive Target Pace Action
               GestureDetector(
                 onTap: () {
-                  ref.read(hapticsServiceProvider).mediumImpact();
+                  context.read<HapticsCubit>().mediumImpact();
                   if (isPaceApplied) {
                     context.read<RunTrackerCubit>().setTargetPace(null);
                   } else {

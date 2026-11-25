@@ -1,24 +1,44 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../features/ai/domain/ai_config.dart';
+import '../../../features/ai/domain/ai_repository_configuration.dart';
+import '../../../features/ai/domain/ai_use_case_select_provider.dart';
 
 class AiConfigCubit extends Cubit<AiConfig> {
-  AiConfigCubit({required SharedPreferences preferences, required AiConfig initial})
-    : _preferences = preferences,
-      super(initial);
+  AiConfigCubit(this._repository) : super(_repository.load());
 
-  final SharedPreferences _preferences;
+  final AiConfigurationRepository _repository;
+  Future<void> _pendingSave = Future<void>.value();
+  bool _lastSaveFailed = false;
 
-  Future<void> updateConfig({String? provider, String? model, String? apiKey}) async {
-    if (provider != null) await _preferences.setString('ai_provider', provider);
-    if (model != null) await _preferences.setString('ai_model', model);
-    if (apiKey != null) await _preferences.setString('ai_api_key', apiKey);
+  void reloadPreference() {
+    if (!isClosed) emit(_repository.load());
+  }
 
-    emit(AiConfig(
+  Future<void> updateConfig({String? provider, String? model, String? apiKey}) {
+    final next = AiConfig(
       provider: provider ?? state.provider,
-      model: model ?? state.model,
+      model:
+          model ??
+          (provider == null
+              ? state.model
+              : AiProviderOptions.forProvider(provider).defaultModel),
       apiKey: apiKey ?? state.apiKey,
-    ));
+    );
+    final unchanged = next.provider == state.provider &&
+        next.model == state.model &&
+        next.apiKey == state.apiKey;
+    if (unchanged && !_lastSaveFailed) return _pendingSave;
+    if (!unchanged) emit(next);
+    _pendingSave = _pendingSave
+        .then((_) async {
+          await _repository.save(next);
+          _lastSaveFailed = false;
+        })
+        .onError<Object>((error, trace) {
+          _lastSaveFailed = true;
+          if (!isClosed) addError(error, trace);
+        });
+    return _pendingSave;
   }
 }

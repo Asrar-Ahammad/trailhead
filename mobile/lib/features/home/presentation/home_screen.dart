@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit.dart';
+import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit_main_tab.dart';
+import 'package:trailhead_mobile/features/navigation/domain/navigation_entity_main_tab.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -22,11 +23,11 @@ import '../../run_tracking/application/run_format_utils.dart';
 import '../../../shared/state_management/async_value.dart' as StateAsync;
 import '../../../shared/state_management/local/async_resource_bloc.dart';
 
-import '../../haptics/application/haptics_service.dart';
-import '../../audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 
 import 'package:trailhead_mobile/features/home/presentation/widgets/goals_progress_card.dart';
-import 'package:trailhead_mobile/features/chat/presentation/chat_screen.dart';
+import 'package:trailhead_mobile/features/chat/presentation/chat_screen_coach_conversation.dart';
 import 'package:trailhead_mobile/features/weather/presentation/weather_pace_card.dart';
 import 'package:trailhead_mobile/features/weather/application/weather_service.dart';
 import 'package:trailhead_mobile/features/weather/application/weather_utils.dart';
@@ -175,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                 return GestureDetector(
                   onTap: () {
-                    ref.read(hapticsServiceProvider).lightImpact();
+                    context.read<HapticsCubit>().lightImpact();
                     showModalBottomSheet(
                       context: context,
                       backgroundColor: Colors.transparent,
@@ -294,8 +295,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           elevation: 0,
           highlightElevation: 0,
           onPressed: () {
-            ref.read(hapticsServiceProvider).mediumImpact();
-            ref.read(soundServiceProvider).playButtonTap();
+            context.read<HapticsCubit>().mediumImpact();
+            context.read<AudioCubit>().playButtonTap();
             AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const ChatScreen()));
           },
           backgroundColor: retroColors.accent,
@@ -355,9 +356,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(100),
                 onTap: () {
-                  ref.read(hapticsServiceProvider).lightImpact();
-                  ref.read(soundServiceProvider).playButtonTap();
-                  context.read<NavigationCubit>().selectTab(1); // Jump to record tab
+                  context.read<HapticsCubit>().lightImpact();
+                  context.read<AudioCubit>().playButtonTap();
+                  context.read<NavigationCubit>().selectTab(MainTab.record); // Jump to record tab
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -433,8 +434,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(24),
                       onTap: () {
-                        ref.read(hapticsServiceProvider).lightImpact();
-                        ref.read(soundServiceProvider).playActivityTap();
+                        context.read<HapticsCubit>().lightImpact();
+                        context.read<AudioCubit>().playActivityTap();
                         AppNavigator.push(context,
                           AppNavigator.materialPageRoute(
                             builder: (context) => RunDetailScreen(run: summary.mostRecentRun!),

@@ -56,15 +56,21 @@ class ManualEntryBloc extends Bloc<ManualEntryEvent, ManualEntryState> {
     ParseManualEntry event,
     Emitter<ManualEntryState> emit,
   ) async {
+    if (state.isParsing || state.isSaving) return;
     emit(const ManualEntryState(isParsing: true));
-    final parsedLog = await _parseManualRunLog(event.text);
-    emit(ManualEntryState(parseCompleted: true, parsedLog: parsedLog));
+    try {
+      final parsedLog = await _parseManualRunLog(event.text);
+      emit(ManualEntryState(parseCompleted: true, parsedLog: parsedLog));
+    } catch (_) {
+      emit(const ManualEntryState(parseCompleted: true));
+    }
   }
 
   Future<void> _save(
     SaveManualEntry event,
     Emitter<ManualEntryState> emit,
   ) async {
+    if (state.isParsing || state.isSaving) return;
     emit(const ManualEntryState(isSaving: true));
     try {
       final result = await _saveManualRun(

@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'features/run_tracking/data/models/run_isar.dart';
 import 'features/run_tracking/data/models/run_point_isar.dart';
 import 'features/onboarding/presentation/onboarding_screen.dart';
@@ -15,21 +15,26 @@ import 'features/stats/data/models/weekly_report_isar.dart';
 import 'features/goals/data/models/goal_isar.dart';
 import 'features/run_tracking/application/background_step_service.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'features/notifications/application/notification_service.dart';
+import 'features/notifications/domain/notifications_repository_streak_nudge.dart';
 import 'package:animated_theme_switcher/animated_theme_switcher.dart';
 import 'shared/theme/app_themes.dart';
 import 'shared/navigation/sound_navigator_observer.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'features/navigation/presentation/main_scaffold.dart';
+import 'features/navigation/presentation/navigation_scaffold_main_tabs.dart';
 import 'core/di/dependency_injection.dart';
 import 'shared/state_management/global/ai_config_cubit.dart';
 import 'shared/state_management/global/distance_unit_cubit.dart';
-import 'shared/state_management/global/navigation_cubit.dart';
+import 'shared/state_management/global/haptics_cubit_feedback.dart';
+import 'shared/state_management/global/navigation_cubit_main_tab.dart';
 import 'shared/state_management/global/onboarding_cubit.dart';
 import 'shared/state_management/global/theme_mode_cubit.dart';
 import 'features/run_tracking/application/run_tracker_controller.dart';
 import 'features/goals/application/goals_cubit.dart';
 import 'features/history/state_management/manual_entry_bloc.dart';
+import 'features/data_management/state_management/data_management_bloc_backups.dart';
+import 'features/chat/state_management/chat_bloc_coach_conversation.dart';
+import 'features/ai/state_management/ai_bloc_check_connection.dart';
+import 'features/predictions/state_management/predictions_bloc_race_predictions.dart';
 
 late Isar isarInstance;
 
@@ -48,14 +53,6 @@ void main() async {
     WeeklyReportIsarSchema,
     GoalIsarSchema,
   ], directory: dir.path);
-
-  // Initialize Notifications
-  try {
-    final notificationService = NotificationService();
-    await notificationService.initialize();
-  } catch (e, st) {
-    debugPrint('Notification initialization error: $e\n$st');
-  }
 
   // Start background step counter service
   try {
@@ -119,12 +116,20 @@ void main() async {
     onboardingCompleted: seenOnboarding,
   );
 
+  try {
+    await getIt<NotificationsRepository>().initialize();
+  } catch (error, stackTrace) {
+    debugPrint('Notification initialization error: $error\n$stackTrace');
+  }
+
   runApp(
     MultiBlocProvider(
       providers: [
         BlocProvider.value(value: getIt<ThemeModeCubit>()),
         BlocProvider.value(value: getIt<OnboardingCubit>()),
         BlocProvider.value(value: getIt<DistanceUnitCubit>()),
+        BlocProvider.value(value: getIt<HapticsCubit>()),
+        BlocProvider.value(value: getIt<AudioCubit>()),
         BlocProvider.value(value: getIt<NavigationCubit>()),
         BlocProvider.value(value: getIt<AiConfigCubit>()),
         BlocProvider.value(value: getIt<RunTrackerCubit>()),
@@ -133,7 +138,23 @@ void main() async {
           create: (_) => getIt<ManualEntryBloc>(),
         ),
       ],
-      child: const ProviderScope(child: TrailheadApp()),
+      child: MultiRepositoryProvider(
+        providers: [
+          RepositoryProvider<CreatePredictionsBloc>.value(
+            value: () => getIt<PredictionsBloc>(),
+          ),
+          RepositoryProvider<CreateDataManagementBloc>.value(
+            value: () => getIt<DataManagementBloc>(),
+          ),
+          RepositoryProvider<CreateChatBloc>.value(
+            value: () => getIt<ChatBloc>(),
+          ),
+          RepositoryProvider<CreateAiConnectionBloc>.value(
+            value: () => getIt<AiConnectionBloc>(),
+          ),
+        ],
+        child: const ProviderScope(child: TrailheadApp()),
+      ),
     ),
   );
 }
@@ -151,7 +172,7 @@ class TrailheadApp extends StatelessWidget {
                 Brightness.dark);
 
     final initTheme = isDark ? AppThemes.darkTheme : AppThemes.lightTheme;
-    final soundService = getIt<SoundService>();
+    final audio = context.read<AudioCubit>();
     final hasSeenOnboarding = context.watch<OnboardingCubit>().state;
 
     final Widget homeScreen = hasSeenOnboarding
@@ -170,7 +191,7 @@ class TrailheadApp extends StatelessWidget {
             darkTheme: AppThemes.darkTheme,
             home: homeScreen,
             navigatorObservers: [
-              SoundNavigatorObserver(soundService: soundService),
+              SoundNavigatorObserver(playBackSound: audio.playSystemBack),
             ],
           );
         },

@@ -9,8 +9,8 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
@@ -188,8 +188,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () {
                                       if (mode != 'best_effort') {
-                                        ref.read(hapticsServiceProvider).lightImpact();
-                                        ref.read(soundServiceProvider).playTabBestEfforts();
+                                        context.read<HapticsCubit>().lightImpact();
+                                        context.read<AudioCubit>().playTabBestEfforts();
                                         ref.read(recordsModeProvider.notifier).state = 'best_effort';
                                       }
                                     },
@@ -212,8 +212,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () {
                                       if (mode != 'manual') {
-                                        ref.read(hapticsServiceProvider).lightImpact();
-                                        ref.read(soundServiceProvider).playTabAllTime();
+                                        context.read<HapticsCubit>().lightImpact();
+                                        context.read<AudioCubit>().playTabAllTime();
                                         ref.read(recordsModeProvider.notifier).state = 'manual';
                                       }
                                     },
@@ -290,7 +290,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         if (mode == 'manual')
                           InkWell(
                             onTap: () {
-                              ref.read(hapticsServiceProvider).lightImpact();
+                              context.read<HapticsCubit>().lightImpact();
                               _showAddPRBottomSheet(context, retroColors);
                             },
                             borderRadius: BorderRadius.circular(100),
@@ -367,7 +367,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                           const SizedBox(height: 20),
                           ElevatedButton.icon(
                             onPressed: () {
-                              ref.read(hapticsServiceProvider).lightImpact();
+                              context.read<HapticsCubit>().lightImpact();
                               _showAddPRBottomSheet(context, retroColors);
                             },
                             icon: const Icon(PhosphorIcons.plusBold, size: 16),
@@ -485,7 +485,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsCubit>().lightImpact();
           if (pr.runId != null) {
             final runs = ref.read(historyProvider).valueOrNull ?? [];
             try {

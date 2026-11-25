@@ -2,7 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit.dart';
+import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit_main_tab.dart';
+import 'package:trailhead_mobile/features/navigation/domain/navigation_entity_main_tab.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:latlong2/latlong.dart';
@@ -16,8 +17,8 @@ import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../../shared/widgets/count_up_text.dart';
 import '../../stats/application/pr_engine.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import '../../history/presentation/share_activity_screen.dart';
 import '../../../shared/state_management/async_value.dart' as StateAsync;
 import '../../../shared/state_management/local/async_resource_bloc.dart';
@@ -78,14 +79,17 @@ class _PostRunSummaryScreenState extends State<PostRunSummaryScreen> with Single
   @override
   void initState() {
     super.initState();
+    final haptics = context.read<HapticsCubit>();
+    final audio = context.read<AudioCubit>();
     _summaryBloc = AsyncResourceBloc<PostRunSummaryData>()
       ..add(LoadResource(_loadSummary));
     _summarySubscription = _summaryBloc.stream.listen((state) {
-      if (state.valueOrNull?.isNewPr == true &&
+      if (mounted &&
+          state.valueOrNull?.isNewPr == true &&
           _staggerController.value >= 0.4 &&
           !_prSoundPlayed) {
-        GetIt.instance<SoundService>().playPrNew();
-        GetIt.instance<HapticsService>().heavyImpact();
+        audio.playPrNew();
+        haptics.heavyImpact();
         _prSoundPlayed = true;
       }
     });
@@ -142,8 +146,8 @@ class _PostRunSummaryScreenState extends State<PostRunSummaryScreen> with Single
       }
       if (_staggerController.value >= 0.4 && !_prSoundPlayed) {
         if (_summaryBloc.state.valueOrNull?.isNewPr == true) {
-          GetIt.instance<SoundService>().playPrNew();
-          GetIt.instance<HapticsService>().heavyImpact();
+          audio.playPrNew();
+          haptics.heavyImpact();
           _prSoundPlayed = true;
         }
       }
@@ -172,8 +176,8 @@ class _PostRunSummaryScreenState extends State<PostRunSummaryScreen> with Single
 
 
   void _saveRun() {
-    GetIt.instance<HapticsService>().mediumImpact();
-    context.read<NavigationCubit>().selectTab(0); // Go to home
+    context.read<HapticsCubit>().mediumImpact();
+    context.read<NavigationCubit>().selectTab(MainTab.home); // Go to home
     AppNavigator.popUntil(context, (route) => route.isFirst);
   }
 

@@ -3,7 +3,6 @@ import 'package:get_it/get_it.dart';
 import 'package:isar/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../features/ai/domain/ai_config.dart';
 import 'core_module.dart';
 import 'feature_module.dart';
 import 'shared_module.dart';
@@ -23,17 +22,10 @@ class DependencyInjection {
       preferences: preferences,
     );
 
-    final initialAiConfig = AiConfig(
-      provider: preferences.getString('ai_provider') ?? 'openai',
-      model: preferences.getString('ai_model') ?? 'gpt-5',
-      apiKey: preferences.getString('ai_api_key') ?? '',
-    );
-
     SharedModule.register(
       getIt: getIt,
       initialThemeMode: initialThemeMode,
       onboardingCompleted: onboardingCompleted,
-      initialAiConfig: initialAiConfig,
     );
     FeatureModule.register(getIt: getIt);
   }

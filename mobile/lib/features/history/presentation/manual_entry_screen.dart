@@ -1,25 +1,23 @@
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:trailhead_mobile/features/history/state_management/manual_entry_bloc.dart';
 import 'package:trailhead_mobile/features/history/domain/use_cases/save_manual_run.dart';
 
-class ManualEntryScreen extends ConsumerStatefulWidget {
+class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({super.key});
 
   @override
-  ConsumerState<ManualEntryScreen> createState() => _ManualEntryScreenState();
+  State<ManualEntryScreen> createState() => _ManualEntryScreenState();
 }
 
-class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
+class _ManualEntryScreenState extends State<ManualEntryScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   final TextEditingController _textController = TextEditingController();
@@ -57,7 +55,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   void _startListening() async {
     if (!_isListening) {
-      ref.read(hapticsServiceProvider).lightImpact();
+      context.read<HapticsCubit>().lightImpact();
       
       var micStatus = await Permission.microphone.status;
       if (micStatus.isPermanentlyDenied) {
@@ -81,8 +79,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       
       if (micStatus.isGranted) {
         bool available = await _initSpeechIfNeeded();
+        if (!mounted) return;
         if (available) {
-          ref.read(soundServiceProvider).playMicStart();
+          context.read<AudioCubit>().playMicStart();
           setState(() => _isListening = true);
           
           final int cursorPos = _textController.selection.baseOffset >= 0 
@@ -124,7 +123,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
   void _stopListening() {
     if (_isListening) {
-      ref.read(hapticsServiceProvider).lightImpact();
+      context.read<HapticsCubit>().lightImpact();
       _speech.stop();
       setState(() => _isListening = false);
     }
@@ -133,7 +132,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   void _parseText() {
     if (_textController.text.trim().isEmpty) return;
 
-    ref.read(soundServiceProvider).playButtonTap();
+    context.read<AudioCubit>().playButtonTap();
     context.read<ManualEntryBloc>().add(ParseManualEntry(_textController.text));
   }
 
@@ -152,6 +151,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     final colors = Theme.of(context).extension<AppColors>()!;
     final manualEntryState = context.watch<ManualEntryBloc>().state;
     final isParsing = manualEntryState.isParsing;
+    final isBusy = isParsing || manualEntryState.isSaving;
     
     return BlocListener<ManualEntryBloc, ManualEntryState>(
       listener: _handleManualEntryState,
@@ -205,7 +205,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                     builder: (context, value, child) {
                       final hasText = value.text.trim().isNotEmpty;
                       return ElevatedButton(
-                        onPressed: (isParsing || !hasText) ? null : _parseText,
+                        onPressed: (isBusy || !hasText) ? null : _parseText,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colors.accent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
@@ -231,7 +231,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
             _buildField('Time of Day', _timeController, colors, TextInputType.text),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: manualEntryState.isSaving ? null : _saveRun,
+              onPressed: isBusy ? null : _saveRun,
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.accent,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -252,13 +252,13 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     if (state.parseCompleted) {
       final parsed = state.parsedLog;
       if (parsed == null) {
-        ref.read(soundServiceProvider).playError();
+        context.read<AudioCubit>().playError();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to parse text.')),
         );
       } else {
-        ref.read(hapticsServiceProvider).mediumImpact();
-        ref.read(soundServiceProvider).playSuccess();
+        context.read<HapticsCubit>().mediumImpact();
+        context.read<AudioCubit>().playSuccess();
         if (parsed.distanceKm != null) {
           _distanceController.text = parsed.distanceKm.toString();
         }
@@ -276,18 +276,18 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
 
     switch (state.saveResult) {
       case ManualRunSaveResult.saved:
-        ref.read(soundServiceProvider).playRunFinish();
-        ref.read(hapticsServiceProvider).heavyImpact();
+        context.read<AudioCubit>().playRunFinish();
+        context.read<HapticsCubit>().heavyImpact();
         AppNavigator.pop(context);
         break;
       case ManualRunSaveResult.invalidDistance:
-        ref.read(soundServiceProvider).playError();
+        context.read<AudioCubit>().playError();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Valid distance required')),
         );
         break;
       case ManualRunSaveResult.failed:
-        ref.read(soundServiceProvider).playError();
+        context.read<AudioCubit>().playError();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not save the run. Please try again.')),
         );

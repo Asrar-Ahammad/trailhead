@@ -1,17 +1,18 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../run_tracking/application/run_format_utils.dart';
 import '../../run_tracking/data/models/run_isar.dart';
 import '../../run_tracking/data/models/run_point_isar.dart';
-import '../../data_management/application/data_export_service.dart';
+import '../../../shared/files/downloads_directory.dart';
 
 class GpxExportUtil {
   /// Saves a single run's GPX file into Downloads/Trailhead_GPX/
   static Future<File> saveRunGpxToDownloads(RunIsar run, List<RunPointIsar> points) async {
     final gpxXml = generateGpxXml(run, points);
 
-    final downloadDir = await DataExportService.getDownloadsDirectoryPath();
+    final downloadDir = await resolveDownloadsDirectory();
     final gpxDir = Directory('${downloadDir.path}/Trailhead_GPX');
     if (!await gpxDir.exists()) {
       await gpxDir.create(recursive: true);
@@ -73,14 +74,16 @@ class GpxExportUtil {
     
     // Track
     buffer.writeln('  <trk>');
-    buffer.writeln('    <name>${RunFormatUtils.getRunTitle(
+    final trackName = RunFormatUtils.getRunTitle(
       run.title, 
       run.startTime, 
       activityType: run.activityType ?? 'run',
       distanceM: run.distanceM,
       subjectiveEffort: run.subjectiveEffort,
       conditions: run.conditions,
-    )}</name>');
+    );
+    final escapedName = const HtmlEscape(HtmlEscapeMode.element).convert(trackName);
+    buffer.writeln('    <name>$escapedName</name>');
     buffer.writeln('    <trkseg>');
     
     // Points

@@ -3,6 +3,13 @@ import 'package:trailhead_mobile/features/ai/application/ai_client.dart';
 import 'package:trailhead_mobile/features/ai/application/ai_config_provider.dart';
 
 void main() {
+  test('Native reply worker closes cleanly without an API key', () async {
+    const client = AiClient(
+      AiConfig(provider: 'openai', model: 'gpt-5', apiKey: ''),
+    );
+    expect(await client.streamChat([]).toList(), isEmpty);
+  });
+
   group('AiClient.testConnection Tests', () {
     test('Fails immediately when API key is empty', () async {
       final config = AiConfig(
