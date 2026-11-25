@@ -1,6 +1,7 @@
 import 'dart:ui';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -10,9 +11,9 @@ import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/week_details_screen.dart';
 import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 
 class WeeklyReportsListScreen extends ConsumerWidget {
   const WeeklyReportsListScreen({super.key});
@@ -37,7 +38,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
       ),
       body: RefreshIndicator(
@@ -198,8 +199,8 @@ class WeeklyReportsListScreen extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: () {
-            ref.read(soundServiceProvider).playWeekCardTap();
-            ref.read(hapticsServiceProvider).lightImpact();
+            context.read<AudioCubit>().playWeekCardTap();
+            context.read<HapticsCubit>().lightImpact();
             AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
           },
           child: Padding(
@@ -221,7 +222,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        RunFormatUtils.formatDistance(report.totalDistanceM, ref.watch(distanceUnitProvider)) + ' ${RunFormatUtils.getUnitString(ref.watch(distanceUnitProvider))}',
+                        RunFormatUtils.formatDistance(report.totalDistanceM, context.watch<DistanceUnitCubit>().state) + ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
                         style: AppTextStyles.bodyLargeBold(color: retroColors.accent),
                       ),
                       const SizedBox(height: 4),

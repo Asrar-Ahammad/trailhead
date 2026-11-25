@@ -1,5 +1,6 @@
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -11,9 +12,9 @@ import 'package:trailhead_mobile/features/history/presentation/run_detail_screen
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 
 class ActivityCard extends ConsumerWidget {
   final RunIsar run;
@@ -35,7 +36,7 @@ class ActivityCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final pointsAsync = run.clientRunId != null 
         ? ref.watch(runRawPointsProvider(run.clientRunId!))
@@ -58,8 +59,8 @@ class ActivityCard extends ConsumerWidget {
           onSelect?.call();
           return;
         }
-        ref.read(hapticsServiceProvider).lightImpact();
-        ref.read(soundServiceProvider).playActivityTap();
+        context.read<HapticsCubit>().lightImpact();
+        context.read<AudioCubit>().playActivityTap();
         AppNavigator.push(context,
           AppNavigator.materialPageRoute(
             builder: (context) => RunDetailScreen(run: run),

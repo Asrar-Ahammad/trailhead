@@ -1,7 +1,9 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,11 +12,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 
 enum ShareAspectRatio {
@@ -84,11 +86,11 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
         maxHeight: 2400,
         imageQuality: 92,
       );
-      if (picked != null) {
+      if (mounted && picked != null) {
         setState(() {
           _backgroundPhoto = File(picked.path);
         });
-        ref.read(hapticsServiceProvider).lightImpact();
+        context.read<HapticsCubit>().lightImpact();
       }
     } catch (e) {
       if (mounted) {
@@ -103,7 +105,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
     setState(() {
       _backgroundPhoto = null;
     });
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<HapticsCubit>().lightImpact();
   }
 
   Future<void> _exportAndShare() async {
@@ -111,7 +113,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
     setState(() => _isExporting = true);
 
     try {
-      ref.read(soundServiceProvider).playActivityTap();
+      context.read<AudioCubit>().playActivityTap();
       // Wait for any pending frame to draw
       await Future.delayed(const Duration(milliseconds: 50));
 
@@ -154,7 +156,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -172,7 +174,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.x, color: colors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => AppNavigator.pop(context),
         ),
         actions: [
           Padding(
@@ -265,7 +267,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                                     behavior: HitTestBehavior.opaque,
                                     onPanStart: (_) {
                                       setState(() => _isDragging = true);
-                                      ref.read(hapticsServiceProvider).lightImpact();
+                                      context.read<HapticsCubit>().lightImpact();
                                     },
                                     onPanUpdate: (details) {
                                       final dx = details.delta.dx / (maxSafeW / 2);
@@ -520,7 +522,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                 ),
                 onSelectionChanged: (set) {
                   setState(() => _aspectRatio = set.first);
-                  ref.read(soundServiceProvider).playToggleSwitch();
+                  context.read<AudioCubit>().playToggleSwitch();
                 },
               ),
 
@@ -533,7 +535,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                 tooltip: _isGlassCard ? 'Card Overlay' : 'Minimal Overlay',
                 onPressed: () {
                   setState(() => _isGlassCard = !_isGlassCard);
-                  ref.read(soundServiceProvider).playToggleSwitch();
+                  context.read<AudioCubit>().playToggleSwitch();
                 },
               ),
 
@@ -546,7 +548,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                 tooltip: 'Toggle Route Map',
                 onPressed: () {
                   setState(() => _showRoute = !_showRoute);
-                  ref.read(soundServiceProvider).playToggleSwitch();
+                  context.read<AudioCubit>().playToggleSwitch();
                 },
               ),
             ],
@@ -651,8 +653,8 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                         return GestureDetector(
                           onTap: () {
                             setState(() => _routeColor = color);
-                            ref.read(soundServiceProvider).playToggleSwitch();
-                            ref.read(hapticsServiceProvider).lightImpact();
+                            context.read<AudioCubit>().playToggleSwitch();
+                            context.read<HapticsCubit>().lightImpact();
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
@@ -717,8 +719,8 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                 _isDragging = false;
                 _alignment = gridAlign;
               });
-              ref.read(hapticsServiceProvider).lightImpact();
-              ref.read(soundServiceProvider).playToggleSwitch();
+              context.read<HapticsCubit>().lightImpact();
+              context.read<AudioCubit>().playToggleSwitch();
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
@@ -739,8 +741,8 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
     return GestureDetector(
       onTap: () {
         setState(() => _overlayScale = scale);
-        ref.read(soundServiceProvider).playToggleSwitch();
-        ref.read(hapticsServiceProvider).lightImpact();
+        context.read<AudioCubit>().playToggleSwitch();
+        context.read<HapticsCubit>().lightImpact();
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -790,8 +792,8 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
       _isDragging = false;
       _alignment = target;
     });
-    ref.read(hapticsServiceProvider).mediumImpact();
-    ref.read(soundServiceProvider).playToggleSwitch();
+    context.read<HapticsCubit>().mediumImpact();
+    context.read<AudioCubit>().playToggleSwitch();
   }
 
   /// Guidelines that illuminate on the photo canvas while dragging

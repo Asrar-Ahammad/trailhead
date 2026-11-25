@@ -1,6 +1,7 @@
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
@@ -8,10 +9,10 @@ import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/daily_activities_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/weekly_reports_list_screen.dart';
-import 'package:trailhead_mobile/features/predictions/presentation/prediction_screen.dart';
+import 'package:trailhead_mobile/features/predictions/presentation/predictions_screen_race_predictions.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ProgressTab extends ConsumerStatefulWidget {
@@ -39,7 +40,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   void _previousMonth() {
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<HapticsCubit>().lightImpact();
     setState(() {
       _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
     });
@@ -49,7 +50,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
     final now = DateTime.now();
     final next = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
     if (next.isAfter(DateTime(now.year, now.month))) return;
-    ref.read(hapticsServiceProvider).lightImpact();
+    context.read<HapticsCubit>().lightImpact();
     setState(() {
       _selectedMonth = next;
     });
@@ -62,7 +63,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
 
@@ -119,8 +120,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             title: 'Weekly Reports',
             subtitle: 'Historical week-by-week summaries',
             onTap: () {
-              ref.read(soundServiceProvider).playWeeklyReportsTap();
-              ref.read(hapticsServiceProvider).lightImpact();
+              context.read<AudioCubit>().playWeeklyReportsTap();
+              context.read<HapticsCubit>().lightImpact();
               AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const WeeklyReportsListScreen()));
             },
           ),
@@ -136,8 +137,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             title: 'Race Predictor',
             subtitle: 'AI-powered finishing times',
             onTap: () {
-              ref.read(soundServiceProvider).playRacePredictorTap();
-              ref.read(hapticsServiceProvider).lightImpact();
+              context.read<AudioCubit>().playRacePredictorTap();
+              context.read<HapticsCubit>().lightImpact();
               AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => const PredictionScreen()));
             },
           ),
@@ -355,8 +356,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
         onTap: isFuture
             ? null
             : () {
-                ref.read(soundServiceProvider).playCalendarDayTap();
-                ref.read(hapticsServiceProvider).lightImpact();
+                context.read<AudioCubit>().playCalendarDayTap();
+                context.read<HapticsCubit>().lightImpact();
                 AppNavigator.push(context, AppNavigator.materialPageRoute(
                   builder: (_) => DailyActivitiesScreen(
                     date: DateTime(month.year, month.month, day),

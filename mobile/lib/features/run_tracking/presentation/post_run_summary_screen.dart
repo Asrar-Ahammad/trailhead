@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
+import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit_main_tab.dart';
+import 'package:trailhead_mobile/features/navigation/domain/navigation_entity_main_tab.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../data/models/run_isar.dart';
@@ -13,20 +17,21 @@ import '../../../shared/theme/app_spacing.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../../shared/widgets/count_up_text.dart';
 import '../../stats/application/pr_engine.dart';
-import '../../navigation/presentation/main_scaffold.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import '../../history/presentation/share_activity_screen.dart';
+import '../../../shared/state_management/async_value.dart' as StateAsync;
+import '../../../shared/state_management/local/async_resource_bloc.dart';
 
-final postRunPRProvider = FutureProvider.family<bool, String?>((ref, clientRunId) async {
-  if (clientRunId == null) return false;
-  final engine = ref.read(prEngineProvider);
-  final group = await engine.getRecords();
-  return group.bestEffort.any((pr) => pr.runId == clientRunId);
-});
+class PostRunSummaryData {
+  const PostRunSummaryData({required this.aiSummary, required this.isNewPr});
+
+  final String aiSummary;
+  final bool isNewPr;
+}
 
 /// The signature post-workout completion screen.
-class PostRunSummaryScreen extends ConsumerStatefulWidget {
+class PostRunSummaryScreen extends StatefulWidget {
   const PostRunSummaryScreen({
     super.key,
     required this.run,
@@ -37,10 +42,30 @@ class PostRunSummaryScreen extends ConsumerStatefulWidget {
   final List<LatLng> points;
 
   @override
-  ConsumerState<PostRunSummaryScreen> createState() => _PostRunSummaryScreenState();
+  State<PostRunSummaryScreen> createState() => _PostRunSummaryScreenState();
 }
 
-class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> with SingleTickerProviderStateMixin {
+class _PostRunSummaryScreenState extends State<PostRunSummaryScreen> with SingleTickerProviderStateMixin {
+  late final AsyncResourceBloc<PostRunSummaryData> _summaryBloc;
+  StreamSubscription<StateAsync.AsyncValue<PostRunSummaryData>>? _summarySubscription;
+
+  Future<PostRunSummaryData> _loadSummary() async {
+    final results = await Future.wait<Object>([
+      GetIt.instance<AiSummaryService>().summarize(widget.run),
+      _hasNewPersonalRecord(),
+    ]);
+    return PostRunSummaryData(
+      aiSummary: results[0] as String,
+      isNewPr: results[1] as bool,
+    );
+  }
+
+  Future<bool> _hasNewPersonalRecord() async {
+    final runId = widget.run.clientRunId;
+    if (runId == null) return false;
+    final records = await GetIt.instance<PREngine>().getRecords();
+    return records.bestEffort.any((record) => record.runId == runId);
+  }
   late final AnimationController _staggerController;
   late final Animation<double> _mapFade;
   late final Animation<double> _mapDraw;
@@ -54,6 +79,20 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   @override
   void initState() {
     super.initState();
+    final haptics = context.read<HapticsCubit>();
+    final audio = context.read<AudioCubit>();
+    _summaryBloc = AsyncResourceBloc<PostRunSummaryData>()
+      ..add(LoadResource(_loadSummary));
+    _summarySubscription = _summaryBloc.stream.listen((state) {
+      if (mounted &&
+          state.valueOrNull?.isNewPr == true &&
+          _staggerController.value >= 0.4 &&
+          !_prSoundPlayed) {
+        audio.playPrNew();
+        haptics.heavyImpact();
+        _prSoundPlayed = true;
+      }
+    });
     _staggerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
@@ -106,10 +145,9 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
         });
       }
       if (_staggerController.value >= 0.4 && !_prSoundPlayed) {
-        final isNewPr = ref.read(postRunPRProvider(widget.run.clientRunId)).valueOrNull;
-        if (isNewPr == true) {
-          ref.read(soundServiceProvider).playPrNew();
-          ref.read(hapticsServiceProvider).heavyImpact();
+        if (_summaryBloc.state.valueOrNull?.isNewPr == true) {
+          audio.playPrNew();
+          haptics.heavyImpact();
           _prSoundPlayed = true;
         }
       }
@@ -130,35 +168,28 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
   @override
   void dispose() {
     _staggerController.dispose();
+    _summarySubscription?.cancel();
+    _summaryBloc.close();
     super.dispose();
   }
 
 
 
   void _saveRun() {
-    ref.read(hapticsServiceProvider).mediumImpact();
-    ref.read(navigationProvider.notifier).state = 0; // Go to home
+    context.read<HapticsCubit>().mediumImpact();
+    context.read<NavigationCubit>().selectTab(MainTab.home); // Go to home
     AppNavigator.popUntil(context, (route) => route.isFirst);
   }
 
   @override
   Widget build(BuildContext context) {
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     final colors = Theme.of(context).extension<AppColors>()!;
-    final aiSummaryAsync = ref.watch(aiSummaryProvider(widget.run));
-    final isNewPrAsync = ref.watch(postRunPRProvider(widget.run.clientRunId));
-
-    ref.listen(postRunPRProvider(widget.run.clientRunId), (prev, next) {
-      if (next.value == true && prev?.value != true) {
-        if (_staggerController.value >= 0.4 && !_prSoundPlayed) {
-          ref.read(soundServiceProvider).playPrNew();
-          ref.read(hapticsServiceProvider).heavyImpact();
-          _prSoundPlayed = true;
-        }
-      }
-    });
-
-    return Scaffold(
+    return BlocProvider.value(
+      value: _summaryBloc,
+      child: BlocBuilder<AsyncResourceBloc<PostRunSummaryData>, StateAsync.AsyncValue<PostRunSummaryData>>(
+        bloc: _summaryBloc,
+        builder: (context, summaryState) => Scaffold(
       backgroundColor: colors.background,
       body: Stack(
         children: [
@@ -204,10 +235,8 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                   const SizedBox(height: AppSpacing.xl),
                   
                   // 3. PR Banner (if applicable)
-                  isNewPrAsync.when(
-                    data: (isNewPr) {
-                      if (!isNewPr) return const SizedBox.shrink();
-                      return AnimatedBuilder(
+                  if (summaryState.valueOrNull?.isNewPr == true)
+                    AnimatedBuilder(
                         animation: _prSlide,
                         builder: (context, child) {
                           return Transform.translate(
@@ -241,11 +270,7 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                             ),
                           );
                         },
-                      );
-                    },
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
+                    ),
 
                   // 4. Fading AI Summary
                   FadeTransition(
@@ -274,9 +299,9 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
                             ],
                           ),
                           const SizedBox(height: AppSpacing.md),
-                          aiSummaryAsync.when(
-                            data: (summary) => Text(
-                              summary,
+                          summaryState.when(
+                            data: (summaryData) => Text(
+                              summaryData.aiSummary,
                               style: AppTextStyles.bodyLarge(color: colors.textPrimary),
                             ),
                             loading: () => Column(
@@ -360,6 +385,8 @@ class _PostRunSummaryScreenState extends ConsumerState<PostRunSummaryScreen> wit
             ),
           ),
         ],
+        ),
+      ),
       ),
     );
   }

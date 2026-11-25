@@ -1,5 +1,7 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -11,7 +13,7 @@ import '../../../main.dart'; // isarInstance
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../run_tracking/application/run_format_utils.dart';
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import '../application/image_processing_service.dart';
 import '../application/shoe_service.dart';
 import '../../you/presentation/widgets/activity_card.dart';
@@ -107,7 +109,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final runsAsync = ref.watch(shoeRunsProvider(_currentShoe.clientShoeId!));
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -116,7 +118,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
         title: Text(_currentShoe.name ?? 'Gear Stats', style: AppTextStyles.headline(color: colors.textPrimary)),
         actions: [
@@ -396,7 +398,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
             actions: [
               if (!isSaving)
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => AppNavigator.pop(ctx),
                   child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                 ),
               if (isSaving)
@@ -422,7 +424,7 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
                         ref.invalidate(allShoesProvider);
                         ref.invalidate(activeShoesProvider);
                       }
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) AppNavigator.pop(ctx);
                     }
                   },
                   child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),

@@ -5,6 +5,14 @@ import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isa
 
 void main() {
   group('GpxExportUtil Tests', () {
+    test('generateGpxXml escapes XML reserved characters in run titles', () {
+      final run = RunIsar()..title = 'Hill & track <easy>';
+      expect(
+        GpxExportUtil.generateGpxXml(run, []),
+        contains('<name>Hill &amp; track &lt;easy&gt;</name>'),
+      );
+    });
+
     test('generateGpxXml generates valid GPX structure with points', () {
       final now = DateTime.utc(2026, 9, 4, 8, 30, 0);
       final run = RunIsar()

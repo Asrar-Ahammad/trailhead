@@ -1,12 +1,14 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/daily_steps_provider.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
@@ -97,7 +99,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => AppNavigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -150,7 +152,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
                           final index = touchResponse.spot!.touchedBarGroupIndex;
                           if (_touchedSpotIndex != index) {
                             _touchedSpotIndex = index;
-                            ref.read(hapticsServiceProvider).lightImpact();
+                            context.read<HapticsCubit>().lightImpact();
                           }
                         } else if (event is FlTapUpEvent ||
                             event is FlPanEndEvent ||

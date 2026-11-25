@@ -1,19 +1,20 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../application/goals_provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../application/goals_cubit.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-class SetGoalsSheet extends ConsumerStatefulWidget {
+class SetGoalsSheet extends StatefulWidget {
   final AppColors retroColors;
   const SetGoalsSheet({super.key, required this.retroColors});
 
   @override
-  ConsumerState<SetGoalsSheet> createState() => _SetGoalsSheetState();
+  State<SetGoalsSheet> createState() => _SetGoalsSheetState();
 }
 
-class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
+class _SetGoalsSheetState extends State<SetGoalsSheet> {
   late String _dailyMetric;
   late double _dailyTarget;
   late String _monthlyMetric;
@@ -25,7 +26,7 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
   @override
   void initState() {
     super.initState();
-    final goals = ref.read(goalsProvider).valueOrNull ?? Goals.empty();
+    final goals = context.read<GoalsCubit>().state.valueOrNull ?? Goals.empty();
     _dailyMetric = goals.dailyGoalMetric;
     _dailyTarget = goals.dailyGoalTarget;
     _monthlyMetric = goals.monthlyGoalMetric == 'steps' ? 'distance' : goals.monthlyGoalMetric;
@@ -46,13 +47,13 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
     final dTarget = double.tryParse(_dCtrl.text) ?? 0.0;
     final mTarget = double.tryParse(_mCtrl.text) ?? 0.0;
     
-    ref.read(goalsProvider.notifier).saveGoals(Goals(
+    context.read<GoalsCubit>().saveGoals(Goals(
       dailyGoalMetric: _dailyMetric,
       dailyGoalTarget: dTarget,
       monthlyGoalMetric: _monthlyMetric,
       monthlyGoalTarget: mTarget,
     ));
-    Navigator.of(context).pop();
+    AppNavigator.pop(context);
   }
 
   @override
@@ -73,7 +74,7 @@ class _SetGoalsSheetState extends ConsumerState<SetGoalsSheet> {
             children: [
               Text('SET GOALS', style: AppTextStyles.title(color: widget.retroColors.textPrimary)),
               IconButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => AppNavigator.pop(context),
                 icon: Icon(PhosphorIcons.x, color: widget.retroColors.textSecondary),
               ),
             ],

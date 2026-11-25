@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
@@ -94,7 +95,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
     final prsAsync = ref.watch(prsProvider);
     final mode = ref.watch(recordsModeProvider);
     final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
 
     return RefreshIndicator(
       color: retroColors.accent,
@@ -187,8 +188,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () {
                                       if (mode != 'best_effort') {
-                                        ref.read(hapticsServiceProvider).lightImpact();
-                                        ref.read(soundServiceProvider).playTabBestEfforts();
+                                        context.read<HapticsCubit>().lightImpact();
+                                        context.read<AudioCubit>().playTabBestEfforts();
                                         ref.read(recordsModeProvider.notifier).state = 'best_effort';
                                       }
                                     },
@@ -211,8 +212,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                     behavior: HitTestBehavior.opaque,
                                     onTap: () {
                                       if (mode != 'manual') {
-                                        ref.read(hapticsServiceProvider).lightImpact();
-                                        ref.read(soundServiceProvider).playTabAllTime();
+                                        context.read<HapticsCubit>().lightImpact();
+                                        context.read<AudioCubit>().playTabAllTime();
                                         ref.read(recordsModeProvider.notifier).state = 'manual';
                                       }
                                     },
@@ -289,7 +290,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         if (mode == 'manual')
                           InkWell(
                             onTap: () {
-                              ref.read(hapticsServiceProvider).lightImpact();
+                              context.read<HapticsCubit>().lightImpact();
                               _showAddPRBottomSheet(context, retroColors);
                             },
                             borderRadius: BorderRadius.circular(100),
@@ -366,7 +367,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                           const SizedBox(height: 20),
                           ElevatedButton.icon(
                             onPressed: () {
-                              ref.read(hapticsServiceProvider).lightImpact();
+                              context.read<HapticsCubit>().lightImpact();
                               _showAddPRBottomSheet(context, retroColors);
                             },
                             icon: const Icon(PhosphorIcons.plusBold, size: 16),
@@ -484,7 +485,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
         onTap: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsCubit>().lightImpact();
           if (pr.runId != null) {
             final runs = ref.read(historyProvider).valueOrNull ?? [];
             try {
@@ -609,11 +610,11 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         content: Text('Remove this manual record from your all-time PRs?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
+                            onPressed: () => AppNavigator.pop(ctx, false),
                             child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
+                            onPressed: () => AppNavigator.pop(ctx, true),
                             child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
                           ),
                         ],
@@ -698,7 +699,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         ),
                         IconButton(
                           icon: Icon(PhosphorIcons.x, color: retroColors.textSecondary, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
+                          onPressed: () => AppNavigator.pop(ctx),
                         ),
                       ],
                     ),
@@ -818,7 +819,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                               null,
                             );
                             if (ctx.mounted) {
-                              Navigator.pop(ctx);
+                              AppNavigator.pop(ctx);
                             }
                             ref.invalidate(prsProvider);
                           } catch (e) {

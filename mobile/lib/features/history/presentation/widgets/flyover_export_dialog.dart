@@ -1,17 +1,18 @@
+import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../../audio/application/sound_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import '../../../run_tracking/data/models/run_isar.dart';
 import '../../application/flyover_playback_controller.dart';
 import '../../application/flyover_video_exporter.dart';
 
 /// Modal dialog allowing resolution selection (720p vs 1080p) and showing
 /// live rendering progress when exporting a 3D Flyover video.
-class FlyoverExportDialog extends ConsumerStatefulWidget {
+class FlyoverExportDialog extends StatefulWidget {
   final GlobalKey repaintKey;
   final FlyoverPlaybackNotifier controller;
   final RunIsar run;
@@ -41,10 +42,10 @@ class FlyoverExportDialog extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<FlyoverExportDialog> createState() => _FlyoverExportDialogState();
+  State<FlyoverExportDialog> createState() => _FlyoverExportDialogState();
 }
 
-class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
+class _FlyoverExportDialogState extends State<FlyoverExportDialog> {
   final FlyoverVideoExporter _exporter = FlyoverVideoExporter();
   VideoRenderQuality _selectedQuality = VideoRenderQuality.p720;
   bool _isExporting = false;
@@ -78,7 +79,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
 
       if (outputPath != null) {
         _isFinished = true;
-        Navigator.of(context).pop();
+        AppNavigator.pop(context);
         await FlyoverVideoExporter.shareVideo(
           filePath: outputPath,
           run: widget.run,
@@ -86,7 +87,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pop();
+      AppNavigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to export video: $e'),
@@ -99,7 +100,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
   void _onCancel() {
     _exporter.cancel();
     if (mounted) {
-      Navigator.of(context).pop();
+      AppNavigator.pop(context);
     }
   }
 
@@ -215,7 +216,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
           children: [
             Expanded(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => AppNavigator.pop(context),
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
@@ -271,7 +272,7 @@ class _FlyoverExportDialogState extends ConsumerState<FlyoverExportDialog> {
   ) {
     return InkWell(
       onTap: () {
-        ref.read(soundServiceProvider).playToggleSwitch();
+        context.read<AudioCubit>().playToggleSwitch();
         setState(() => _selectedQuality = quality);
       },
       borderRadius: BorderRadius.circular(14),

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -16,12 +16,11 @@ import 'location_service_task.dart';
 import 'background_step_service.dart';
 import '../../shoes/application/shoe_service.dart';
 import 'run_analysis_service.dart';
-import '../../../main.dart'; // import global isarInstance
 import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
 import '../data/models/daily_steps_isar.dart';
 import 'tracking_calcs.dart';
-import '../../weather/application/weather_service.dart';
+import '../../weather/data/weather_repository.dart';
 
 class RunTrackerState {
   final String status; // 'idle', 'running', 'paused', 'stopped'
@@ -96,9 +95,14 @@ class RunTrackerState {
   }
 }
 
-class RunTrackerController extends StateNotifier<RunTrackerState> {
+class RunTrackerCubit extends Cubit<RunTrackerState> {
   final FlutterTts _flutterTts = FlutterTts();
-  final Ref ref;
+  final Isar _isar;
+  final SharedPreferences _preferences;
+  final ShoeService _shoeService;
+  final WeatherRepository _weatherRepository;
+  final RunAnalysisService _analysisService;
+  final HapticsCubit _haptics;
 
   // Live tracking resources
   Timer? _runTimer;
@@ -129,7 +133,20 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   int _lastSplitTimeS = 0;
   double _lastSplitDistanceM = 0.0;
 
-  RunTrackerController(this.ref) : super(RunTrackerState(status: 'idle', permissionsChecked: true)) {
+  RunTrackerCubit({
+    required Isar isar,
+    required SharedPreferences preferences,
+    required ShoeService shoeService,
+    required WeatherRepository weatherRepository,
+    required RunAnalysisService analysisService,
+    required HapticsCubit haptics,
+  }) : _isar = isar,
+       _preferences = preferences,
+       _shoeService = shoeService,
+       _weatherRepository = weatherRepository,
+       _analysisService = analysisService,
+       _haptics = haptics,
+       super(RunTrackerState(status: 'idle', permissionsChecked: true)) {
     _initForegroundTask();
     _checkPermissionsSilently();
     _recoverOrphanedRuns();
@@ -139,15 +156,15 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 
   Future<void> _initDefaultShoe() async {
     try {
-      final shoeService = ref.read(shoeServiceProvider);
+      final shoeService = _shoeService;
       final activeShoes = await shoeService.getActiveShoes();
       if (activeShoes.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
+        final prefs = _preferences;
         final lastShoeId = prefs.getString('last_selected_shoe_id');
         if (lastShoeId != null && activeShoes.any((s) => s.clientShoeId == lastShoeId)) {
-          state = state.copyWith(selectedShoeId: lastShoeId);
+          emit(state.copyWith(selectedShoeId: lastShoeId));
         } else {
-          state = state.copyWith(selectedShoeId: activeShoes.first.clientShoeId);
+          emit(state.copyWith(selectedShoeId: activeShoes.first.clientShoeId));
         }
       }
     } catch (e) {
@@ -184,9 +201,9 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   void _handleSplitReached(double distance, int splitTimeS, int paceSPerKm) async {
-    HapticFeedback.heavyImpact();
+    unawaited(_haptics.heavyImpact());
 
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _preferences;
     final audioCuesEnabled = prefs.getBool('audio_cues_enabled') ?? true;
 
     if (audioCuesEnabled) {
@@ -205,17 +222,17 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       final isGranted = hasLocation == LocationPermission.always ||
           hasLocation == LocationPermission.whileInUse;
 
-      state = state.copyWith(
+      emit(state.copyWith(
         permissionsGranted: isGranted,
         permissionsChecked: true,
-      );
+      ));
 
       if (isGranted) {
         fetchInitialLocation();
       }
     } catch (e) {
       debugPrint('[PERMISSIONS] Error checking permissions: $e');
-      state = state.copyWith(permissionsChecked: true);
+      emit(state.copyWith(permissionsChecked: true));
     }
   }
 
@@ -240,8 +257,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       if (!force && state.initialPosition != null) return;
 
       final last = await Geolocator.getLastKnownPosition();
-      if (last != null && mounted) {
-        state = state.copyWith(initialPosition: last);
+      if (last != null && !isClosed) {
+        emit(state.copyWith(initialPosition: last));
         _lastPosition = last;
         Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
@@ -249,8 +266,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
             timeLimit: Duration(seconds: 20),
           ),
         ).then((p) {
-          if (mounted) {
-            state = state.copyWith(initialPosition: p);
+          if (!isClosed) {
+            emit(state.copyWith(initialPosition: p));
             _lastPosition = p;
           }
         }).catchError((e) {
@@ -266,8 +283,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
             timeLimit: Duration(seconds: 6),
           ),
         );
-        if (mounted) {
-          state = state.copyWith(initialPosition: lowFix);
+        if (!isClosed) {
+          emit(state.copyWith(initialPosition: lowFix));
           _lastPosition = lowFix;
         }
       } catch (e) {
@@ -279,8 +296,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
               timeLimit: Duration(seconds: 5),
             ),
           );
-          if (mounted) {
-            state = state.copyWith(initialPosition: fallback);
+        if (!isClosed) {
+            emit(state.copyWith(initialPosition: fallback));
             _lastPosition = fallback;
           }
         } catch (_) {}
@@ -293,8 +310,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
             timeLimit: Duration(seconds: 20),
           ),
         ).then((p) {
-          if (mounted) {
-            state = state.copyWith(initialPosition: p);
+          if (!isClosed) {
+            emit(state.copyWith(initialPosition: p));
             _lastPosition = p;
           }
         }).catchError((e) {
@@ -328,7 +345,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
               timeLimit: Duration(seconds: 3),
             ),
           ).then((p) {
-            state = state.copyWith(initialPosition: p);
+            emit(state.copyWith(initialPosition: p));
             _lastPosition = p;
           }).catchError((_) {});
         } else {
@@ -337,7 +354,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       } catch (_) {}
     }
 
-    state = state.copyWith(permissionsGranted: granted, initialPosition: pos);
+    emit(state.copyWith(permissionsGranted: granted, initialPosition: pos));
     return granted;
   }
 
@@ -359,19 +376,19 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
               timeLimit: Duration(seconds: 3),
             ),
           ).then((p) {
-            state = state.copyWith(initialPosition: p);
+            emit(state.copyWith(initialPosition: p));
             _lastPosition = p;
           }).catchError((_) {});
         }
       } catch (_) {}
     }
 
-    state = state.copyWith(permissionsGranted: granted, initialPosition: pos);
+    emit(state.copyWith(permissionsGranted: granted, initialPosition: pos));
     return granted;
   }
 
   Future<void> _recoverOrphanedRuns() async {
-    final orphanedRuns = await isarInstance.runIsars
+    final orphanedRuns = await _isar.runIsars
         .filter()
         .statusEqualTo('running')
         .or()
@@ -385,26 +402,26 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       _elevationGainM = activeRun.elevationGainM ?? 0.0;
       _currentSteps = activeRun.stepCount ?? 0;
 
-      state = state.copyWith(
+      emit(state.copyWith(
         status: activeRun.status,
         clientRunId: activeRun.clientRunId,
         distanceM: _distanceM,
         durationS: _durationS,
         stepCount: _currentSteps,
-      );
+      ));
 
       if (activeRun.status == 'running') {
         _startTimerAndStreams();
       }
 
       if (orphanedRuns.length > 1) {
-        await isarInstance.writeTxn(() async {
+        await _isar.writeTxn(() async {
           for (var i = 0; i < orphanedRuns.length - 1; i++) {
             final run = orphanedRuns[i];
             run.status = 'completed';
             run.endTime = DateTime.now();
             run.lastModifiedAt = DateTime.now();
-            await isarInstance.runIsars.put(run);
+            await _isar.runIsars.put(run);
           }
         });
       }
@@ -412,7 +429,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   void setTargetPace(int? paceS) {
-    state = RunTrackerState(
+    emit(RunTrackerState(
       status: state.status,
       clientRunId: state.clientRunId,
       distanceM: state.distanceM,
@@ -425,26 +442,26 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       currentSplitPaceSPerKm: state.currentSplitPaceSPerKm,
       initialPosition: state.initialPosition,
       activityType: state.activityType,
-    );
+    ));
   }
 
   void updateInitialPosition(Position pos) {
-    state = state.copyWith(initialPosition: pos);
+    emit(state.copyWith(initialPosition: pos));
     _lastPosition = pos;
   }
 
   void setActivityType(String type) {
-    state = state.copyWith(activityType: type);
+    emit(state.copyWith(activityType: type));
   }
 
   void setSelectedShoe(String? shoeId) async {
     if (shoeId == null) {
-      state = state.copyWith(clearSelectedShoe: true);
+      emit(state.copyWith(clearSelectedShoe: true));
     } else {
-      state = state.copyWith(selectedShoeId: shoeId);
+      emit(state.copyWith(selectedShoeId: shoeId));
     }
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = _preferences;
       if (shoeId != null) {
         await prefs.setString('last_selected_shoe_id', shoeId);
       } else {
@@ -465,7 +482,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       }
     } catch (_) {}
 
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = _preferences;
     await prefs.setBool('run_active', true);
     _audioCueFrequency = prefs.getDouble('audio_cue_frequency') ?? 1.0;
     _weightKg = prefs.getDouble('user_weight_kg');
@@ -493,7 +510,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     _lastPosition = state.initialPosition;
 
     // Update state IMMEDIATELY so UI responds instantly with 00:00 and active status
-    state = RunTrackerState(
+    emit(RunTrackerState(
       status: 'running',
       clientRunId: clientRunId,
       distanceM: 0.0,
@@ -504,7 +521,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       targetPaceSPerKm: state.targetPaceSPerKm,
       activityType: activityType,
       selectedShoeId: selectedShoeId,
-    );
+    ));
 
     // Save initial RunIsar in database
     try {
@@ -517,8 +534,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         ..distanceM = 0.0
         ..durationS = 0;
 
-      await isarInstance.writeTxn(() async {
-        await isarInstance.runIsars.put(newRun);
+      await _isar.writeTxn(() async {
+        await _isar.runIsars.put(newRun);
       });
     } catch (e) {
       debugPrint('[START_RUN] Isar write error: $e');
@@ -532,7 +549,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       try {
         final fix = await Geolocator.getLastKnownPosition();
         if (fix != null) {
-          state = state.copyWith(initialPosition: fix);
+          emit(state.copyWith(initialPosition: fix));
           _lastPosition = fix;
           await _recordPoint(fix);
         }
@@ -548,15 +565,15 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     // Fetch weather in background
     Future.microtask(() async {
       try {
-        final weatherRepo = ref.read(weatherRepositoryProvider);
+        final weatherRepo = _weatherRepository;
         final weatherData = await weatherRepo.getCurrentWeather();
         if (weatherData != null) {
-          await isarInstance.writeTxn(() async {
-            final existingRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+          await _isar.writeTxn(() async {
+            final existingRun = await _isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
             if (existingRun != null) {
               existingRun.weatherTemp = (weatherData['temperature'] as num?)?.toDouble();
               existingRun.weatherCode = (weatherData['weathercode'] as num?)?.toDouble();
-              await isarInstance.runIsars.put(existingRun);
+              await _isar.runIsars.put(existingRun);
             }
           });
         }
@@ -592,11 +609,11 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
           durationS: _durationS,
         )?.toInt() ?? 0;
 
-        state = state.copyWith(
+        emit(state.copyWith(
           durationS: _durationS,
           caloriesKcal: calories,
           currentCadence: _currentCadence,
-        );
+        ));
 
         _updateForegroundNotification();
 
@@ -670,7 +687,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     // Check accuracy — threshold relaxed to 65m to avoid dropping early/indoor fixes
     final bool poorAccuracy = position.accuracy > 65.0;
     if (state.gpsWeak != poorAccuracy) {
-      state = state.copyWith(gpsWeak: poorAccuracy);
+      emit(state.copyWith(gpsWeak: poorAccuracy));
     }
     if (poorAccuracy) return;
 
@@ -748,18 +765,18 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
           durationS: _durationS,
         )?.toInt() ?? 0;
 
-        state = state.copyWith(
+        emit(state.copyWith(
           distanceM: _distanceM,
           initialPosition: position,
           currentSplitPaceSPerKm: currentSplitPace,
           caloriesKcal: calories,
-        );
+        ));
 
         _updateForegroundNotification();
       }
     } else {
       _lastPosition = position;
-      state = state.copyWith(initialPosition: position);
+      emit(state.copyWith(initialPosition: position));
     }
   }
 
@@ -780,8 +797,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         ..isPaused = state.status == 'paused'
         ..sequence = _pointSequence;
 
-      await isarInstance.writeTxn(() async {
-        await isarInstance.runPointIsars.put(point);
+      await _isar.writeTxn(() async {
+        await _isar.runPointIsars.put(point);
       });
     } catch (e) {
       debugPrint('[RECORD_POINT] Error: $e');
@@ -810,7 +827,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     }
 
     _currentSteps = max(0, event.steps - _stepCountOffset);
-    state = state.copyWith(stepCount: _currentSteps);
+    emit(state.copyWith(stepCount: _currentSteps));
   }
 
   Future<void> _persistDailySteps({required int deltaSteps, required int rawPedometerValue}) async {
@@ -818,8 +835,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       final now = DateTime.now();
       final dateKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
-      final existing = await isarInstance.dailyStepsIsars.filter().dateKeyEqualTo(dateKey).findFirst();
-      await isarInstance.writeTxn(() async {
+      final existing = await _isar.dailyStepsIsars.filter().dateKeyEqualTo(dateKey).findFirst();
+      await _isar.writeTxn(() async {
         if (existing != null) {
           existing.steps += deltaSteps;
           List<int> hSteps = existing.hourlySteps.toList();
@@ -828,7 +845,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
           existing.hourlySteps = hSteps;
           existing.lastPedometerValue = rawPedometerValue;
           existing.lastUpdated = DateTime.now();
-          await isarInstance.dailyStepsIsars.put(existing);
+          await _isar.dailyStepsIsars.put(existing);
         } else {
           final hSteps = List.filled(24, 0);
           hSteps[now.hour] = deltaSteps;
@@ -838,7 +855,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
             ..hourlySteps = hSteps
             ..lastPedometerValue = rawPedometerValue
             ..lastUpdated = DateTime.now();
-          await isarInstance.dailyStepsIsars.put(record);
+          await _isar.dailyStepsIsars.put(record);
         }
       });
     } catch (_) {}
@@ -849,7 +866,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     if (clientRunId == null) return;
 
     try {
-      final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+      final activeRun = await _isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
       if (activeRun != null) {
         activeRun.distanceM = _distanceM;
         activeRun.durationS = _durationS;
@@ -871,8 +888,8 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
           activeRun.avgPaceSPerKm = _durationS / (_distanceM / 1000.0);
         }
 
-        await isarInstance.writeTxn(() async {
-          await isarInstance.runIsars.put(activeRun);
+        await _isar.writeTxn(() async {
+          await _isar.runIsars.put(activeRun);
         });
       }
     } catch (_) {}
@@ -905,19 +922,19 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   Future<void> pauseRun() async {
     if (state.status != 'running') return;
 
-    state = state.copyWith(status: 'paused');
+    emit(state.copyWith(status: 'paused'));
     _updateForegroundNotification();
 
     final clientRunId = state.clientRunId;
     Future.microtask(() async {
       try {
-        final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+        final activeRun = await _isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
         if (activeRun != null) {
           activeRun.status = 'paused';
           activeRun.durationS = _durationS;
           activeRun.distanceM = _distanceM;
-          await isarInstance.writeTxn(() async {
-            await isarInstance.runIsars.put(activeRun);
+          await _isar.writeTxn(() async {
+            await _isar.runIsars.put(activeRun);
           });
         }
       } catch (e) {
@@ -929,17 +946,17 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   Future<void> resumeRun() async {
     if (state.status != 'paused') return;
 
-    state = state.copyWith(status: 'running');
+    emit(state.copyWith(status: 'running'));
     _updateForegroundNotification();
 
     final clientRunId = state.clientRunId;
     Future.microtask(() async {
       try {
-        final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+        final activeRun = await _isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
         if (activeRun != null) {
           activeRun.status = 'running';
-          await isarInstance.writeTxn(() async {
-            await isarInstance.runIsars.put(activeRun);
+          await _isar.writeTxn(() async {
+            await _isar.runIsars.put(activeRun);
           });
         }
       } catch (e) {
@@ -969,7 +986,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 
     _clearRunFlagAndRestartStepCounter();
 
-    final activeRun = await isarInstance.runIsars.filter().clientRunIdEqualTo(state.clientRunId).findFirst();
+    final activeRun = await _isar.runIsars.filter().clientRunIdEqualTo(state.clientRunId).findFirst();
     if (activeRun != null) {
       activeRun.status = 'completed';
       activeRun.endTime = DateTime.now();
@@ -995,25 +1012,25 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       activeRun.clientShoeId = state.selectedShoeId;
       activeRun.lastModifiedAt = DateTime.now();
 
-      await isarInstance.writeTxn(() async {
-        await isarInstance.runIsars.put(activeRun);
+      await _isar.writeTxn(() async {
+        await _isar.runIsars.put(activeRun);
       });
     }
 
-    state = RunTrackerState(
+    emit(RunTrackerState(
       status: 'idle',
       permissionsGranted: state.permissionsGranted,
       initialPosition: state.initialPosition,
       targetPaceSPerKm: state.targetPaceSPerKm,
       selectedShoeId: state.selectedShoeId,
-    );
+    ));
 
     _initDefaultShoe();
 
     if (activeRun != null) {
       Future.microtask(() async {
         try {
-          final analysisService = ref.read(runAnalysisServiceProvider);
+          final analysisService = _analysisService;
           await analysisService.refreshPerformanceSummary();
           await analysisService.generateAnalysisForRun(activeRun);
         } catch (e) {
@@ -1036,12 +1053,12 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
     _locationSubscription?.cancel();
     _stepSubscription?.cancel();
 
-    state = RunTrackerState(
+    emit(RunTrackerState(
       status: 'idle',
       permissionsGranted: state.permissionsGranted,
       initialPosition: state.initialPosition,
       targetPaceSPerKm: state.targetPaceSPerKm,
-    );
+    ));
 
     _initDefaultShoe();
 
@@ -1057,14 +1074,14 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
       _clearRunFlagAndRestartStepCounter();
 
       try {
-        await isarInstance.writeTxn(() async {
-          final run = await isarInstance.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
+        await _isar.writeTxn(() async {
+          final run = await _isar.runIsars.filter().clientRunIdEqualTo(clientRunId).findFirst();
           if (run != null) {
-            await isarInstance.runIsars.delete(run.id);
+            await _isar.runIsars.delete(run.id);
           }
-          final points = await isarInstance.runPointIsars.filter().clientRunIdEqualTo(clientRunId).findAll();
+          final points = await _isar.runPointIsars.filter().clientRunIdEqualTo(clientRunId).findAll();
           for (final p in points) {
-            await isarInstance.runPointIsars.delete(p.id);
+            await _isar.runPointIsars.delete(p.id);
           }
         });
       } catch (e) {
@@ -1084,7 +1101,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
         ),
       );
       if (state.status == 'idle') {
-        state = state.copyWith(initialPosition: pos);
+        emit(state.copyWith(initialPosition: pos));
         _lastPosition = pos;
       }
     } catch (_) {}
@@ -1092,7 +1109,7 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
 
   void _clearRunFlagAndRestartStepCounter() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = _preferences;
       await prefs.setBool('run_active', false);
     } catch (_) {}
 
@@ -1134,14 +1151,10 @@ class RunTrackerController extends StateNotifier<RunTrackerState> {
   }
 
   @override
-  void dispose() {
+  Future<void> close() async {
     _runTimer?.cancel();
-    _locationSubscription?.cancel();
-    _stepSubscription?.cancel();
-    super.dispose();
+    await _locationSubscription?.cancel();
+    await _stepSubscription?.cancel();
+    await super.close();
   }
 }
-
-final runTrackerProvider = StateNotifierProvider<RunTrackerController, RunTrackerState>((ref) {
-  return RunTrackerController(ref);
-});

@@ -19,6 +19,14 @@ class AppNavigator {
     return Navigator.of(context).pushReplacement<T, TO>(route, result: result);
   }
 
+  static void pop<T extends Object?>(BuildContext context, [T? result]) {
+    Navigator.of(context).pop<T>(result);
+  }
+
+  static bool canPop(BuildContext context) {
+    return Navigator.of(context).canPop();
+  }
+
   static void popUntil(
     BuildContext context,
     RoutePredicate predicate,

@@ -1,39 +1,15 @@
 import 'dart:convert';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../ai/application/ai_config_provider.dart';
+import '../../history/domain/entities/parsed_run_log.dart';
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 import '../../ai/application/ai_client.dart';
 
-class ParsedRunLog {
-  final double? distanceKm;
-  final String? subjectiveEffort;
-  final String? conditions;
-  final String? timeOfDay;
-
-  ParsedRunLog({
-    this.distanceKm,
-    this.subjectiveEffort,
-    this.conditions,
-    this.timeOfDay,
-  });
-
-  factory ParsedRunLog.fromJson(Map<String, dynamic> json) {
-    return ParsedRunLog(
-      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
-      subjectiveEffort: json['subjectiveEffort'] as String?,
-      conditions: json['conditions'] as String?,
-      timeOfDay: json['timeOfDay'] as String?,
-    );
-  }
-}
-
-final nlLoggingProvider = Provider((ref) => NlLoggingService(ref));
-
 class NlLoggingService {
-  final Ref _ref;
-  NlLoggingService(this._ref);
+  NlLoggingService(this._aiConfigCubit);
+
+  final AiConfigCubit _aiConfigCubit;
 
   Future<ParsedRunLog?> parseLog(String text) async {
-    final aiConfig = _ref.read(aiConfigProvider);
+    final aiConfig = _aiConfigCubit.state;
     if (!aiConfig.isConfigured) return null;
 
     final aiClient = AiClient(aiConfig);

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,7 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import 'package:trailhead_mobile/shared/providers/unit_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
@@ -29,8 +30,8 @@ import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/history/application/gpx_export_util.dart';
 import 'share_activity_screen.dart';
 import 'run_flyover_screen.dart';
@@ -92,7 +93,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
     });
 
     try {
-      ref.read(hapticsServiceProvider).lightImpact();
+      context.read<HapticsCubit>().lightImpact();
       if (Platform.isAndroid) {
         final status = await Permission.storage.status;
         if (!status.isGranted && !status.isPermanentlyDenied) {
@@ -127,8 +128,9 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
       }
 
       final file = await GpxExportUtil.saveRunGpxToDownloads(run, validPoints);
-      ref.read(hapticsServiceProvider).mediumImpact();
-      ref.read(soundServiceProvider).playToggleSwitch();
+      if (!mounted) return;
+      context.read<HapticsCubit>().mediumImpact();
+      context.read<AudioCubit>().playToggleSwitch();
 
       if (mounted) {
         setState(() {
@@ -185,7 +187,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
   Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final run = widget.run;
-    final useMiles = ref.watch(distanceUnitProvider);
+    final useMiles = context.watch<DistanceUnitCubit>().state;
     
     final date = run.startTime != null 
         ? DateFormat('EEEE, MMM d, yyyy • h:mm a').format(run.startTime!)
@@ -248,7 +250,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
             ),
             leading: IconButton(
               icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => AppNavigator.pop(context),
             ),
             actions: [
               IconButton(
@@ -288,7 +290,6 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                   if (value == 'download_gpx') {
                     await _downloadGpx();
                   } else if (value == 'delete') {
-                    final navigator = Navigator.of(context);
                     final messenger = ScaffoldMessenger.of(context);
                     final confirm = await showDialog<bool>(
                       context: context,
@@ -298,11 +299,11 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         content: Text('This workout data will be permanently removed.', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                         actions: [
                           TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
+                            onPressed: () => AppNavigator.pop(context, false),
                             child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
                           ),
                           TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
+                            onPressed: () => AppNavigator.pop(context, true),
                             child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
                           ),
                         ],
@@ -320,8 +321,8 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen> {
                         ref.invalidate(historyProvider);
                         ref.invalidate(prsProvider);
                         ref.invalidate(weeklySummaryProvider);
-                        if (mounted && navigator.canPop()) {
-                          navigator.pop(true);
+                        if (mounted && AppNavigator.canPop(context)) {
+                          AppNavigator.pop(context, true);
                         }
                       } catch (e) {
                         if (mounted) {

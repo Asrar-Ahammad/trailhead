@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -44,7 +45,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Fetch a fresh GPS fix immediately on screen open.
-      ref.read(runTrackerProvider.notifier).fetchInitialLocation();
+      context.read<RunTrackerCubit>().fetchInitialLocation();
 
       // If position was already known from app startup, center now.
       _centerIfNewPosition(_currentPosition());
@@ -64,7 +65,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
   LatLng? _currentPosition() {
     final points = ref.read(routePointsProvider).valueOrNull ?? [];
     if (points.isNotEmpty) return points.last;
-    final pos = ref.read(runTrackerProvider).initialPosition;
+    final pos = context.read<RunTrackerCubit>().state.initialPosition;
     if (pos != null) return LatLng(pos.latitude, pos.longitude);
     return widget.initialLocation;
   }
@@ -123,7 +124,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
     final colors = Theme.of(context).extension<AppColors>()!;
     final brightness = Theme.of(context).brightness;
     final routeAsync = ref.watch(routePointsProvider);
-    final trackerState = ref.watch(runTrackerProvider);
+    final trackerState = context.watch<RunTrackerCubit>().state;
 
     final points = routeAsync.valueOrNull ?? [];
 

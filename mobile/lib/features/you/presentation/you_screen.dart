@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -12,8 +13,8 @@ import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/records_tab.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
-import 'package:trailhead_mobile/features/haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 
 final historyProvider = StreamProvider<List<RunIsar>>((ref) {
@@ -61,8 +62,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     if (perceivedIndex == _lastSoundIndex) return;
     _lastSoundIndex = perceivedIndex;
 
-    ref.read(hapticsServiceProvider).lightImpact();
-    final soundService = ref.read(soundServiceProvider);
+    context.read<HapticsCubit>().lightImpact();
+    final soundService = context.read<AudioCubit>();
     switch (perceivedIndex) {
       case 0:
         soundService.playTabActivities();
@@ -140,11 +141,11 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                             content: Text('Are you sure you want to delete ${selectedIds.length} activities?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
+                                onPressed: () => AppNavigator.pop(ctx, false),
                                 child: Text('Cancel', style: AppTextStyles.bodyMediumBold(color: retroColors.textSecondary)),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
+                                onPressed: () => AppNavigator.pop(ctx, true),
                                 child: Text('Delete', style: AppTextStyles.bodyMediumBold(color: retroColors.error)),
                               ),
                             ],
@@ -205,8 +206,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                   IconButton(
                     icon: Icon(PhosphorIcons.gearSix, color: retroColors.textPrimary),
                     onPressed: () {
-                      ref.read(hapticsServiceProvider).lightImpact();
-                      ref.read(soundServiceProvider).playSettingsTap();
+                      context.read<HapticsCubit>().lightImpact();
+                      context.read<AudioCubit>().playSettingsTap();
                       AppNavigator.push(context,
                         AppNavigator.materialPageRoute(builder: (context) => const SettingsScreen()),
                       );
@@ -382,13 +383,13 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                   currentSelection.add(item.id);
                 }
                 ref.read(selectedActivitiesProvider.notifier).state = currentSelection;
-                ref.read(soundServiceProvider).playToggleSwitch(); // Audio feedback for toggle
+                context.read<AudioCubit>().playToggleSwitch(); // Audio feedback for toggle
               },
               onLongPress: () {
                 if (!isSelectionMode) {
                   ref.read(selectedActivitiesProvider.notifier).state = {item.id};
-                  ref.read(soundServiceProvider).playToggleSwitch(); // Audio feedback for toggle
-                  ref.read(hapticsServiceProvider).lightImpact();
+                  context.read<AudioCubit>().playToggleSwitch(); // Audio feedback for toggle
+                  context.read<HapticsCubit>().lightImpact();
                 }
               },
             );

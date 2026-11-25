@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -9,7 +10,7 @@ import '../application/shoe_service.dart';
 import '../data/models/shoe_isar.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
-import '../../haptics/application/haptics_service.dart';
+import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'shoe_dashboard_screen.dart';
 import '../../run_tracking/application/run_tracker_controller.dart';
 
@@ -35,13 +36,13 @@ class ShoeManagementScreen extends ConsumerWidget {
         ),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => AppNavigator.pop(context),
         ),
         title: Text('My Shoes', style: AppTextStyles.headline(color: colors.textPrimary)),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsCubit>().lightImpact();
           _showAddShoeDialog(context, ref, colors);
         },
         backgroundColor: colors.accent,
@@ -103,7 +104,7 @@ class ShoeManagementScreen extends ConsumerWidget {
       ),
       child: ListTile(
         onTap: () {
-          ref.read(hapticsServiceProvider).lightImpact();
+          context.read<HapticsCubit>().lightImpact();
           AppNavigator.push(
             context,
             AppNavigator.materialPageRoute(builder: (_) => ShoeDashboardScreen(shoe: shoe)),
@@ -147,7 +148,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                           actions: [
                             if (!isRetiring)
                               TextButton(
-                                onPressed: () => Navigator.pop(ctx),
+                                onPressed: () => AppNavigator.pop(ctx),
                                 child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                               ),
                             if (isRetiring)
@@ -166,7 +167,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                                   await ref.read(shoeServiceProvider).retireShoe(shoe.id);
                                   ref.invalidate(allShoesProvider);
                                   ref.invalidate(activeShoesProvider);
-                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  if (ctx.mounted) AppNavigator.pop(ctx);
                                 },
                                 child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                               ),
@@ -196,7 +197,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                         actions: [
                           if (!isDeleting)
                             TextButton(
-                              onPressed: () => Navigator.pop(ctx),
+                              onPressed: () => AppNavigator.pop(ctx),
                               child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                             ),
                           if (isDeleting)
@@ -215,7 +216,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                                 await ref.read(shoeServiceProvider).deleteShoe(shoe.id);
                                 ref.invalidate(allShoesProvider);
                                 ref.invalidate(activeShoesProvider);
-                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (ctx.mounted) AppNavigator.pop(ctx);
                               },
                               child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
@@ -347,7 +348,7 @@ class ShoeManagementScreen extends ConsumerWidget {
             actions: [
               if (!isSaving)
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => AppNavigator.pop(ctx),
                   child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                 ),
               if (isSaving)
@@ -362,10 +363,10 @@ class ShoeManagementScreen extends ConsumerWidget {
                     if (name.isNotEmpty) {
                       setState(() => isSaving = true);
                       final newShoe = await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
-                      ref.read(runTrackerProvider.notifier).setSelectedShoe(newShoe.clientShoeId);
+                      context.read<RunTrackerCubit>().setSelectedShoe(newShoe.clientShoeId);
                       ref.invalidate(allShoesProvider);
                       ref.invalidate(activeShoesProvider);
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) AppNavigator.pop(ctx);
                     }
                   },
                   child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
@@ -420,7 +421,7 @@ class ShoeManagementScreen extends ConsumerWidget {
             actions: [
               if (!isSaving)
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => AppNavigator.pop(ctx),
                   child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
                 ),
               if (isSaving)
@@ -441,7 +442,7 @@ class ShoeManagementScreen extends ConsumerWidget {
                       );
                       ref.invalidate(allShoesProvider);
                       ref.invalidate(activeShoesProvider);
-                      if (ctx.mounted) Navigator.pop(ctx);
+                      if (ctx.mounted) AppNavigator.pop(ctx);
                     }
                   },
                   child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),

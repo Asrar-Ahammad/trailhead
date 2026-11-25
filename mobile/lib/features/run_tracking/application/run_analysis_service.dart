@@ -1,55 +1,25 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
 import '../data/models/run_isar.dart';
-import '../../../main.dart'; // for isarInstance
-import '../../ai/application/ai_config_provider.dart';
 import '../../ai/application/ai_client.dart';
-
-final runAnalysisServiceProvider = Provider((ref) {
-  return RunAnalysisService(ref);
-});
-
-final performanceTrendProvider = FutureProvider<String?>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  final summaryString = prefs.getString('user_performance_summary');
-  
-  if (summaryString != null) {
-    try {
-      final summaryJson = jsonDecode(summaryString);
-      return summaryJson['trendMessage'] as String? ?? "Ready to start your running journey?";
-    } catch (e) {
-      // Fall through to fetch
-    }
-  }
-
-  // If not found locally, refresh
-  try {
-    final analysisService = ref.read(runAnalysisServiceProvider);
-    await analysisService.refreshPerformanceSummary();
-    final newSummaryString = prefs.getString('user_performance_summary');
-    if (newSummaryString != null) {
-      final summaryJson = jsonDecode(newSummaryString);
-      return summaryJson['trendMessage'] as String? ?? "Ready to start your running journey?";
-    }
-  } catch (e) {
-    debugPrint('Failed to fetch trend on start: $e');
-  }
-
-  return "Ready to start your running journey?";
-});
+import '../../../shared/state_management/global/ai_config_cubit.dart';
 
 class RunAnalysisService {
-  final Ref _ref;
+  final Isar _isar;
+  final SharedPreferences _preferences;
+  final AiConfigCubit _aiConfigCubit;
 
-  RunAnalysisService(this._ref);
+  RunAnalysisService({required Isar isar, required SharedPreferences preferences, required AiConfigCubit aiConfigCubit})
+      : _isar = isar,
+        _preferences = preferences,
+        _aiConfigCubit = aiConfigCubit;
 
   /// Computes a local performance summary based on Isar run data.
   Future<void> refreshPerformanceSummary() async {
     try {
-      final runs = await isarInstance.runIsars.filter().statusEqualTo('completed').findAll();
+      final runs = await _isar.runIsars.filter().statusEqualTo('completed').findAll();
       if (runs.isEmpty) return;
 
       double totalDistanceKm = 0;
@@ -71,8 +41,7 @@ class RunAnalysisService {
         ]
       };
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_performance_summary', jsonEncode(summary));
+      await _preferences.setString('user_performance_summary', jsonEncode(summary));
     } catch (e) {
       debugPrint('[RunAnalysisService] Failed to refresh performance summary: $e');
     }
@@ -80,14 +49,13 @@ class RunAnalysisService {
 
   /// Generates AI analysis for a completed run locally.
   Future<void> generateAnalysisForRun(RunIsar activeRun) async {
-    final aiConfig = _ref.read(aiConfigProvider);
+    final aiConfig = _aiConfigCubit.state;
     if (!aiConfig.isConfigured) return;
 
     try {
       await refreshPerformanceSummary();
 
-      final prefs = await SharedPreferences.getInstance();
-      final summaryString = prefs.getString('user_performance_summary') ?? '{}';
+      final summaryString = _preferences.getString('user_performance_summary') ?? '{}';
       
       final systemPrompt = 'You are an expert, encouraging AI running coach. '
           'Your job is to provide a detailed 4-6 sentence analysis of the user\'s latest run. '
@@ -109,8 +77,8 @@ class RunAnalysisService {
 
       if (reply != null && reply.isNotEmpty) {
         activeRun.aiAnalysis = reply;
-        await isarInstance.writeTxn(() async {
-          await isarInstance.runIsars.put(activeRun);
+        await _isar.writeTxn(() async {
+          await _isar.runIsars.put(activeRun);
         });
       }
     } catch (e) {

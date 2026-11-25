@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/flyover_timeline_model.dart';
-import 'package:trailhead_mobile/features/audio/application/sound_service.dart';
 
 enum FlyoverCameraMode {
   perspective3D, // 3D forward perspective, North-up (upright text, never inverted)
@@ -54,7 +53,7 @@ class FlyoverPlaybackState {
 }
 
 class FlyoverPlaybackNotifier extends StateNotifier<FlyoverPlaybackState> {
-  final SoundService? _soundService;
+  final Future<void> Function()? _playToggleSound;
   Timer? _timer;
   final Stopwatch _stopwatch = Stopwatch();
   int _lastMicroseconds = 0;
@@ -63,8 +62,8 @@ class FlyoverPlaybackNotifier extends StateNotifier<FlyoverPlaybackState> {
 
   FlyoverPlaybackNotifier({
     required FlyoverTimeline timeline,
-    SoundService? soundService,
-  })  : _soundService = soundService,
+    Future<void> Function()? playToggleSound,
+  })  : _playToggleSound = playToggleSound,
         super(FlyoverPlaybackState(
           timeline: timeline,
           isPlaying: false,
@@ -131,12 +130,12 @@ class FlyoverPlaybackNotifier extends StateNotifier<FlyoverPlaybackState> {
   }
 
   void setCameraMode(FlyoverCameraMode mode) {
-    _soundService?.playToggleSwitch();
+    _playToggleSound?.call();
     state = state.copyWith(cameraMode: mode);
   }
 
   void toggleTelemetry() {
-    _soundService?.playToggleSwitch();
+    _playToggleSound?.call();
     state = state.copyWith(isTelemetryVisible: !state.isTelemetryVisible);
   }
 
@@ -170,12 +169,12 @@ class FlyoverPlaybackNotifier extends StateNotifier<FlyoverPlaybackState> {
   }
 }
 
-/// Factory provider for flyover playback controller given a [FlyoverTimeline].
+/// Flyover playback scoped to its timeline and UI feedback callback.
 final flyoverPlaybackProvider = StateNotifierProvider.autoDispose
-    .family<FlyoverPlaybackNotifier, FlyoverPlaybackState, FlyoverTimeline>((ref, timeline) {
-  final soundService = ref.watch(soundServiceProvider);
+    .family<FlyoverPlaybackNotifier, FlyoverPlaybackState,
+        ({FlyoverTimeline timeline, Future<void> Function() playToggleSound})>((ref, input) {
   return FlyoverPlaybackNotifier(
-    timeline: timeline,
-    soundService: soundService,
+    timeline: input.timeline,
+    playToggleSound: input.playToggleSound,
   );
 });
