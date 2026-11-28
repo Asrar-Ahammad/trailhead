@@ -27,12 +27,35 @@ class AppNavigator {
     return Navigator.of(context).canPop();
   }
 
-  static void popUntil(
-    BuildContext context,
-    RoutePredicate predicate,
-  ) {
+  static void popUntil(BuildContext context, RoutePredicate predicate) {
     Navigator.of(context).popUntil(predicate);
   }
+
+  static Future<T?> dialog<T>(
+    BuildContext context,
+    WidgetBuilder builder, {
+    bool barrierDismissible = true,
+  }) => showDialog<T>(
+    context: context,
+    builder: builder,
+    barrierDismissible: barrierDismissible,
+  );
+
+  static Future<T?> bottomSheet<T>(
+    BuildContext context,
+    WidgetBuilder builder, {
+    Color? backgroundColor,
+    Color? barrierColor,
+    ShapeBorder? shape,
+    bool isScrollControlled = false,
+  }) => showModalBottomSheet<T>(
+    context: context,
+    builder: builder,
+    backgroundColor: backgroundColor,
+    barrierColor: barrierColor,
+    shape: shape,
+    isScrollControlled: isScrollControlled,
+  );
 
   static MaterialPageRoute<T> materialPageRoute<T>({
     required WidgetBuilder builder,

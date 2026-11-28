@@ -16,7 +16,7 @@ Use `.agents/knowledge_graph.md` as the current codebase map. Verify code before
 - For every feature API, define a repository contract in domain and a separate repository implementation, service, request model, and response model in data. Keep transport models out of domain and UI.
 - Use shared/global state when multiple features need the same common object.
 - Put reusable components in separate files. Generic components may share a generic file.
-- Existing features use Riverpod. Treat that as existing-code context; do not copy it into new feature architecture when it conflicts with the BLoC rule.
+- Use feature-scoped Bloc providers and shared Cubits for their respective lifecycles.
 
 ## UI/UX rules
 

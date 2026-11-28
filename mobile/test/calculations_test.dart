@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/tracking_calcs.dart';
+import 'package:trailhead_mobile/features/run_tracking/domain/run_tracking_use_case_calculations.dart';
 
 void main() {
   group('TrackingCalcs Distance Tests', () {

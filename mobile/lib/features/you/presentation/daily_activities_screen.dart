@@ -1,5 +1,7 @@
+import 'package:trailhead_mobile/shared/widgets/app_bar_backdrop.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'dart:ui';
+import '../domain/you_use_case_daily_steps.dart';
+import '../state_management/you_bloc_activity_period.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -7,13 +9,10 @@ import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/daily_steps_provider.dart';
-import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 
-class DailyActivitiesScreen extends ConsumerStatefulWidget {
+class DailyActivitiesScreen extends StatefulWidget {
   final DateTime date;
   final List<RunIsar> runs;
 
@@ -24,65 +23,54 @@ class DailyActivitiesScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DailyActivitiesScreen> createState() => _DailyActivitiesScreenState();
+  State<DailyActivitiesScreen> createState() => _DailyActivitiesScreenState();
 }
 
-class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
+class _DailyActivitiesScreenState extends State<DailyActivitiesScreen> {
   int? _touchedSpotIndex;
+  late final DailyStepsBloc _steps;
+  late final PeriodActivitiesBloc _activities;
 
   @override
-  Widget build(BuildContext context) {
+  void initState() {
+    super.initState();
+    final date = widget.date;
+    _steps = context.read<CreateDailyStepsBloc>()(date);
+    _activities = context.read<CreatePeriodActivitiesBloc>()(
+      DateTime(date.year, date.month, date.day), DateTime(date.year, date.month, date.day + 1),
+    );
+  }
+
+  @override
+  void dispose() {
+    _steps.close();
+    _activities.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [BlocProvider.value(value: _steps), BlocProvider.value(value: _activities)],
+    child: Builder(builder: _buildScreen),
+  );
+
+  Widget _buildScreen(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     
     final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']; 
     final dateStr = '${days[widget.date.weekday - 1]}, ${widget.date.day} ${months[widget.date.month - 1]} ${widget.date.year}';
 
-    // Get background steps for this date
-    final dateKey = '${widget.date.year}-${widget.date.month.toString().padLeft(2, '0')}-${widget.date.day.toString().padLeft(2, '0')}';
-    final backgroundStepsAsync = ref.watch(dailyStepsForDateProvider(dateKey));
-    final backgroundStepsRecord = backgroundStepsAsync.valueOrNull;
+    final backgroundStepsRecord = context.watch<DailyStepsBloc>().state.valueOrNull;
 
-    // Calculate steps per hour
-    final List<double> stepsPerHour = List.filled(24, 0.0);
-    double maxSteps = 0;
-    int totalSteps = backgroundStepsRecord?.steps ?? 0;
-    
-    // Use hourly daily steps from background pedometer
-    if (backgroundStepsRecord != null && backgroundStepsRecord.hourlySteps.length == 24) {
-      for (int i = 0; i < 24; i++) {
-        stepsPerHour[i] += backgroundStepsRecord.hourlySteps[i].toDouble();
-      }
-    }
-    
-    // Reactive runs for this date
-    final historyAsync = ref.watch(historyProvider);
-    final allRuns = historyAsync.valueOrNull;
-    final runs = allRuns != null
-        ? allRuns.where((r) {
-            if (r.startTime == null) return false;
-            return r.startTime!.year == widget.date.year &&
-                   r.startTime!.month == widget.date.month &&
-                   r.startTime!.day == widget.date.day;
-          }).toList()
-        : widget.runs;
-
-    // Add active run steps on top of background steps
-    for (final run in runs) {
-      if (run.startTime != null) {
-        final hour = run.startTime!.hour;
-        stepsPerHour[hour] += (run.stepCount ?? 0).toDouble();
-        totalSteps += (run.stepCount ?? 0);
-      }
-    }
-    
-    for (int i = 0; i < 24; i++) {
-      if (stepsPerHour[i] > maxSteps) {
-        maxSteps = stepsPerHour[i];
-      }
-    }
-
-    if (maxSteps == 0) maxSteps = 1000;
+    final runs = context.watch<PeriodActivitiesBloc>().state.valueOrNull ?? widget.runs;
+    final (hours: stepsPerHour, :maxSteps, :totalSteps) = summarizeDailySteps(
+      backgroundTotal: backgroundStepsRecord?.steps ?? 0,
+      backgroundHours: backgroundStepsRecord?.hourlySteps ?? const [],
+      activities: runs.where((run) => run.startTime != null).map(
+        (run) => (hour: run.startTime!.hour, steps: run.stepCount ?? 0),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: retroColors.background,
@@ -91,12 +79,7 @@ class _DailyActivitiesScreenState extends ConsumerState<DailyActivitiesScreen> {
         title: Text(dateStr, style: AppTextStyles.title(color: retroColors.textPrimary)),
         backgroundColor: retroColors.surface.withValues(alpha: 0.7),
         elevation: 0,
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-            child: Container(color: Colors.transparent),
-          ),
-        ),
+        flexibleSpace: const AppBarBackdrop(),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
           onPressed: () => AppNavigator.pop(context),

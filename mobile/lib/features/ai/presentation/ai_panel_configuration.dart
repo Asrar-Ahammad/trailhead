@@ -83,7 +83,14 @@ class _ConfigurationFieldsState extends State<_ConfigurationFields> {
             config.model,
             [
               for (final model in options.includingSavedModel(config.model))
-                DropdownMenuItem(value: model, child: Text(model)),
+                DropdownMenuItem(
+                  value: model,
+                  child: Text(
+                    model,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
             ],
             (value) => context.read<AiConfigCubit>().updateConfig(model: value),
           ),
@@ -171,16 +178,15 @@ class _ConfigurationFieldsState extends State<_ConfigurationFields> {
     String value,
     List<DropdownMenuItem<String>> items,
     ValueChanged<String?> onChanged,
-  ) => ListTile(
-    title: Text(
-      label,
-      style: AppTextStyles.bodyLargeBold(color: colors.textPrimary),
-    ),
-    trailing: DropdownButton<String>(
-      value: value,
+  ) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: DropdownButtonFormField<String>(
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label),
+      initialValue: value,
+      key: ValueKey((label, value)),
       dropdownColor: colors.surface,
       style: AppTextStyles.bodyLarge(color: colors.textPrimary),
-      underline: const SizedBox.shrink(),
       items: items,
       onChanged: onChanged,
     ),

@@ -7,14 +7,14 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import '../../../run_tracking/data/models/run_isar.dart';
-import '../../application/flyover_playback_controller.dart';
+import '../../state_management/history_bloc_flyover_playback.dart';
 import '../../application/flyover_video_exporter.dart';
 
 /// Modal dialog allowing resolution selection (720p vs 1080p) and showing
 /// live rendering progress when exporting a 3D Flyover video.
 class FlyoverExportDialog extends StatefulWidget {
   final GlobalKey repaintKey;
-  final FlyoverPlaybackNotifier controller;
+  final FlyoverPlaybackBloc controller;
   final RunIsar run;
 
   const FlyoverExportDialog({
@@ -27,17 +27,17 @@ class FlyoverExportDialog extends StatefulWidget {
   static Future<void> show({
     required BuildContext context,
     required GlobalKey repaintKey,
-    required FlyoverPlaybackNotifier controller,
+    required FlyoverPlaybackBloc controller,
     required RunIsar run,
   }) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => FlyoverExportDialog(
+    return AppNavigator.dialog<void>(
+      context,
+      (context) => FlyoverExportDialog(
         repaintKey: repaintKey,
         controller: controller,
         run: run,
       ),
+      barrierDismissible: false,
     );
   }
 

@@ -3,14 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/state_management/global/navigation_cubit_main_tab.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/active_run_screen.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/route_provider.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_live_session.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_route_map.dart';
 import 'package:trailhead_mobile/features/home/presentation/home_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 import '../domain/navigation_entity_main_tab.dart';
@@ -18,14 +17,14 @@ import '../domain/navigation_use_case_confirm_exit.dart';
 import 'navigation_widget_exit_toast.dart';
 import 'navigation_widget_main_tab_bar.dart';
 
-class MainScaffold extends ConsumerStatefulWidget {
+class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});
 
   @override
-  ConsumerState<MainScaffold> createState() => _MainScaffoldState();
+  State<MainScaffold> createState() => _MainScaffoldState();
 }
 
-class _MainScaffoldState extends ConsumerState<MainScaffold> {
+class _MainScaffoldState extends State<MainScaffold> {
   bool _isAtBottom = false;
   final _confirmExit = ConfirmAppExit();
   OverlayEntry? _toastEntry;
@@ -64,7 +63,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     if (_isAtBottom) setState(() => _isAtBottom = false);
     final tracker = context.read<RunTrackerCubit>();
     if (tab == MainTab.record && tracker.state.status == 'idle') {
-      ref.read(recenterSignalProvider.notifier).state++;
+      context.read<RunRouteMapCubit>().recenter();
       unawaited(tracker.fetchInitialLocation(force: true));
     }
   }

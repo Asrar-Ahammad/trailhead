@@ -1,7 +1,10 @@
+import '../../../../shared/state_management/global/history_cubit_activities.dart';
+import '../../../../shared/state_management/global/stats_cubit_records.dart';
+import '../../../stats/state_management/stats_bloc_edit_record.dart';
+import '../../state_management/you_bloc_activity_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -11,19 +14,29 @@ import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
-import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
+import 'package:trailhead_mobile/features/stats/domain/stats_repository_personal_records.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import '../you_screen.dart';
 
-class RecordsTab extends ConsumerStatefulWidget {
+class RecordsTab extends StatefulWidget {
   const RecordsTab({super.key});
 
   @override
-  ConsumerState<RecordsTab> createState() => _RecordsTabState();
+  State<RecordsTab> createState() => _RecordsTabState();
 }
 
-class _RecordsTabState extends ConsumerState<RecordsTab> {
+class _RecordsTabState extends State<RecordsTab> {
+  late final RecordEditorBloc _editor;
+  @override
+  void initState() {
+    super.initState();
+    _editor = context.read<CreateRecordEditor>()();
+  }
+  @override
+  void dispose() {
+    _editor.close();
+    super.dispose();
+  }
   static const Map<String, String> _categoryDisplayNames = {
     '100m': '100 METERS',
     '400m': '400 METERS',
@@ -92,8 +105,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
   @override
   Widget build(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final prsAsync = ref.watch(prsProvider);
-    final mode = ref.watch(recordsModeProvider);
+    final prsAsync = context.watch<StatsRecordsCubit>().state;
+    final mode = context.watch<YouBloc>().state.mode;
     final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
     final useMiles = context.watch<DistanceUnitCubit>().state;
 
@@ -101,12 +114,10 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
       color: retroColors.accent,
       backgroundColor: retroColors.surface,
       edgeOffset: topInset - 70,
-      onRefresh: () async {
-        ref.invalidate(prsProvider);
-      },
+      onRefresh: context.read<StatsRecordsCubit>().refresh,
       child: prsAsync.when(
         data: (group) {
-          final recordsList = mode == 'best_effort' ? group.bestEffort : group.manual;
+          final recordsList = mode == RecordsMode.bestEffort ? group.bestEffort : group.manual;
 
           // Group records by category
           Map<String, List<PersonalRecord>> grouped = {};
@@ -152,7 +163,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final pillWidth = (constraints.maxWidth - 8) / 2;
-                      final isBestEffort = mode == 'best_effort';
+                      final isBestEffort = mode == RecordsMode.bestEffort;
                       return Container(
                         height: 44,
                         decoration: BoxDecoration(
@@ -190,7 +201,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                       if (mode != 'best_effort') {
                                         context.read<HapticsCubit>().lightImpact();
                                         context.read<AudioCubit>().playTabBestEfforts();
-                                        ref.read(recordsModeProvider.notifier).state = 'best_effort';
+                                        context.read<YouBloc>().add(const ChangeRecordsMode(RecordsMode.bestEffort));
                                       }
                                     },
                                     child: Center(
@@ -214,7 +225,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                       if (mode != 'manual') {
                                         context.read<HapticsCubit>().lightImpact();
                                         context.read<AudioCubit>().playTabAllTime();
-                                        ref.read(recordsModeProvider.notifier).state = 'manual';
+                                        context.read<YouBloc>().add(const ChangeRecordsMode(RecordsMode.manual));
                                       }
                                     },
                                     child: Center(
@@ -278,7 +289,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  mode == 'best_effort'
+                                  mode == RecordsMode.bestEffort
                                       ? 'Calculated automatically from GPS splits'
                                       : 'Personal records logged manually by you',
                                   style: AppTextStyles.label(color: retroColors.textSecondary).copyWith(fontSize: 10),
@@ -287,7 +298,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                             ),
                           ],
                         ),
-                        if (mode == 'manual')
+                        if (mode == RecordsMode.manual)
                           InkWell(
                             onTap: () {
                               context.read<HapticsCubit>().lightImpact();
@@ -347,7 +358,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         ),
                         const SizedBox(height: 18),
                         Text(
-                          mode == 'best_effort' ? 'NO GPS BENCHMARKS YET' : 'NO MANUAL RECORDS LOGGED',
+                          mode == RecordsMode.bestEffort ? 'NO GPS BENCHMARKS YET' : 'NO MANUAL RECORDS LOGGED',
                           style: GoogleFonts.spaceGrotesk(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -357,13 +368,13 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          mode == 'best_effort'
+                          mode == RecordsMode.bestEffort
                               ? 'Complete GPS outdoor runs to automatically compute your fastest 1K, 5K, 10K, and half marathon efforts.'
                               : 'Tap "+ ADD PR" above to manually log your all-time track meets and race results.',
                           style: AppTextStyles.bodyMedium(color: retroColors.textSecondary),
                           textAlign: TextAlign.center,
                         ),
-                        if (mode == 'manual') ...[
+                        if (mode == RecordsMode.manual) ...[
                           const SizedBox(height: 20),
                           ElevatedButton.icon(
                             onPressed: () {
@@ -445,7 +456,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
 
 
   Widget _buildRecordCard(PersonalRecord pr, AppColors retroColors, bool useMiles) {
-    final mode = ref.watch(recordsModeProvider);
+    final mode = context.watch<YouBloc>().state.mode;
     final formattedValue = _formatValue(pr.category, pr.value);
     final paceStr = _formatPace(pr.category, pr.value, useMiles);
     final dateStr = DateFormat('MMM d, yyyy').format(pr.achievedAt);
@@ -487,7 +498,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
         onTap: () {
           context.read<HapticsCubit>().lightImpact();
           if (pr.runId != null) {
-            final runs = ref.read(historyProvider).valueOrNull ?? [];
+            final runs = context.read<HistoryActivitiesCubit>().state.valueOrNull ?? [];
             try {
               final run = runs.firstWhere((r) => r.clientRunId == pr.runId);
               AppNavigator.push(context,
@@ -529,7 +540,7 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                   children: [
                     Row(
                       children: [
-                        if (mode == 'best_effort') ...[
+                        if (mode == RecordsMode.bestEffort) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
@@ -597,14 +608,14 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
               ),
 
               // Right Actions: Chevron or Delete
-              if (mode == 'manual')
+              if (mode == RecordsMode.manual)
                 IconButton(
                   icon: Icon(PhosphorIcons.trash, color: retroColors.error.withValues(alpha: 0.8), size: 18),
                   tooltip: 'Delete Record',
                   onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
+                    final confirm = await AppNavigator.dialog<bool>(
+                      context,
+                      (ctx) => AlertDialog(
                         backgroundColor: retroColors.surface,
                         title: Text('Delete PR?', style: AppTextStyles.title(color: retroColors.textPrimary)),
                         content: Text('Remove this manual record from your all-time PRs?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
@@ -623,8 +634,8 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
 
                     if (confirm == true) {
                       try {
-                        await ref.read(prEngineProvider).deleteManualRecord(pr.id);
-                        ref.invalidate(prsProvider);
+                        if (!mounted) return;
+                        await _editor.removeBenchmark(pr.id);
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -644,18 +655,14 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
     );
   }
 
-  void _showAddPRBottomSheet(BuildContext context, AppColors retroColors) {
+  Future<void> _showAddPRBottomSheet(BuildContext context, AppColors retroColors) async {
     String selectedCategory = '5k';
     final minutesController = TextEditingController(text: '22');
     final secondsController = TextEditingController(text: '30');
 
     final categories = ['1k', '1 mile', '5k', '10k', 'half', 'marathon'];
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
+    await AppNavigator.bottomSheet<void>(context, (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
@@ -807,21 +814,12 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: () async {
-                        final mins = int.tryParse(minutesController.text) ?? 0;
-                        final secs = int.tryParse(secondsController.text) ?? 0;
-                        final totalSeconds = (mins * 60 + secs).toDouble();
-                        if (totalSeconds > 0) {
+                        if (!_editor.state) {
                           try {
-                            await ref.read(prEngineProvider).addManualRecord(
-                              selectedCategory,
-                              totalSeconds,
-                              DateTime.now(),
-                              null,
-                            );
+                            await _editor.addBenchmark(selectedCategory, minutesController.text, secondsController.text);
                             if (ctx.mounted) {
                               AppNavigator.pop(ctx);
                             }
-                            ref.invalidate(prsProvider);
                           } catch (e) {
                             if (ctx.mounted) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
@@ -854,6 +852,10 @@ class _RecordsTabState extends ConsumerState<RecordsTab> {
           },
         );
       },
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
     );
+    minutesController.dispose();
+    secondsController.dispose();
   }
 }

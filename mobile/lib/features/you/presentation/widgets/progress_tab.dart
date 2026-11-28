@@ -1,3 +1,5 @@
+import '../../domain/you_use_case_progress_calendar.dart';
+import '../../state_management/you_bloc_activity_period.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
@@ -13,18 +15,17 @@ import 'package:trailhead_mobile/features/predictions/presentation/predictions_s
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ProgressTab extends ConsumerStatefulWidget {
+class ProgressTab extends StatefulWidget {
   final List<RunIsar> runs;
 
   const ProgressTab({super.key, required this.runs});
 
   @override
-  ConsumerState<ProgressTab> createState() => _ProgressTabState();
+  State<ProgressTab> createState() => _ProgressTabState();
 }
 
-class _ProgressTabState extends ConsumerState<ProgressTab> {
+class _ProgressTabState extends State<ProgressTab> {
   late DateTime _selectedMonth;
 
   static const List<String> _monthNames = [
@@ -63,6 +64,19 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final chartStart = startOfProgressWindow(now);
+    final start = _selectedMonth.isBefore(chartStart) ? _selectedMonth : chartStart;
+    final end = DateTime(chartStart.year, chartStart.month, chartStart.day + 84);
+    return BlocProvider(
+      key: ValueKey((start, end)),
+      create: (_) => context.read<CreatePeriodActivitiesBloc>()(start, end),
+      child: Builder(builder: _buildProgress),
+    );
+  }
+
+  Widget _buildProgress(BuildContext context) {
+    final runs = context.watch<PeriodActivitiesBloc>().state.valueOrNull ?? widget.runs;
     final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final topInset = MediaQuery.of(context).padding.top + kToolbarHeight + kTextTabBarHeight;
@@ -80,7 +94,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
           // ── 12-Week Chart ──────────────────────────────────────────────
           Text('12-WEEK PROGRESS', style: AppTextStyles.labelCaps(color: retroColors.accent)),
           const SizedBox(height: 16),
-          _build12WeekChart(retroColors, useMiles),
+          _build12WeekChart(retroColors, useMiles, runs),
 
           const SizedBox(height: 32),
 
@@ -107,7 +121,7 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildMonthlyCalendar(context, ref, retroColors, _selectedMonth),
+          _buildMonthlyCalendar(context, retroColors, _selectedMonth, runs),
 
           const SizedBox(height: 32),
 
@@ -197,22 +211,8 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   }
 
   // ── 12-Week bar chart ────────────────────────────────────────────────────
-  Widget _build12WeekChart(AppColors retroColors, bool useMiles) {
-    final chartData = List.filled(12, 0.0);
-    final now = DateTime.now();
-    final startOfThisWeek = now
-        .subtract(Duration(days: now.weekday - 1))
-        .copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0);
-
-    for (final run in widget.runs) {
-      if (run.startTime == null) continue;
-      final weeksAgo = run.startTime!.isAfter(startOfThisWeek)
-          ? 0
-          : ((startOfThisWeek.difference(run.startTime!).inDays) ~/ 7) + 1;
-      if (weeksAgo < 12) {
-        chartData[11 - weeksAgo] += (run.distanceM ?? 0) / 1000.0;
-      }
-    }
+  Widget _build12WeekChart(AppColors retroColors, bool useMiles, List<RunIsar> runs) {
+    final chartData = weeklyProgress(runs.map((run) => (date: run.startTime, distanceM: run.distanceM ?? 0)), DateTime.now());
 
     double maxY = 10;
     for (final val in chartData) {
@@ -306,23 +306,16 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
   // ── Monthly calendar ─────────────────────────────────────────────────────
   Widget _buildMonthlyCalendar(
     BuildContext context,
-    WidgetRef ref,
     AppColors retroColors,
     DateTime month,
+    List<RunIsar> runs,
   ) {
     final now = DateTime.now();
     final firstDayOfMonth = DateTime(month.year, month.month, 1);
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     final startingWeekday = firstDayOfMonth.weekday;
 
-    final runDays = <int>{};
-    for (final run in widget.runs) {
-      if (run.startTime != null &&
-          run.startTime!.year == month.year &&
-          run.startTime!.month == month.month) {
-        runDays.add(run.startTime!.day);
-      }
-    }
+    final runsByDay = activitiesByMonthDay(runs, month, (run) => run.startTime);
 
     final cells = <Widget>[];
 
@@ -340,17 +333,11 @@ class _ProgressTabState extends ConsumerState<ProgressTab> {
 
     // Day cells
     for (var day = 1; day <= daysInMonth; day++) {
-      final hasRun = runDays.contains(day);
+      final dayRuns = runsByDay[day] ?? const <RunIsar>[];
+      final hasRun = dayRuns.isNotEmpty;
       final isToday = month.year == now.year && month.month == now.month && day == now.day;
       final isFuture = month.year == now.year && month.month == now.month && day > now.day;
 
-      final dayRuns = widget.runs
-          .where((r) =>
-              r.startTime != null &&
-              r.startTime!.year == month.year &&
-              r.startTime!.month == month.month &&
-              r.startTime!.day == day)
-          .toList();
 
       cells.add(GestureDetector(
         onTap: isFuture

@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trailhead_mobile/features/history/domain/flyover_timeline_model.dart';
-import 'package:trailhead_mobile/features/history/application/flyover_playback_controller.dart';
+import 'package:trailhead_mobile/features/history/state_management/history_bloc_flyover_playback.dart';
 import 'package:trailhead_mobile/features/history/presentation/widgets/flyover_scrubber_controls.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -113,7 +115,7 @@ void main() {
       expect(remainingAtHalf.length, greaterThanOrEqualTo(2));
     });
 
-    test('FlyoverPlaybackNotifier seek and pause updates state predictably', () {
+    test('FlyoverPlaybackBloc seek and pause updates state predictably', () async {
       final now = DateTime.now();
       final points = List.generate(
         4,
@@ -125,28 +127,34 @@ void main() {
           ..sequence = i,
       );
       final timeline = FlyoverTimeline.fromRunPoints(points);
-      final notifier = FlyoverPlaybackNotifier(timeline: timeline);
+      final notifier = FlyoverPlaybackBloc(timeline: timeline);
 
       // Default state
       expect(notifier.state.progress, equals(0.0));
       expect(notifier.state.isPlaying, isFalse);
 
       // Seek
+      final seeked = notifier.stream.first;
       notifier.seek(0.5);
+      await seeked;
       expect(notifier.state.progress, equals(0.5));
       expect(notifier.state.currentSample.elevationM, closeTo(65.0, 1.0));
 
       // Speed cycle
       expect(notifier.state.speedMultiplier, equals(1.0));
+      final cycled = notifier.stream.first;
       notifier.cycleSpeed();
+      await cycled;
       expect(notifier.state.speedMultiplier, equals(2.0));
 
       // Telemetry toggle
       expect(notifier.state.isTelemetryVisible, isTrue);
+      final toggled = notifier.stream.first;
       notifier.toggleTelemetry();
+      await toggled;
       expect(notifier.state.isTelemetryVisible, isFalse);
 
-      notifier.dispose();
+      await notifier.close();
     });
 
     test('Dynamic zoom scales with path bounding size and interpolates smoothly', () {
@@ -184,7 +192,7 @@ void main() {
         RunPointIsar()..lat = 37.7720..lng = -122.4110..elevation = 820.0..timestamp = now.add(const Duration(seconds: 120))..sequence = 2,
       ];
       final timeline = FlyoverTimeline.fromRunPoints(points);
-      final notifier = FlyoverPlaybackNotifier(timeline: timeline);
+      final notifier = FlyoverPlaybackBloc(timeline: timeline);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -221,7 +229,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(notifier.state.progress, closeTo(0.75, 0.05));
 
-      notifier.dispose();
+      unawaited(notifier.close());
+      await tester.pump();
     });
   });
 }

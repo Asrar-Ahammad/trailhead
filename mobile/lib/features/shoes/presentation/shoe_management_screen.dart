@@ -1,26 +1,22 @@
-import 'dart:io';
-import 'dart:ui';
+import 'widgets/shoes_widget_inventory_card.dart';
+import 'package:trailhead_mobile/shared/widgets/app_bar_backdrop.dart';
+import '../../../shared/state_management/global/shoes_cubit_inventory.dart';
+import 'shoes_dialog_edit_gear.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../application/shoe_service.dart';
-import '../data/models/shoe_isar.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
-import 'shoe_dashboard_screen.dart';
-import '../../run_tracking/application/run_tracker_controller.dart';
 
-class ShoeManagementScreen extends ConsumerWidget {
+class ShoeManagementScreen extends StatelessWidget {
   const ShoeManagementScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final shoesAsync = ref.watch(allShoesProvider);
+    final shoesAsync = context.watch<ShoesCubit>().state;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -28,22 +24,20 @@ class ShoeManagementScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: colors.surface.withValues(alpha: 0.7),
         elevation: 0,
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-            child: Container(color: Colors.transparent),
-          ),
-        ),
+        flexibleSpace: const AppBarBackdrop(),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
           onPressed: () => AppNavigator.pop(context),
         ),
-        title: Text('My Shoes', style: AppTextStyles.headline(color: colors.textPrimary)),
+        title: Text(
+          'My Shoes',
+          style: AppTextStyles.headline(color: colors.textPrimary),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           context.read<HapticsCubit>().lightImpact();
-          _showAddShoeDialog(context, ref, colors);
+          showShoeEditor(context);
         },
         backgroundColor: colors.accent,
         shape: const CircleBorder(),
@@ -73,384 +67,31 @@ class ShoeManagementScreen extends ConsumerWidget {
             ),
             children: [
               if (activeShoes.isNotEmpty) ...[
-                Text('ACTIVE GEAR', style: AppTextStyles.label(color: colors.accent)),
+                Text(
+                  'ACTIVE GEAR',
+                  style: AppTextStyles.label(color: colors.accent),
+                ),
                 const SizedBox(height: 8),
-                ...activeShoes.map((s) => _buildShoeCard(context, ref, colors, s)),
+                ...activeShoes.map((s) => ShoeInventoryCard(shoe: s, colors: colors)),
                 const SizedBox(height: 24),
               ],
               if (retiredShoes.isNotEmpty) ...[
-                Text('RETIRED GEAR', style: AppTextStyles.label(color: colors.textSecondary)),
+                Text(
+                  'RETIRED GEAR',
+                  style: AppTextStyles.label(color: colors.textSecondary),
+                ),
                 const SizedBox(height: 8),
-                ...retiredShoes.map((s) => _buildShoeCard(context, ref, colors, s)),
+                ...retiredShoes.map((s) => ShoeInventoryCard(shoe: s, colors: colors)),
               ],
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err', style: TextStyle(color: colors.error))),
-      ),
-    );
-  }
-
-  Widget _buildShoeCard(BuildContext context, WidgetRef ref, AppColors colors, ShoeIsar shoe) {
-    final distanceKm = shoe.distanceM / 1000.0;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.border.withValues(alpha: 0.5), width: 1),
-      ),
-      child: ListTile(
-        onTap: () {
-          context.read<HapticsCubit>().lightImpact();
-          AppNavigator.push(
-            context,
-            AppNavigator.materialPageRoute(builder: (_) => ShoeDashboardScreen(shoe: shoe)),
-          );
-        },
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Hero(
-          tag: 'shoe_image_${shoe.clientShoeId}',
-          child: _buildShoeImage(shoe, colors),
-        ),
-        title: Text(shoe.name ?? 'Unknown Shoe', style: AppTextStyles.title(color: colors.textPrimary)),
-        subtitle: Text(
-          '${shoe.brand ?? ''} • ${distanceKm.toStringAsFixed(1)} km',
-          style: AppTextStyles.label(color: colors.textSecondary),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(PhosphorIcons.pencilSimple, color: colors.textSecondary),
-              tooltip: 'Edit Shoe',
-              onPressed: () => _showEditShoeDialog(context, ref, colors, shoe),
-            ),
-            if (shoe.isActive)
-              IconButton(
-                icon: Icon(PhosphorIcons.archive, color: colors.textSecondary),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) {
-                      bool isRetiring = false;
-                      return StatefulBuilder(
-                        builder: (context, setState) => AlertDialog(
-                          backgroundColor: colors.surface,
-                          title: Text('Retire Gear?', style: AppTextStyles.headline(color: colors.textPrimary)),
-                          content: Text(
-                            'Are you sure you want to retire this gear? It will no longer be available for new runs.',
-                            style: AppTextStyles.bodyMedium(color: colors.textSecondary),
-                          ),
-                          actions: [
-                            if (!isRetiring)
-                              TextButton(
-                                onPressed: () => AppNavigator.pop(ctx),
-                                child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                              ),
-                            if (isRetiring)
-                              const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                              )
-                            else
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: colors.error,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () async {
-                                  setState(() => isRetiring = true);
-                                  await ref.read(shoeServiceProvider).retireShoe(shoe.id);
-                                  ref.invalidate(allShoesProvider);
-                                  ref.invalidate(activeShoesProvider);
-                                  if (ctx.mounted) AppNavigator.pop(ctx);
-                                },
-                                child: const Text('Retire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            IconButton(
-              icon: Icon(PhosphorIcons.trash, color: colors.error),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (ctx) {
-                    bool isDeleting = false;
-                    return StatefulBuilder(
-                      builder: (context, setState) => AlertDialog(
-                        backgroundColor: colors.surface,
-                        title: Text('Delete Gear?', style: AppTextStyles.headline(color: colors.textPrimary)),
-                        content: Text(
-                          'Are you sure you want to delete this gear permanently?',
-                          style: AppTextStyles.bodyMedium(color: colors.textSecondary),
-                        ),
-                        actions: [
-                          if (!isDeleting)
-                            TextButton(
-                              onPressed: () => AppNavigator.pop(ctx),
-                              child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                            ),
-                          if (isDeleting)
-                            const Padding(
-                              padding: EdgeInsets.all(8.0),
-                              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                            )
-                          else
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colors.error,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: () async {
-                                setState(() => isDeleting = true);
-                                await ref.read(shoeServiceProvider).deleteShoe(shoe.id);
-                                ref.invalidate(allShoesProvider);
-                                ref.invalidate(activeShoesProvider);
-                                if (ctx.mounted) AppNavigator.pop(ctx);
-                              },
-                              child: const Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ],
+        error: (err, stack) => Center(
+          child: Text('Error: $err', style: TextStyle(color: colors.error)),
         ),
       ),
     );
   }
 
-  Widget _buildShoeImage(ShoeIsar shoe, AppColors colors) {
-    final imageUrl = shoe.imageUrl;
-    if (imageUrl == null) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colors.accent.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(PhosphorIcons.sneaker, color: colors.accent),
-      );
-    }
-
-    // Local file path
-    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-      final file = File(imageUrl);
-      if (file.existsSync()) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.file(
-            file,
-            width: 48,
-            height: 48,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(PhosphorIcons.sneaker, color: colors.accent),
-            ),
-          ),
-        );
-      }
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colors.accent.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(PhosphorIcons.sneaker, color: colors.accent),
-      );
-    }
-
-    // Network URL
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: 48,
-      height: 48,
-      fit: BoxFit.contain,
-      placeholder: (context, url) => Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: colors.accent.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: const Center(
-          child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-      ),
-      errorWidget: (context, url, error) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colors.accent.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(PhosphorIcons.sneaker, color: colors.accent),
-      ),
-    );
-  }
-
-  void _showAddShoeDialog(BuildContext context, WidgetRef ref, AppColors colors) {
-    final nameController = TextEditingController();
-    final brandController = TextEditingController();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        bool isSaving = false;
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            backgroundColor: colors.surface,
-            title: Text('Add New Shoe', style: AppTextStyles.headline(color: colors.textPrimary)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Shoe Name',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: brandController,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Brand (Optional)',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              if (!isSaving)
-                TextButton(
-                  onPressed: () => AppNavigator.pop(ctx),
-                  child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                ),
-              if (isSaving)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                )
-              else
-                TextButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    if (name.isNotEmpty) {
-                      setState(() => isSaving = true);
-                      final newShoe = await ref.read(shoeServiceProvider).addShoe(name, brandController.text.trim());
-                      context.read<RunTrackerCubit>().setSelectedShoe(newShoe.clientShoeId);
-                      ref.invalidate(allShoesProvider);
-                      ref.invalidate(activeShoesProvider);
-                      if (ctx.mounted) AppNavigator.pop(ctx);
-                    }
-                  },
-                  child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showEditShoeDialog(BuildContext context, WidgetRef ref, AppColors colors, ShoeIsar shoe) {
-    final nameController = TextEditingController(text: shoe.name ?? '');
-    final brandController = TextEditingController(text: shoe.brand ?? '');
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        bool isSaving = false;
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            backgroundColor: colors.surface,
-            title: Text('Edit Shoe', style: AppTextStyles.headline(color: colors.textPrimary)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  autofocus: true,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Shoe Name',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: brandController,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Brand / Company',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              if (!isSaving)
-                TextButton(
-                  onPressed: () => AppNavigator.pop(ctx),
-                  child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                ),
-              if (isSaving)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                )
-              else
-                TextButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    if (name.isNotEmpty) {
-                      setState(() => isSaving = true);
-                      await ref.read(shoeServiceProvider).updateShoe(
-                        shoe.id,
-                        name: name,
-                        brand: brandController.text.trim(),
-                      );
-                      ref.invalidate(allShoesProvider);
-                      ref.invalidate(activeShoesProvider);
-                      if (ctx.mounted) AppNavigator.pop(ctx);
-                    }
-                  },
-                  child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }

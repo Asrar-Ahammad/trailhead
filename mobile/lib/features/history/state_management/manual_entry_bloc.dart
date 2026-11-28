@@ -42,6 +42,8 @@ class ManualEntryState {
   final ManualRunSaveResult? saveResult;
 }
 
+typedef CreateManualEntryBloc = ManualEntryBloc Function();
+
 class ManualEntryBloc extends Bloc<ManualEntryEvent, ManualEntryState> {
   ManualEntryBloc(this._parseManualRunLog, this._saveManualRun)
     : super(const ManualEntryState()) {

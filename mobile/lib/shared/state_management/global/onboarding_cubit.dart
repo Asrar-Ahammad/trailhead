@@ -1,20 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../features/onboarding/domain/onboarding_repository_completion.dart';
 
 class OnboardingCubit extends Cubit<bool> {
-  OnboardingCubit({required SharedPreferences preferences, required bool completed})
-    : _preferences = preferences,
-      super(completed);
+  OnboardingCubit(this.repository) : super(repository.completed);
+  final OnboardingCompletionRepository repository;
 
-  final SharedPreferences _preferences;
+  Future<void> completeOnboarding() => _setCompleted(true);
+  Future<void> resetOnboarding() => _setCompleted(false);
 
-  Future<void> completeOnboarding() async {
-    emit(true);
-    await _preferences.setBool('seen_onboarding', true);
-  }
-
-  Future<void> resetOnboarding() async {
-    emit(false);
-    await _preferences.setBool('seen_onboarding', false);
+  Future<void> _setCompleted(bool completed) async {
+    await repository.save(completed);
+    emit(completed);
   }
 }

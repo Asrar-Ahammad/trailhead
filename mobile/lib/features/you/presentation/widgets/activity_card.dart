@@ -1,13 +1,11 @@
+import '../../../history/state_management/history_bloc_route_points.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/history/presentation/run_detail_screen.dart';
 import 'package:trailhead_mobile/features/run_tracking/presentation/widgets/static_route_map.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
@@ -16,7 +14,7 @@ import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_fe
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 
-class ActivityCard extends ConsumerWidget {
+class ActivityCard extends StatelessWidget {
   final RunIsar run;
   final int achievementsCount;
   final bool isSelectionMode;
@@ -35,21 +33,23 @@ class ActivityCard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) => BlocProvider(
+    key: ValueKey(run.clientRunId),
+    create: (_) => context.read<CreateHistoryRouteBloc>()(run.clientRunId),
+    child: Builder(builder: _buildCard),
+  );
+
+  Widget _buildCard(BuildContext context) {
     final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final pointsAsync = run.clientRunId != null 
-        ? ref.watch(runRawPointsProvider(run.clientRunId!))
-        : const AsyncValue.data(<RunPointIsar>[]);
-    
+    final pointsAsync = context.watch<HistoryRouteBloc>().state;
+
     String formattedTime = '00:00';
     if (run.startTime != null) {
       final hour = run.startTime!.hour.toString().padLeft(2, '0');
       final minute = run.startTime!.minute.toString().padLeft(2, '0');
       formattedTime = '$hour:$minute';
     }
-        
-    final distanceKm = (run.distanceM ?? 0) / 1000;
     final durationMins = ((run.durationS ?? 0) / 60).floor();
 
     return InkWell(

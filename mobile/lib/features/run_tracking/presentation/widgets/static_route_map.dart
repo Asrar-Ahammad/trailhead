@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../shared/theme/app_colors.dart';
-import '../../application/tracking_calcs.dart';
+import 'package:trailhead_mobile/features/run_tracking/domain/run_tracking_use_case_calculations.dart';
 
 /// Static, read-only route map shown after a run is completed.
 ///

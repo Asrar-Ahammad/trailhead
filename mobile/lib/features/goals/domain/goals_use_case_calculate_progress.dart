@@ -1,5 +1,19 @@
 import 'dart:math' as math;
 
+abstract interface class GoalProgressRepository {
+  Stream<GoalProgressData> watch(GoalMetrics metrics);
+}
+
+class GoalCompletion {
+  GoalCompletion(double progress, double target)
+    : ratio = (progress / (target > 0 ? target : 1)).clamp(0.0, 1.0),
+      remaining = math.max(0, target - progress);
+  final double ratio;
+  final double remaining;
+  bool get isComplete => ratio >= 1;
+  int get percent => (ratio * 100).toInt();
+}
+
 typedef GoalMetrics = ({String daily, String monthly});
 typedef GoalActivity = ({
   DateTime? startedAt,

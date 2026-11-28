@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CountdownOverlay extends ConsumerStatefulWidget {
+class CountdownOverlay extends StatefulWidget {
   const CountdownOverlay({super.key});
 
   static Future<void> show(BuildContext context) {
@@ -19,10 +18,10 @@ class CountdownOverlay extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<CountdownOverlay> createState() => _CountdownOverlayState();
+  State<CountdownOverlay> createState() => _CountdownOverlayState();
 }
 
-class _CountdownOverlayState extends ConsumerState<CountdownOverlay> with SingleTickerProviderStateMixin {
+class _CountdownOverlayState extends State<CountdownOverlay> with SingleTickerProviderStateMixin {
   int _countdown = 3;
   late Timer _timer;
   late AnimationController _animationController;

@@ -1,106 +1,54 @@
+import 'package:trailhead_mobile/shared/widgets/adaptive_columns.dart';
+import 'package:trailhead_mobile/shared/widgets/shoe_photo.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'dart:io';
+import '../../../shared/state_management/global/shoes_cubit_inventory.dart';
+import '../domain/shoes_repository_inventory.dart';
+import '../state_management/shoes_bloc_activity.dart';
+import '../state_management/shoes_bloc_edit_gear.dart';
+import 'shoes_dialog_edit_gear.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:isar/isar.dart';
-import '../data/models/shoe_isar.dart';
-import '../../run_tracking/data/models/run_isar.dart';
-import '../../../main.dart'; // isarInstance
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_text_styles.dart';
 import '../../run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
-import '../application/image_processing_service.dart';
-import '../application/shoe_service.dart';
 import '../../you/presentation/widgets/activity_card.dart';
 
-final shoeRunsProvider = StreamProvider.family<List<RunIsar>, String>((ref, shoeId) {
-  final query = isarInstance.runIsars
-      .filter()
-      .clientShoeIdEqualTo(shoeId)
-      .statusEqualTo('completed')
-      .sortByStartTimeDesc()
-      .build();
-      
-  return query.watch(fireImmediately: true);
-});
-
-class ShoeDashboardScreen extends ConsumerStatefulWidget {
-  final ShoeIsar shoe;
-
+class ShoeDashboardScreen extends StatelessWidget {
   const ShoeDashboardScreen({super.key, required this.shoe});
+  final ShoeGear shoe;
 
   @override
-  ConsumerState<ShoeDashboardScreen> createState() => _ShoeDashboardScreenState();
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(
+        create: (_) =>
+            context.read<CreateShoeActivityBloc>()(shoe.clientShoeId),
+      ),
+      BlocProvider(create: (_) => context.read<CreateShoeEditBloc>()()),
+    ],
+    child: _ShoeDashboardContent(shoe),
+  );
 }
 
-class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
-  bool _isProcessingImage = false;
-  String _loadingMessage = '';
-  late ShoeIsar _currentShoe;
+class _ShoeDashboardContent extends StatelessWidget {
+  const _ShoeDashboardContent(this.initialShoe);
+  final ShoeGear initialShoe;
 
-  @override
-  void initState() {
-    super.initState();
-    _currentShoe = widget.shoe;
-  }
-
-  Future<void> _pickAndProcessImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
-    if (pickedFile == null) return;
-    
-    setState(() {
-      _isProcessingImage = true;
-      _loadingMessage = 'Removing background...';
-    });
-
+  Future<void> _pickImage(BuildContext context, int? id) async {
+    if (id == null) return;
     try {
-      final imageProcessingService = ref.read(imageProcessingServiceProvider);
-      final processedFile = await imageProcessingService.removeBackground(File(pickedFile.path));
-      
-      if (processedFile == null) {
-        throw Exception('Could not process image');
+      final photo = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (photo != null && context.mounted) {
+        context.read<ShoeEditBloc>().add(SetShoePhoto(id, photo.path));
       }
-
-      setState(() {
-        _loadingMessage = 'Uploading...';
-      });
-
-      final shoeService = ref.read(shoeServiceProvider);
-      await shoeService.uploadShoeImage(_currentShoe.clientShoeId!, processedFile.path);
-
-      // Refresh shoe
-      final updatedShoe = await isarInstance.shoeIsars
-          .filter()
-          .clientShoeIdEqualTo(_currentShoe.clientShoeId)
-          .findFirst();
-
-      if (updatedShoe != null) {
-        setState(() {
-          _currentShoe = updatedShoe;
-        });
-        
-        // Refresh provider
-        ref.invalidate(allShoesProvider);
-        ref.invalidate(activeShoesProvider);
-      }
-    } catch (e) {
-      if (mounted) {
+    } catch (_) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update shoe photo: $e')),
+          const SnackBar(content: Text('Could not open the photo picker.')),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingImage = false;
-        });
       }
     }
   }
@@ -108,178 +56,243 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
-    final runsAsync = ref.watch(shoeRunsProvider(_currentShoe.clientShoeId!));
+    final runsAsync = context.watch<ShoeActivityBloc>().state;
+    final inventory = context.watch<ShoesCubit>().state.valueOrNull;
+    final shoe =
+        inventory?.where((shoe) => shoe.id == initialShoe.id).firstOrNull ??
+        initialShoe;
+    final processing = context.select((ShoeEditBloc bloc) => bloc.state.busy);
     final useMiles = context.watch<DistanceUnitCubit>().state;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      appBar: AppBar(
-        backgroundColor: colors.surface,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
-          onPressed: () => AppNavigator.pop(context),
-        ),
-        title: Text(_currentShoe.name ?? 'Gear Stats', style: AppTextStyles.headline(color: colors.textPrimary)),
-        actions: [
-          IconButton(
-            icon: Icon(PhosphorIcons.pencilSimple, color: colors.textPrimary),
-            tooltip: 'Edit Shoe',
-            onPressed: () => _showEditShoeDialog(colors),
+    return BlocListener<ShoeEditBloc, ShoeEditState>(
+      listener: (context, state) {
+        if (state.error case final error?) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(error)));
+        }
+      },
+      child: Scaffold(
+        backgroundColor: colors.background,
+        appBar: AppBar(
+          backgroundColor: colors.surface,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(PhosphorIcons.arrowLeft, color: colors.textPrimary),
+            onPressed: () => AppNavigator.pop(context),
           ),
-        ],
-      ),
-      body: runsAsync.when(
-        data: (runs) {
-          int totalRuns = runs.length;
-          double maxDistanceM = 0;
-          double totalDurationS = 0;
-          
-          for (final run in runs) {
-            if (run.distanceM != null && run.distanceM! > maxDistanceM) {
-              maxDistanceM = run.distanceM!;
-            }
-            if (run.durationS != null) {
-              totalDurationS += run.durationS!;
-            }
-          }
-          
-          final distanceKm = _currentShoe.distanceM / 1000.0;
-          final distanceMi = distanceKm * 0.621371;
-          final displayDistance = useMiles ? distanceMi : distanceKm;
-          final distUnit = useMiles ? 'mi' : 'km';
-          
-          final maxDistKm = maxDistanceM / 1000.0;
-          final displayMaxDist = useMiles ? (maxDistKm * 0.621371) : maxDistKm;
-          
-          final avgPaceSPerKm = (_currentShoe.distanceM > 0) ? (totalDurationS / (_currentShoe.distanceM / 1000.0)) : 0.0;
-          final formattedAvgPace = avgPaceSPerKm > 0 
-              ? RunFormatUtils.formatPace(_currentShoe.distanceM, totalDurationS.toInt(), useMiles)
-              : '--:--';
+          title: Text(
+            shoe.name ?? 'Gear Stats',
+            style: AppTextStyles.headline(color: colors.textPrimary),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(PhosphorIcons.pencilSimple, color: colors.textPrimary),
+              tooltip: 'Edit Shoe',
+              onPressed: () => showShoeEditor(context, shoe: shoe),
+            ),
+          ],
+        ),
+        body: runsAsync.when(
+          data: (data) {
+            final runs = data.runs;
+            final totalRuns = data.summary.count;
+            final maxDistanceM = data.summary.longestMeters;
+            final displayDistance = RunFormatUtils.distanceInUnit(
+              shoe.distanceM,
+              useMiles,
+            );
+            final displayMaxDist = RunFormatUtils.distanceInUnit(
+              maxDistanceM,
+              useMiles,
+            );
+            final distUnit = RunFormatUtils.getUnitString(useMiles);
+            final formattedAvgPace = RunFormatUtils.formatPace(
+              shoe.distanceM,
+              data.summary.durationSeconds,
+              useMiles,
+            );
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header Info
-                Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Hero(
-                        tag: 'shoe_image_${_currentShoe.clientShoeId}',
-                        child: _buildShoeImage(colors),
-                      ),
-                      if (!_isProcessingImage)
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: _pickAndProcessImage,
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: colors.accent,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: colors.background, width: 2),
-                              ),
-                              child: Icon(PhosphorIcons.camera, color: Colors.white, size: 18),
-                            ),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header Info
+                  Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Hero(
+                          tag: 'shoe_image_${shoe.clientShoeId ?? shoe.id}',
+                          child: ShoePhoto(
+                            source: shoe.imageUrl,
+                            size: 150,
+                            color: colors.accent,
+                            background: colors.surfaceRaised,
+                            radius: 12,
+                            iconSize: 64,
                           ),
                         ),
+                        if (!processing)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: () => _pickImage(context, shoe.id),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: colors.accent,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: colors.background,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  PhosphorIcons.camera,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (processing)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Removing background...',
+                              style: AppTextStyles.label(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          shoe.name ?? 'Unknown Shoe',
+                          style: AppTextStyles.displayMedium(
+                            color: colors.textPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => showShoeEditor(context, shoe: shoe),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceRaised,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colors.border.withValues(alpha: 0.4),
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            PhosphorIcons.pencilSimple,
+                            size: 16,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                if (_isProcessingImage)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-                          const SizedBox(height: 8),
-                          Text(_loadingMessage, style: AppTextStyles.label(color: colors.textSecondary)),
-                        ],
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
+                  if (shoe.brand != null && shoe.brand!.isNotEmpty)
+                    Center(
                       child: Text(
-                        _currentShoe.name ?? 'Unknown Shoe',
-                        style: AppTextStyles.displayMedium(color: colors.textPrimary),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showEditShoeDialog(colors),
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceRaised,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: colors.border.withValues(alpha: 0.4), width: 1),
+                        shoe.brand!,
+                        style: AppTextStyles.bodyLarge(
+                          color: colors.textSecondary,
                         ),
-                        child: Icon(PhosphorIcons.pencilSimple, size: 16, color: colors.textSecondary),
                       ),
                     ),
-                  ],
-                ),
-                if (_currentShoe.brand != null && _currentShoe.brand!.isNotEmpty)
-                  Center(
-                    child: Text(
-                      _currentShoe.brand!,
-                      style: AppTextStyles.bodyLarge(color: colors.textSecondary),
-                    ),
+
+                  const SizedBox(height: 32),
+
+                  // Stat Grid
+                  AdaptiveColumns(
+                    maxColumns: 2,
+                    minColumnWidth: 145,
+                    spacing: 16,
+                    children: [
+                      _buildStatCard(
+                        colors,
+                        'TOTAL DISTANCE',
+                        '${displayDistance.toStringAsFixed(1)} $distUnit',
+                      ),
+                      _buildStatCard(colors, 'TOTAL RUNS', '$totalRuns'),
+                      _buildStatCard(
+                        colors,
+                        'AVERAGE PACE',
+                        '$formattedAvgPace / $distUnit',
+                      ),
+                      _buildStatCard(
+                        colors,
+                        'LONGEST RUN',
+                        '${displayMaxDist.toStringAsFixed(1)} $distUnit',
+                      ),
+                    ],
                   ),
-                  
-                const SizedBox(height: 32),
-                
-                // Stat Grid
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.5,
-                  children: [
-                    _buildStatCard(colors, 'TOTAL DISTANCE', '${displayDistance.toStringAsFixed(1)} $distUnit'),
-                    _buildStatCard(colors, 'TOTAL RUNS', '$totalRuns'),
-                    _buildStatCard(colors, 'AVERAGE PACE', '$formattedAvgPace / $distUnit'),
-                    _buildStatCard(colors, 'LONGEST RUN', '${displayMaxDist.toStringAsFixed(1)} $distUnit'),
-                  ],
-                ),
-                
-                const SizedBox(height: 32),
-                Text('RECENT ACTIVITY', style: AppTextStyles.labelCaps(color: colors.textSecondary)),
-                const SizedBox(height: 16),
-                
-                if (runs.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Text('No runs tracked with this gear yet.', style: AppTextStyles.bodyMedium(color: colors.textSecondary)),
-                    ),
-                  )
-                else
-                  ...runs.take(5).map((run) => ActivityCard(run: run)),
-              ],
+
+                  const SizedBox(height: 32),
+                  Text(
+                    'RECENT ACTIVITY',
+                    style: AppTextStyles.labelCaps(color: colors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (runs.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(
+                          'No runs tracked with this gear yet.',
+                          style: AppTextStyles.bodyMedium(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    ...runs.take(5).map((run) => ActivityCard(run: run)),
+                ],
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(
+            child: Text(
+              'Error loading stats: $err',
+              style: TextStyle(color: colors.error),
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error loading stats: $err', style: TextStyle(color: colors.error))),
+          ),
+        ),
       ),
     );
   }
-  
+
   Widget _buildStatCard(AppColors colors, String title, String value) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -292,147 +305,14 @@ class _ShoeDashboardScreenState extends ConsumerState<ShoeDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: AppTextStyles.labelCaps(color: colors.textSecondary)),
+          Text(
+            title,
+            style: AppTextStyles.labelCaps(color: colors.textSecondary),
+          ),
           const SizedBox(height: 8),
           Text(value, style: AppTextStyles.headline(color: colors.textPrimary)),
         ],
       ),
-    );
-  }
-
-  /// Builds the shoe image, handling both local file paths and network URLs.
-  Widget _buildShoeImage(AppColors colors) {
-    final imageUrl = _currentShoe.imageUrl;
-    if (imageUrl == null) {
-      return _buildDefaultShoeIcon(colors);
-    }
-
-    // Local file path (stored by shoe_service.uploadShoeImage)
-    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-      final file = File(imageUrl);
-      if (file.existsSync()) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            file,
-            width: 150,
-            height: 150,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) => _buildDefaultShoeIcon(colors),
-          ),
-        );
-      }
-      return _buildDefaultShoeIcon(colors);
-    }
-
-    // Network URL
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: 150,
-      height: 150,
-      fit: BoxFit.contain,
-      placeholder: (context, url) => Container(
-        width: 150,
-        height: 150,
-        decoration: BoxDecoration(
-          color: colors.accent.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      ),
-      errorWidget: (context, url, error) => _buildDefaultShoeIcon(colors),
-    );
-  }
-
-  Widget _buildDefaultShoeIcon(AppColors colors) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colors.accent.withValues(alpha: 0.1),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(PhosphorIcons.sneaker, color: colors.accent, size: 64),
-    );
-  }
-
-  void _showEditShoeDialog(AppColors colors) {
-    final nameController = TextEditingController(text: _currentShoe.name ?? '');
-    final brandController = TextEditingController(text: _currentShoe.brand ?? '');
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        bool isSaving = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            backgroundColor: colors.surface,
-            title: Text('Edit Shoe', style: AppTextStyles.headline(color: colors.textPrimary)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  autofocus: true,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Shoe Name',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: brandController,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Brand / Company',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.border)),
-                    focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: colors.accent)),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              if (!isSaving)
-                TextButton(
-                  onPressed: () => AppNavigator.pop(ctx),
-                  child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-                ),
-              if (isSaving)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                )
-              else
-                TextButton(
-                  onPressed: () async {
-                    final name = nameController.text.trim();
-                    if (name.isNotEmpty) {
-                      setDialogState(() => isSaving = true);
-                      final updated = await ref.read(shoeServiceProvider).updateShoe(
-                        _currentShoe.id,
-                        name: name,
-                        brand: brandController.text.trim(),
-                      );
-                      if (updated != null && mounted) {
-                        setState(() {
-                          _currentShoe = updated;
-                        });
-                        ref.invalidate(allShoesProvider);
-                        ref.invalidate(activeShoesProvider);
-                      }
-                      if (ctx.mounted) AppNavigator.pop(ctx);
-                    }
-                  },
-                  child: Text('Save', style: TextStyle(color: colors.accent, fontWeight: FontWeight.bold)),
-                ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

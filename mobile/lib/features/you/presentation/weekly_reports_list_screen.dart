@@ -1,41 +1,42 @@
-import 'dart:ui';
+import 'package:trailhead_mobile/shared/widgets/app_bar_backdrop.dart';
+import '../../stats/state_management/stats_bloc_weekly_reports.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:trailhead_mobile/features/stats/data/weekly_report_service.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/features/you/presentation/week_details_screen.dart';
-import 'package:trailhead_mobile/shared/widgets/retro_loading_indicator.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/features/stats/data/models/weekly_report_model.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 
-class WeeklyReportsListScreen extends ConsumerWidget {
+class WeeklyReportsListScreen extends StatelessWidget {
   const WeeklyReportsListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => context.read<CreateWeeklyReportsBloc>()(),
+    child: Builder(builder: _buildScreen),
+  );
+
+  Widget _buildScreen(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final reportsAsync = ref.watch(weeklyReportsProvider);
+    final reportsAsync = context.watch<WeeklyReportsBloc>().state;
 
     return Scaffold(
       backgroundColor: retroColors.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('WEEKLY REPORTS', style: AppTextStyles.headline(color: retroColors.textPrimary)),
+        title: Text(
+          'WEEKLY REPORTS',
+          style: AppTextStyles.headline(color: retroColors.textPrimary),
+        ),
         backgroundColor: retroColors.surface.withValues(alpha: 0.7),
         elevation: 0,
-        flexibleSpace: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-            child: Container(color: Colors.transparent),
-          ),
-        ),
+        flexibleSpace: const AppBarBackdrop(),
         leading: IconButton(
           icon: Icon(PhosphorIcons.arrowLeft, color: retroColors.textPrimary),
           onPressed: () => AppNavigator.pop(context),
@@ -44,15 +45,17 @@ class WeeklyReportsListScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: retroColors.accent,
         backgroundColor: retroColors.surface,
-        onRefresh: () async {
-          // ignore: unused_result
-          ref.refresh(weeklyReportsProvider);
-        },
+        onRefresh: context.read<WeeklyReportsBloc>().refresh,
         child: reportsAsync.when(
           data: (reports) {
             if (reports.isEmpty) {
               return Center(
-                child: Text('No weekly reports yet.', style: AppTextStyles.bodyLarge(color: retroColors.textSecondary)),
+                child: Text(
+                  'No weekly reports yet.',
+                  style: AppTextStyles.bodyLarge(
+                    color: retroColors.textSecondary,
+                  ),
+                ),
               );
             }
 
@@ -61,7 +64,7 @@ class WeeklyReportsListScreen extends ConsumerWidget {
             for (final r in reports) {
               final year = r.year;
               final month = r.startDate.month;
-              
+
               if (!grouped.containsKey(year)) {
                 grouped[year] = {};
               }
@@ -71,7 +74,8 @@ class WeeklyReportsListScreen extends ConsumerWidget {
               grouped[year]![month]!.add(r);
             }
 
-            final sortedYears = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+            final sortedYears = grouped.keys.toList()
+              ..sort((a, b) => b.compareTo(a));
 
             return ListView.builder(
               padding: EdgeInsets.only(
@@ -84,32 +88,55 @@ class WeeklyReportsListScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final year = sortedYears[index];
                 final yearMonths = grouped[year]!;
-                final sortedMonths = yearMonths.keys.toList()..sort((a, b) => b.compareTo(a));
+                final sortedMonths = yearMonths.keys.toList()
+                  ..sort((a, b) => b.compareTo(a));
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Text(year.toString(), style: AppTextStyles.headline(color: retroColors.textPrimary)),
+                      child: Text(
+                        year.toString(),
+                        style: AppTextStyles.headline(
+                          color: retroColors.textPrimary,
+                        ),
+                      ),
                     ),
                     ...sortedMonths.map((month) {
                       final monthReports = yearMonths[month]!;
-                      return _buildMonthSection(context, ref, retroColors, month, monthReports);
+                      return _buildMonthSection(
+                        context,
+                        retroColors,
+                        month,
+                        monthReports,
+                      );
                     }),
                   ],
                 );
               },
             );
           },
-          loading: () => Center(child: CircularProgressIndicator(color: retroColors.accent)),
-          error: (err, _) => Center(child: Text('Error: $err', style: AppTextStyles.bodyMedium(color: retroColors.error))),
+          loading: () => Center(
+            child: CircularProgressIndicator(color: retroColors.accent),
+          ),
+          error: (err, _) => Center(
+            child: Text(
+              'Error: $err',
+              style: AppTextStyles.bodyMedium(color: retroColors.error),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMonthSection(BuildContext context, WidgetRef ref, AppColors retroColors, int month, List<WeeklyReportModel> monthReports) {
+  Widget _buildMonthSection(
+    BuildContext context,
+    AppColors retroColors,
+    int month,
+    List<WeeklyReportModel> monthReports,
+  ) {
     int totalSteps = 0;
     double totalDistanceM = 0;
     int totalDurationS = 0;
@@ -120,9 +147,22 @@ class WeeklyReportsListScreen extends ConsumerWidget {
       totalDurationS += r.totalDurationS;
     }
 
-    final monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    final monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
     final monthName = monthNames[month - 1];
-    
+
     final hours = totalDurationS ~/ 3600;
     final mins = (totalDurationS % 3600) ~/ 60;
     final timeStr = hours > 0 ? '${hours}h ${mins}m' : '${mins}m';
@@ -147,26 +187,51 @@ class WeeklyReportsListScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(monthName.toUpperCase(), style: AppTextStyles.headline(color: retroColors.surface)),
+              Text(
+                monthName.toUpperCase(),
+                style: AppTextStyles.headline(color: retroColors.surface),
+              ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildMonthStat(retroColors, PhosphorIcons.sneaker, '$totalSteps Steps', isSolidCard: true),
-                  _buildMonthStat(retroColors, PhosphorIcons.mapPin, '${(totalDistanceM / 1000).toStringAsFixed(1)} km', isSolidCard: true),
-                  _buildMonthStat(retroColors, PhosphorIcons.timer, timeStr, isSolidCard: true),
+                  _buildMonthStat(
+                    retroColors,
+                    PhosphorIcons.sneaker,
+                    '$totalSteps Steps',
+                    isSolidCard: true,
+                  ),
+                  _buildMonthStat(
+                    retroColors,
+                    PhosphorIcons.mapPin,
+                    '${(totalDistanceM / 1000).toStringAsFixed(1)} km',
+                    isSolidCard: true,
+                  ),
+                  _buildMonthStat(
+                    retroColors,
+                    PhosphorIcons.timer,
+                    timeStr,
+                    isSolidCard: true,
+                  ),
                 ],
               ),
             ],
           ),
         ),
-        ...monthReports.map((report) => _buildWeekCard(context, ref, retroColors, report)),
+        ...monthReports.map(
+          (report) => _buildWeekCard(context, retroColors, report),
+        ),
         const SizedBox(height: 16),
       ],
     );
   }
 
-  Widget _buildMonthStat(AppColors retroColors, IconData icon, String text, {bool isSolidCard = false}) {
+  Widget _buildMonthStat(
+    AppColors retroColors,
+    IconData icon,
+    String text, {
+    bool isSolidCard = false,
+  }) {
     final color = isSolidCard ? retroColors.background : retroColors.accent;
     return Row(
       children: [
@@ -177,7 +242,11 @@ class WeeklyReportsListScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeekCard(BuildContext context, WidgetRef ref, AppColors retroColors, WeeklyReportModel report) {
+  Widget _buildWeekCard(
+    BuildContext context,
+    AppColors retroColors,
+    WeeklyReportModel report,
+  ) {
     final startStr = '${report.startDate.day}/${report.startDate.month}';
     final endStr = '${report.endDate.day}/${report.endDate.month}';
 
@@ -201,45 +270,74 @@ class WeeklyReportsListScreen extends ConsumerWidget {
           onTap: () {
             context.read<AudioCubit>().playWeekCardTap();
             context.read<HapticsCubit>().lightImpact();
-            AppNavigator.push(context, AppNavigator.materialPageRoute(builder: (_) => WeekDetailsScreen(report: report)));
+            AppNavigator.push(
+              context,
+              AppNavigator.materialPageRoute(
+                builder: (_) => WeekDetailsScreen(report: report),
+              ),
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Week ${report.weekNumber}', style: AppTextStyles.bodyLargeBold(color: retroColors.textPrimary)),
-                  const SizedBox(height: 4),
-                  Text('$startStr - $endStr', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
-                ],
-              ),
-              Row(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        RunFormatUtils.formatDistance(report.totalDistanceM, context.watch<DistanceUnitCubit>().state) + ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
-                        style: AppTextStyles.bodyLargeBold(color: retroColors.accent),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Week ${report.weekNumber}',
+                      style: AppTextStyles.bodyLargeBold(
+                        color: retroColors.textPrimary,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${report.runCount} runs, ${report.walkCount} walks',
-                        style: AppTextStyles.label(color: retroColors.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$startStr - $endStr',
+                      style: AppTextStyles.bodyMedium(
+                        color: retroColors.textSecondary,
                       ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(PhosphorIcons.caretRight, color: retroColors.textSecondary),
-                ],
-              ),
-            ],
+                    ),
+                  ],
+                ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          RunFormatUtils.formatDistance(
+                                report.totalDistanceM,
+                                context.watch<DistanceUnitCubit>().state,
+                              ) +
+                              ' ${RunFormatUtils.getUnitString(context.watch<DistanceUnitCubit>().state)}',
+                          style: AppTextStyles.bodyLargeBold(
+                            color: retroColors.accent,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${report.runCount} runs, ${report.walkCount} walks',
+                          style: AppTextStyles.label(
+                            color: retroColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Icon(
+                      PhosphorIcons.caretRight,
+                      color: retroColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

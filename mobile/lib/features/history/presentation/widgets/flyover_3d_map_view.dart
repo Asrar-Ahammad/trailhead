@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../domain/flyover_timeline_model.dart';
-import '../../application/flyover_playback_controller.dart';
+import '../../state_management/history_bloc_flyover_playback.dart';
 
 /// Map style choices available in the 3D Flyover view.
 enum FlyoverMapStyle {

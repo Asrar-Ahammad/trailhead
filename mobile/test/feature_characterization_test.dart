@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/features/onboarding/data/onboarding_repository_implementation_completion.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -91,10 +92,7 @@ void main() {
     () async {
       SharedPreferences.setMockInitialValues({});
       final preferences = await SharedPreferences.getInstance();
-      final onboarding = OnboardingCubit(
-        preferences: preferences,
-        completed: false,
-      );
+      final onboarding = OnboardingCubit(OnboardingCompletionPreferences(preferences));
       final theme = ThemeModeCubit(
         preferences: preferences,
         initialMode: ThemeMode.system,

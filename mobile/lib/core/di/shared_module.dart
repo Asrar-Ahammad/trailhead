@@ -1,3 +1,8 @@
+import '../../features/onboarding/data/onboarding_repository_implementation_completion.dart';
+import '../../features/onboarding/domain/onboarding_repository_completion.dart';
+import '../../features/onboarding/domain/onboarding_use_case_request_permissions.dart';
+import '../../features/onboarding/state_management/onboarding_bloc_setup.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_live_session.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 
@@ -27,7 +32,6 @@ class SharedModule {
   static void register({
     required GetIt getIt,
     required ThemeMode initialThemeMode,
-    required bool onboardingCompleted,
   }) {
     _registerAudio(getIt);
     _registerHaptics(getIt);
@@ -35,13 +39,22 @@ class SharedModule {
     getIt.registerLazySingleton<ThemeModeCubit>(
       () => ThemeModeCubit(preferences: getIt(), initialMode: initialThemeMode),
     );
-    getIt.registerLazySingleton<OnboardingCubit>(
-      () =>
-          OnboardingCubit(preferences: getIt(), completed: onboardingCompleted),
-    );
+    _registerOnboarding(getIt);
     getIt.registerLazySingleton<DistanceUnitCubit>(DistanceUnitCubit.new);
     getIt.registerLazySingleton<NavigationCubit>(NavigationCubit.new);
     _registerAi(getIt);
+  }
+
+  static void _registerOnboarding(GetIt getIt) {
+    getIt.registerLazySingleton<OnboardingCompletionRepository>(() => OnboardingCompletionPreferences(getIt()));
+    getIt.registerLazySingleton<OnboardingCubit>(() => OnboardingCubit(getIt()));
+    getIt.registerFactory<OnboardingBloc>(() {
+      final tracker = getIt<RunTrackerCubit>();
+      return OnboardingBloc(
+        RequestOnboardingPermissions(foreground: tracker.requestForegroundPermission, background: tracker.requestBackgroundPermission),
+        getIt<OnboardingCubit>().completeOnboarding,
+      );
+    });
   }
 
   static void _registerAi(GetIt getIt) {

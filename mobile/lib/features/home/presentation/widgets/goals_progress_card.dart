@@ -1,19 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../shared/navigation/app_navigator.dart';
+import '../../../goals/domain/goals_repository_targets.dart';
+import '../../../goals/domain/goals_use_case_calculate_progress.dart';
+import '../../../goals/state_management/goals_bloc_progress.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import '../../../goals/application/goals_cubit.dart';
-import '../../../goals/application/goals_provider_progress.dart';
+import '../../../../shared/state_management/global/goals_cubit_targets.dart';
 import '../../../goals/presentation/set_goals_sheet.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import '../../../../shared/theme/app_colors.dart';
 import '../../../../shared/theme/app_text_styles.dart';
 
-class GoalsProgressCard extends ConsumerWidget {
+class GoalsProgressCard extends StatelessWidget {
   final AppColors retroColors;
-  
+
   const GoalsProgressCard({super.key, required this.retroColors});
+
+  @override
+  Widget build(BuildContext context) {
+    final goals =
+        context.watch<GoalsCubit>().state.valueOrNull ?? const Goals.empty();
+    final metrics = (
+      daily: goals.dailyGoalMetric,
+      monthly: goals.monthlyGoalMetric,
+    );
+    return BlocProvider(
+      key: ValueKey(metrics),
+      create: (_) => context.read<CreateGoalProgressBloc>()(metrics),
+      child: _GoalsProgressContent(retroColors, goals),
+    );
+  }
+}
+
+class _GoalsProgressContent extends StatelessWidget {
+  const _GoalsProgressContent(this.retroColors, this.goals);
+  final AppColors retroColors;
+  final Goals goals;
 
   IconData _getMetricIcon(String metric) {
     switch (metric) {
@@ -55,25 +78,17 @@ class GoalsProgressCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final goalsAsync = context.watch<GoalsCubit>().state;
-    
-    final goals = goalsAsync.valueOrNull ?? Goals.empty();
-    final progress = ref.watch(goalProgressProvider((
-      daily: goals.dailyGoalMetric,
-      monthly: goals.monthlyGoalMetric,
-    ))).valueOrNull ?? (dailyProgress: 0.0, monthlyProgress: 0.0);
-
-    final dailyTarget = goals.dailyGoalTarget > 0 ? goals.dailyGoalTarget : 1.0;
-    final dailyRatio = (progress.dailyProgress / dailyTarget).clamp(0.0, 1.0);
-    final dailyPercent = (dailyRatio * 100).toInt();
-    final isCompleted = dailyRatio >= 1.0;
-
-    final showMonthly = goals.monthlyGoalMetric != 'steps' && goals.monthlyGoalTarget > 0;
-    final monthlyTarget = goals.monthlyGoalTarget > 0 ? goals.monthlyGoalTarget : 1.0;
-    final monthlyRatio = (progress.monthlyProgress / monthlyTarget).clamp(0.0, 1.0);
-
-    final remainingVal = (goals.dailyGoalTarget - progress.dailyProgress).clamp(0.0, double.infinity);
+  Widget build(BuildContext context) {
+    final progress =
+        context.watch<GoalProgressBloc>().state.valueOrNull ??
+        (dailyProgress: 0.0, monthlyProgress: 0.0);
+    final daily = GoalCompletion(progress.dailyProgress, goals.dailyGoalTarget);
+    final monthly = GoalCompletion(
+      progress.monthlyProgress,
+      goals.monthlyGoalTarget,
+    );
+    final showMonthly =
+        goals.monthlyGoalMetric != 'steps' && goals.monthlyGoalTarget > 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -90,14 +105,14 @@ class GoalsProgressCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(24),
           onTap: () {
             context.read<HapticsCubit>().lightImpact();
-            showModalBottomSheet(
-              context: context,
+            AppNavigator.bottomSheet(
+              context,
+              (_) => SetGoalsSheet(retroColors: retroColors),
               backgroundColor: retroColors.surface,
               isScrollControlled: true,
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              builder: (ctx) => SetGoalsSheet(retroColors: retroColors),
             );
           },
           child: Padding(
@@ -112,7 +127,10 @@ class GoalsProgressCard extends ConsumerWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: retroColors.accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
@@ -135,9 +153,12 @@ class GoalsProgressCard extends ConsumerWidget {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: isCompleted
+                            color: daily.isComplete
                                 ? retroColors.success.withValues(alpha: 0.15)
                                 : retroColors.accent.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(12),
@@ -146,17 +167,23 @@ class GoalsProgressCard extends ConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                isCompleted
+                                daily.isComplete
                                     ? PhosphorIcons.checkCircleFill
                                     : PhosphorIcons.flameFill,
                                 size: 13,
-                                color: isCompleted ? retroColors.success : retroColors.accent,
+                                color: daily.isComplete
+                                    ? retroColors.success
+                                    : retroColors.accent,
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                isCompleted ? 'REACHED' : '$dailyPercent%',
+                                daily.isComplete
+                                    ? 'REACHED'
+                                    : '${daily.percent}%',
                                 style: AppTextStyles.labelCaps(
-                                  color: isCompleted ? retroColors.success : retroColors.accent,
+                                  color: daily.isComplete
+                                      ? retroColors.success
+                                      : retroColors.accent,
                                 ).copyWith(fontSize: 11),
                               ),
                             ],
@@ -212,7 +239,10 @@ class GoalsProgressCard extends ConsumerWidget {
                                   text: TextSpan(
                                     children: [
                                       TextSpan(
-                                        text: _formatNumber(progress.dailyProgress, goals.dailyGoalMetric),
+                                        text: _formatNumber(
+                                          progress.dailyProgress,
+                                          goals.dailyGoalMetric,
+                                        ),
                                         style: GoogleFonts.barlowCondensed(
                                           fontSize: 34,
                                           fontWeight: FontWeight.bold,
@@ -221,7 +251,8 @@ class GoalsProgressCard extends ConsumerWidget {
                                         ),
                                       ),
                                       TextSpan(
-                                        text: ' / ${_formatNumber(goals.dailyGoalTarget, goals.dailyGoalTarget is int ? "steps" : goals.dailyGoalMetric)} ${_getMetricUnit(goals.dailyGoalMetric)}',
+                                        text:
+                                            ' / ${_formatNumber(goals.dailyGoalTarget, goals.dailyGoalMetric)} ${_getMetricUnit(goals.dailyGoalMetric)}',
                                         style: GoogleFonts.spaceGrotesk(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
@@ -233,11 +264,11 @@ class GoalsProgressCard extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  isCompleted
+                                  daily.isComplete
                                       ? 'Goal completed! Keep it rolling.'
-                                      : '${_formatNumber(remainingVal, goals.dailyGoalMetric)} ${_getMetricUnit(goals.dailyGoalMetric)} remaining today',
+                                      : '${_formatNumber(daily.remaining, goals.dailyGoalMetric)} ${_getMetricUnit(goals.dailyGoalMetric)} remaining today',
                                   style: AppTextStyles.bodyMedium(
-                                    color: isCompleted
+                                    color: daily.isComplete
                                         ? retroColors.success
                                         : retroColors.textSecondary,
                                   ).copyWith(fontSize: 12),
@@ -263,11 +294,13 @@ class GoalsProgressCard extends ConsumerWidget {
                         color: retroColors.surfaceRaised,
                       ),
                       FractionallySizedBox(
-                        widthFactor: dailyRatio,
+                        widthFactor: daily.ratio,
                         child: Container(
                           height: 8,
                           decoration: BoxDecoration(
-                            color: isCompleted ? retroColors.success : retroColors.accent,
+                            color: daily.isComplete
+                                ? retroColors.success
+                                : retroColors.accent,
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
@@ -280,7 +313,10 @@ class GoalsProgressCard extends ConsumerWidget {
                 if (showMonthly) ...[
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: retroColors.surfaceRaised,
                       borderRadius: BorderRadius.circular(14),
@@ -298,12 +334,16 @@ class GoalsProgressCard extends ConsumerWidget {
                         const SizedBox(width: 8),
                         Text(
                           'THIS MONTH',
-                          style: AppTextStyles.labelCaps(color: retroColors.textSecondary).copyWith(fontSize: 10),
+                          style: AppTextStyles.labelCaps(
+                            color: retroColors.textSecondary,
+                          ).copyWith(fontSize: 10),
                         ),
                         const Spacer(),
                         Text(
                           '${_formatNumber(progress.monthlyProgress, goals.monthlyGoalMetric)} / ${_formatNumber(goals.monthlyGoalTarget, goals.monthlyGoalMetric)} ${_getMetricUnit(goals.monthlyGoalMetric)}',
-                          style: AppTextStyles.bodyMediumBold(color: retroColors.textPrimary).copyWith(fontSize: 12),
+                          style: AppTextStyles.bodyMediumBold(
+                            color: retroColors.textPrimary,
+                          ).copyWith(fontSize: 12),
                         ),
                         const SizedBox(width: 8),
                         Container(
@@ -315,7 +355,7 @@ class GoalsProgressCard extends ConsumerWidget {
                           ),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
-                            widthFactor: monthlyRatio,
+                            widthFactor: monthly.ratio,
                             child: Container(
                               decoration: BoxDecoration(
                                 color: retroColors.accent,

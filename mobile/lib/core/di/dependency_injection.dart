@@ -14,7 +14,6 @@ class DependencyInjection {
     required Isar isar,
     required SharedPreferences preferences,
     required ThemeMode initialThemeMode,
-    required bool onboardingCompleted,
   }) async {
     await CoreModule.register(
       getIt: getIt,
@@ -25,7 +24,6 @@ class DependencyInjection {
     SharedModule.register(
       getIt: getIt,
       initialThemeMode: initialThemeMode,
-      onboardingCompleted: onboardingCompleted,
     );
     FeatureModule.register(getIt: getIt);
   }

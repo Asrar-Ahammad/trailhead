@@ -8,7 +8,6 @@ import '../data/models/run_isar.dart';
 import '../data/models/run_point_isar.dart';
 import '../data/models/daily_steps_isar.dart';
 import '../../shoes/data/models/shoe_isar.dart';
-import '../../../main.dart'; // import global isarInstance schemas
 import '../../stats/data/models/personal_record_isar.dart';
 import '../../stats/data/models/weekly_report_isar.dart';
 import '../../goals/data/models/goal_isar.dart';

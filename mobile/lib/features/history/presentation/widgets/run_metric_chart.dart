@@ -6,7 +6,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
 import 'dart:math';
 
@@ -19,7 +18,7 @@ class ChartDataPoint {
 
 enum MetricType { pace, cadence, elevation }
 
-class RunMetricChart extends ConsumerStatefulWidget {
+class RunMetricChart extends StatefulWidget {
   final String title;
   final MetricType type;
   final List<ChartDataPoint> data;
@@ -36,10 +35,10 @@ class RunMetricChart extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<RunMetricChart> createState() => _RunMetricChartState();
+  State<RunMetricChart> createState() => _RunMetricChartState();
 }
 
-class _RunMetricChartState extends ConsumerState<RunMetricChart> {
+class _RunMetricChartState extends State<RunMetricChart> {
   int? _lastTouchedIndex;
 
   String _getTooltipMessage(MetricType type) {

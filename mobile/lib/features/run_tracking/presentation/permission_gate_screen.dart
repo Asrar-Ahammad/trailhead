@@ -1,37 +1,41 @@
+import '../state_management/run_tracking_bloc_permissions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../profile/presentation/settings_screen.dart';
-import '../application/run_tracker_controller.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_live_session.dart';
 import '../../navigation/presentation/navigation_scaffold_main_tabs.dart';
 import '../../../shared/widgets/pressable_scale.dart';
 import '../../../shared/widgets/retro_loading_indicator.dart';
-import 'package:disable_battery_optimization/disable_battery_optimization.dart';
 import '../../../shared/theme/app_colors.dart';
 
-class PermissionGateScreen extends ConsumerStatefulWidget {
+class PermissionGateScreen extends StatelessWidget {
   const PermissionGateScreen({super.key});
 
   @override
-  ConsumerState<PermissionGateScreen> createState() => _PermissionGateScreenState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => context.read<CreateRunPermissionsBloc>()(),
+    child: const _PermissionGateContent(),
+  );
 }
 
-class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
-    with WidgetsBindingObserver {
-  bool _requestingForeground = false;
-  bool _requestingBackground = false;
-  String _errorMsg = "";
+class _PermissionGateContent extends StatefulWidget {
+  const _PermissionGateContent();
+  @override
+  State<_PermissionGateContent> createState() => _PermissionGateScreenState();
+}
 
+class _PermissionGateScreenState extends State<_PermissionGateContent>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Check permission status on startup; if already granted, skip the gate.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkPermissionsAndNavigate();
+      if (mounted) _checkPermissionsAndNavigate();
     });
   }
 
@@ -62,6 +66,10 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
 
   @override
   Widget build(BuildContext context) {
+    final permission = context.watch<RunPermissionsBloc>().state;
+    final requestingForeground = permission.pending == RunPermissionRequest.foreground;
+    final requestingBackground = permission.pending == RunPermissionRequest.background;
+    final error = permission.error;
     final trackerState = context.watch<RunTrackerCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
     
@@ -157,10 +165,10 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
                         ),
                         textAlign: TextAlign.left,
                       ),
-                      if (_errorMsg.isNotEmpty) ...[
+                      if (error != null) ...[
                         const SizedBox(height: 16),
                         Text(
-                          _errorMsg,
+                          error,
                           style: GoogleFonts.spaceGrotesk(
                             fontSize: 14,
                             color: retroColors.error,
@@ -180,7 +188,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   PressableScale(
-                    onTap: _requestingForeground ? null : _handleForegroundRequest,
+                    onTap: permission.pending != null ? null : () => context.read<RunPermissionsBloc>().add(RunPermissionRequest.foreground),
                     child: Container(
                       height: 56,
                       decoration: BoxDecoration(
@@ -188,7 +196,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.center,
-                      child: _requestingForeground
+                      child: requestingForeground
                           ? const RetroLoadingIndicator(text: 'REQUESTING')
                           : Text(
                               '1. Grant Required Permissions',
@@ -202,7 +210,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
                   ),
                   const SizedBox(height: 16),
                   PressableScale(
-                    onTap: _requestingBackground ? null : _handleBackgroundRequest,
+                    onTap: permission.pending != null ? null : () => context.read<RunPermissionsBloc>().add(RunPermissionRequest.background),
                     child: Container(
                       height: 56,
                       decoration: BoxDecoration(
@@ -211,7 +219,7 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
                         border: Border.all(color: retroColors.accent, width: 2),
                       ),
                       alignment: Alignment.center,
-                      child: _requestingBackground
+                      child: requestingBackground
                           ? const RetroLoadingIndicator(text: 'REQUESTING')
                           : Text(
                               '2. Allow Background Tracking',
@@ -241,59 +249,4 @@ class _PermissionGateScreenState extends ConsumerState<PermissionGateScreen>
     );
   }
 
-  Future<void> _handleForegroundRequest() async {
-    setState(() {
-      _requestingForeground = true;
-      _errorMsg = "";
-    });
-    try {
-      final granted = await context.read<RunTrackerCubit>().requestForegroundPermission();
-      if (!granted) {
-        setState(() {
-          _errorMsg = "Foreground location permission denied. Please enable location permissions.";
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMsg = "Error requesting foreground permission: $e";
-      });
-    } finally {
-      setState(() {
-        _requestingForeground = false;
-      });
-    }
-  }
-
-  Future<void> _handleBackgroundRequest() async {
-    setState(() {
-      _requestingBackground = true;
-      _errorMsg = "";
-    });
-    try {
-      final granted = await context.read<RunTrackerCubit>().requestBackgroundPermission();
-      if (!granted) {
-        setState(() {
-          _errorMsg = "Background location permission denied. Change permission to 'Allow all the time' in settings.";
-        });
-      } else {
-        // Ask for battery optimization exemption on Android
-        try {
-          bool? isBatteryOptimizationDisabled = await DisableBatteryOptimization.isBatteryOptimizationDisabled;
-          if (isBatteryOptimizationDisabled == false) {
-            await DisableBatteryOptimization.showDisableBatteryOptimizationSettings();
-          }
-        } catch (e) {
-          debugPrint('Battery optimization check failed: $e');
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _errorMsg = "Error requesting background permission: $e";
-      });
-    } finally {
-      setState(() {
-        _requestingBackground = false;
-      });
-    }
-  }
 }

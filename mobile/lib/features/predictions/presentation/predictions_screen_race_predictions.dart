@@ -1,5 +1,5 @@
-import 'dart:ui';
-
+import '../domain/predictions_use_case_format_estimate.dart';
+import 'package:trailhead_mobile/shared/widgets/app_bar_backdrop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -35,12 +35,7 @@ class PredictionScreen extends StatelessWidget {
           ),
           backgroundColor: colors.surface.withValues(alpha: 0.7),
           elevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: const SizedBox.expand(),
-            ),
-          ),
+          flexibleSpace: const AppBarBackdrop(),
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: colors.textPrimary),
             onPressed: () => AppNavigator.pop(context),
@@ -149,31 +144,23 @@ class PredictionScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            _formatTime(estimate),
-            style: AppTextStyles.displayMedium(
-              color: colors.accent,
-            ).copyWith(fontSize: 24),
+          Flexible(
+            child: Text(
+              formatRaceEstimate(estimate),
+              style: AppTextStyles.displayMedium(
+                color: colors.accent,
+              ).copyWith(fontSize: 24),
+              textAlign: TextAlign.end,
+            ),
           ),
         ],
       ),
     );
   }
 
-  String _formatTime(RaceEstimate estimate) {
-    if (estimate.distanceMeters <= 400) {
-      return '${estimate.seconds.toStringAsFixed(2)}s';
-    }
-    final duration = Duration(seconds: estimate.seconds.round());
-    final seconds = (duration.inSeconds % 60).toString().padLeft(2, '0');
-    if (duration.inHours == 0) return '${duration.inMinutes}:$seconds';
-    final minutes = (duration.inMinutes % 60).toString().padLeft(2, '0');
-    return '${duration.inHours}:$minutes:$seconds';
-  }
-
   Widget _buildMessage(AppColors colors, String message) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,

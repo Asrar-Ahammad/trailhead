@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/route_provider.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/run_tracker_controller.dart';
+import 'package:trailhead_mobile/features/run_tracking/state_management/run_tracking_route_snapshots.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_live_session.dart';
 
 void main() {
   test(

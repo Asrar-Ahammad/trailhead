@@ -10,14 +10,23 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:trailhead_mobile/features/history/state_management/manual_entry_bloc.dart';
 import 'package:trailhead_mobile/features/history/domain/use_cases/save_manual_run.dart';
 
-class ManualEntryScreen extends StatefulWidget {
+class ManualEntryScreen extends StatelessWidget {
   const ManualEntryScreen({super.key});
 
   @override
-  State<ManualEntryScreen> createState() => _ManualEntryScreenState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => context.read<CreateManualEntryBloc>()(),
+    child: const _ManualEntryContent(),
+  );
 }
 
-class _ManualEntryScreenState extends State<ManualEntryScreen> {
+class _ManualEntryContent extends StatefulWidget {
+  const _ManualEntryContent();
+  @override
+  State<_ManualEntryContent> createState() => _ManualEntryScreenState();
+}
+
+class _ManualEntryScreenState extends State<_ManualEntryContent> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   final TextEditingController _textController = TextEditingController();

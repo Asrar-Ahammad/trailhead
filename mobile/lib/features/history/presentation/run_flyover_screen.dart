@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
@@ -13,14 +12,14 @@ import 'package:trailhead_mobile/features/run_tracking/application/run_format_ut
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 import '../domain/flyover_timeline_model.dart';
-import '../application/flyover_playback_controller.dart';
+import '../state_management/history_bloc_flyover_playback.dart';
 import 'widgets/flyover_3d_map_view.dart';
 import 'widgets/flyover_telemetry_hud.dart';
 import 'widgets/flyover_scrubber_controls.dart';
 import 'widgets/flyover_export_dialog.dart';
 
 /// Full-screen 3D Route Flyover replay screen for completed activities.
-class RunFlyoverScreen extends ConsumerStatefulWidget {
+class RunFlyoverScreen extends StatefulWidget {
   final RunIsar run;
   final List<RunPointIsar> points;
 
@@ -31,12 +30,12 @@ class RunFlyoverScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<RunFlyoverScreen> createState() => _RunFlyoverScreenState();
+  State<RunFlyoverScreen> createState() => _RunFlyoverScreenState();
 }
 
-class _RunFlyoverScreenState extends ConsumerState<RunFlyoverScreen> {
+class _RunFlyoverScreenState extends State<RunFlyoverScreen> {
   late final FlyoverTimeline _timeline;
-  late final ({FlyoverTimeline timeline, Future<void> Function() playToggleSound}) _playbackInput;
+  late final FlyoverPlaybackBloc _playback;
   final GlobalKey _repaintKey = GlobalKey();
 
   @override
@@ -50,7 +49,7 @@ class _RunFlyoverScreenState extends ConsumerState<RunFlyoverScreen> {
       fallbackDistanceM: widget.run.distanceM,
       fallbackAvgPaceSPerKm: widget.run.avgPaceSPerKm,
     );
-    _playbackInput = (
+    _playback = FlyoverPlaybackBloc(
       timeline: _timeline,
       playToggleSound: context.read<AudioCubit>().playToggleSwitch,
     );
@@ -58,17 +57,27 @@ class _RunFlyoverScreenState extends ConsumerState<RunFlyoverScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Auto-start playback on screen open like Strava Flyover
-      ref.read(flyoverPlaybackProvider(_playbackInput).notifier).play();
+      _playback.play();
     });
   }
 
   @override
-  Widget build(BuildContext context) {
+  void dispose() {
+    _playback.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => BlocProvider.value(
+    value: _playback, child: Builder(builder: _buildFlyover),
+  );
+
+  Widget _buildFlyover(BuildContext context) {
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final brightness = Theme.of(context).brightness;
     final useMiles = context.watch<DistanceUnitCubit>().state;
-    final playbackState = ref.watch(flyoverPlaybackProvider(_playbackInput));
-    final controller = ref.read(flyoverPlaybackProvider(_playbackInput).notifier);
+    final playbackState = context.watch<FlyoverPlaybackBloc>().state;
+    final controller = _playback;
 
     final title = RunFormatUtils.getRunTitle(
       widget.run.title,

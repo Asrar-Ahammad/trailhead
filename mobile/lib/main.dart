@@ -1,5 +1,22 @@
+import 'features/run_tracking/state_management/run_tracking_bloc_permissions.dart';
+import 'features/history/state_management/history_bloc_activity_actions.dart';
+import 'features/history/state_management/history_bloc_route_points.dart';
+import 'features/stats/state_management/stats_bloc_edit_record.dart';
+import 'features/stats/state_management/stats_bloc_weekly_reports.dart';
+import 'features/you/state_management/you_bloc_activity_actions.dart';
+import 'features/you/state_management/you_bloc_activity_period.dart';
+import 'features/run_tracking/state_management/run_tracking_bloc_workout_actions.dart';
+import 'features/run_tracking/state_management/run_tracking_bloc_post_run_summary.dart';
+import 'shared/state_management/global/history_cubit_activities.dart';
+import 'shared/state_management/global/stats_cubit_records.dart';
+import 'shared/state_management/global/run_tracking_cubit_route_map.dart';
+import 'shared/state_management/global/shoes_cubit_inventory.dart';
+import 'features/shoes/state_management/shoes_bloc_edit_gear.dart';
+import 'features/shoes/state_management/shoes_bloc_activity.dart';
+import 'features/home/state_management/home_bloc_dashboard.dart';
+import 'features/weather/state_management/weather_bloc_pacing.dart';
+import 'features/onboarding/state_management/onboarding_bloc_setup.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -28,15 +45,16 @@ import 'shared/state_management/global/haptics_cubit_feedback.dart';
 import 'shared/state_management/global/navigation_cubit_main_tab.dart';
 import 'shared/state_management/global/onboarding_cubit.dart';
 import 'shared/state_management/global/theme_mode_cubit.dart';
-import 'features/run_tracking/application/run_tracker_controller.dart';
-import 'features/goals/application/goals_cubit.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_live_session.dart';
+import 'shared/state_management/global/goals_cubit_targets.dart';
+import 'features/goals/state_management/goals_bloc_progress.dart';
+import 'features/goals/state_management/goals_bloc_edit_targets.dart';
+import 'features/profile/state_management/profile_bloc_settings.dart';
 import 'features/history/state_management/manual_entry_bloc.dart';
 import 'features/data_management/state_management/data_management_bloc_backups.dart';
 import 'features/chat/state_management/chat_bloc_coach_conversation.dart';
 import 'features/ai/state_management/ai_bloc_check_connection.dart';
 import 'features/predictions/state_management/predictions_bloc_race_predictions.dart';
-
-late Isar isarInstance;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +62,7 @@ void main() async {
 
   // Initialize Isar
   final dir = await getApplicationDocumentsDirectory();
-  isarInstance = await Isar.open([
+  final isar = await Isar.open([
     RunIsarSchema,
     RunPointIsarSchema,
     ShoeIsarSchema,
@@ -107,13 +125,10 @@ void main() async {
     initialThemeMode = ThemeMode.light;
   }
 
-  final bool seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
-
   await DependencyInjection.initialize(
-    isar: isarInstance,
+    isar: isar,
     preferences: prefs,
     initialThemeMode: initialThemeMode,
-    onboardingCompleted: seenOnboarding,
   );
 
   try {
@@ -134,12 +149,72 @@ void main() async {
         BlocProvider.value(value: getIt<AiConfigCubit>()),
         BlocProvider.value(value: getIt<RunTrackerCubit>()),
         BlocProvider.value(value: getIt<GoalsCubit>()),
-        BlocProvider<ManualEntryBloc>(
-          create: (_) => getIt<ManualEntryBloc>(),
-        ),
+        BlocProvider.value(value: getIt<ShoesCubit>()),
+        BlocProvider.value(value: getIt<HistoryActivitiesCubit>()),
+        BlocProvider.value(value: getIt<StatsRecordsCubit>()),
+        BlocProvider.value(value: getIt<RunRouteMapCubit>()),
       ],
       child: MultiRepositoryProvider(
         providers: [
+          RepositoryProvider<CreateManualEntryBloc>.value(
+            value: () => getIt<ManualEntryBloc>(),
+          ),
+          RepositoryProvider<CreateYouBloc>.value(
+            value: () => getIt<YouBloc>(),
+          ),
+          RepositoryProvider<CreateRecordEditor>.value(
+            value: () => getIt<RecordEditorBloc>(),
+          ),
+          RepositoryProvider<CreateWeeklyReportsBloc>.value(
+            value: () => getIt<WeeklyReportsBloc>(),
+          ),
+          RepositoryProvider<CreateDailyStepsBloc>.value(
+            value: (date) => getIt<DailyStepsBloc>(param1: date),
+          ),
+          RepositoryProvider<CreatePeriodActivitiesBloc>.value(
+            value: (start, end) =>
+                getIt<PeriodActivitiesBloc>(param1: start, param2: end),
+          ),
+          RepositoryProvider<CreateHistoryRouteBloc>.value(
+            value: (id) => getIt<HistoryRouteBloc>(param1: id),
+          ),
+          RepositoryProvider<CreateHistoryActionsBloc>.value(
+            value: (run, route) =>
+                getIt<HistoryActionsBloc>(param1: run, param2: route),
+          ),
+          RepositoryProvider<CreateRunPermissionsBloc>.value(
+            value: () => getIt<RunPermissionsBloc>(),
+          ),
+          RepositoryProvider<CreateWorkoutActionsBloc>.value(
+            value: () => getIt<WorkoutActionsBloc>(),
+          ),
+          RepositoryProvider<CreatePostRunSummaryBloc>.value(
+            value: (run) => getIt<PostRunSummaryBloc>(param1: run),
+          ),
+          RepositoryProvider<CreateHomeBloc>.value(
+            value: () => getIt<HomeBloc>(),
+          ),
+          RepositoryProvider<CreateShoeEditBloc>.value(
+            value: () => getIt<ShoeEditBloc>(),
+          ),
+          RepositoryProvider<CreateShoeActivityBloc>.value(
+            value: (id) => getIt<ShoeActivityBloc>(param1: id),
+          ),
+          RepositoryProvider<CreateProfileBloc>.value(
+            value: () => getIt<ProfileBloc>(),
+          ),
+          RepositoryProvider<CreateEditGoalsBloc>.value(
+            value: () => getIt<EditGoalsBloc>(),
+          ),
+          RepositoryProvider<CreateGoalProgressBloc>.value(
+            value: (metrics) => getIt<GoalProgressBloc>(param1: metrics),
+          ),
+          RepositoryProvider<CreateWeatherBloc>.value(
+            value: () => getIt<WeatherBloc>(),
+          ),
+          RepositoryProvider<CreateOnboardingBloc>.value(
+            value: () => getIt<OnboardingBloc>(),
+          ),
           RepositoryProvider<CreatePredictionsBloc>.value(
             value: () => getIt<PredictionsBloc>(),
           ),
@@ -153,7 +228,7 @@ void main() async {
             value: () => getIt<AiConnectionBloc>(),
           ),
         ],
-        child: const ProviderScope(child: TrailheadApp()),
+        child: const TrailheadApp(),
       ),
     ),
   );

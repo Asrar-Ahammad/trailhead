@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
-import 'flyover_playback_controller.dart';
+import '../state_management/history_bloc_flyover_playback.dart';
 
 typedef ProgressCallback = void Function(double progress, String status);
 
@@ -55,7 +55,7 @@ class FlyoverVideoExporter {
 
   Future<String?> recordAndExport({
     required GlobalKey repaintKey,
-    required FlyoverPlaybackNotifier controller,
+    required FlyoverPlaybackBloc controller,
     required RunIsar run,
     required ProgressCallback onProgress,
     VideoRenderQuality quality = VideoRenderQuality.p720,

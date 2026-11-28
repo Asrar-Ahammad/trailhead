@@ -1,16 +1,14 @@
+import '../../../../shared/state_management/global/stats_cubit_records.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
-import 'package:trailhead_mobile/features/you/presentation/you_screen.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/state_management/global/distance_unit_cubit.dart';
 import 'package:trailhead_mobile/features/run_tracking/application/run_format_utils.dart';
 
-class ResultsSection extends ConsumerWidget {
+class ResultsSection extends StatelessWidget {
   final RunIsar run;
 
   const ResultsSection({super.key, required this.run});
@@ -70,10 +68,10 @@ class ResultsSection extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final useMiles = context.watch<DistanceUnitCubit>().state;
     final retroColors = Theme.of(context).extension<AppColors>()!;
-    final prsAsync = ref.watch(prsProvider);
+    final prsAsync = context.watch<StatsRecordsCubit>().state;
 
     return prsAsync.when(
       data: (group) {

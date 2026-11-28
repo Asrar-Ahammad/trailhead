@@ -1,3 +1,4 @@
+import 'package:trailhead_mobile/shared/widgets/adaptive_columns.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,7 +6,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -28,7 +28,7 @@ enum ShareAspectRatio {
   const ShareAspectRatio(this.ratio, this.label);
 }
 
-class ShareActivityScreen extends ConsumerStatefulWidget {
+class ShareActivityScreen extends StatefulWidget {
   final RunIsar run;
   final List<LatLng> points;
 
@@ -39,10 +39,10 @@ class ShareActivityScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ShareActivityScreen> createState() => _ShareActivityScreenState();
+  State<ShareActivityScreen> createState() => _ShareActivityScreenState();
 }
 
-class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
+class _ShareActivityScreenState extends State<ShareActivityScreen> {
   final GlobalKey _previewKey = GlobalKey();
   final ImagePicker _picker = ImagePicker();
 
@@ -94,9 +94,9 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not open image: $e')));
       }
     }
   }
@@ -117,31 +117,36 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
       // Wait for any pending frame to draw
       await Future.delayed(const Duration(milliseconds: 50));
 
-      final boundary = _previewKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          _previewKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Canvas boundary not available');
       }
 
       // Render at high resolution (3x DPI for crisp 1080+ px)
       final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final ByteData? byteData = await image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
       if (byteData == null) throw Exception('Failed to encode image');
 
       final Uint8List pngBytes = byteData.buffer.asUint8List();
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/trailhead_activity_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${tempDir.path}/trailhead_activity_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(pngBytes);
 
       final xFile = XFile(file.path, mimeType: 'image/png');
-      await Share.shareXFiles(
-        [xFile],
-        text: 'Finished my ${_formatActivityType()} with Trailhead!',
-      );
+      await Share.shareXFiles([
+        xFile,
+      ], text: 'Finished my ${_formatActivityType()} with Trailhead!');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to share image: $e')));
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -185,9 +190,16 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                   ? SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: colors.surface),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colors.surface,
+                      ),
                     )
-                  : Icon(PhosphorIcons.shareNetworkBold, size: 18, color: colors.surface),
+                  : Icon(
+                      PhosphorIcons.shareNetworkBold,
+                      size: 18,
+                      color: colors.surface,
+                    ),
               label: Text(
                 'SHARE',
                 style: GoogleFonts.spaceGrotesk(
@@ -199,8 +211,13 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
               ),
               style: TextButton.styleFrom(
                 backgroundColor: colors.accent,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(100),
+                ),
               ),
             ),
           ),
@@ -210,6 +227,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
         children: [
           // ── Canvas Preview Area ──────────────────────────────────────
           Expanded(
+            flex: 3,
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -224,10 +242,7 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                         children: [
                           // 1. Background Image or Gradient
                           if (_backgroundPhoto != null)
-                            Image.file(
-                              _backgroundPhoto!,
-                              fit: BoxFit.cover,
-                            )
+                            Image.file(_backgroundPhoto!, fit: BoxFit.cover)
                           else
                             Container(
                               decoration: const BoxDecoration(
@@ -244,7 +259,9 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
 
                           // 2. Dimming & Contrast Layer
                           Container(
-                            color: Colors.black.withValues(alpha: _backgroundPhoto != null ? _dimming : 0.1),
+                            color: Colors.black.withValues(
+                              alpha: _backgroundPhoto != null ? _dimming : 0.1,
+                            ),
                           ),
 
                           // 3. Grid Guidelines (visible during dragging)
@@ -255,23 +272,32 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                             builder: (context, constraints) {
                               final maxSafeW = constraints.maxWidth - 24.0;
                               final maxSafeH = constraints.maxHeight - 24.0;
-                              final targetW = (maxSafeW * _overlayScale).clamp(160.0, maxSafeW);
+                              final targetW = (maxSafeW * _overlayScale).clamp(
+                                160.0,
+                                maxSafeW,
+                              );
 
                               return Padding(
                                 padding: const EdgeInsets.all(12.0),
                                 child: AnimatedAlign(
-                                  duration: _isDragging ? Duration.zero : const Duration(milliseconds: 240),
+                                  duration: _isDragging
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 240),
                                   curve: Curves.easeOutCubic,
                                   alignment: _alignment,
                                   child: GestureDetector(
                                     behavior: HitTestBehavior.opaque,
                                     onPanStart: (_) {
                                       setState(() => _isDragging = true);
-                                      context.read<HapticsCubit>().lightImpact();
+                                      context
+                                          .read<HapticsCubit>()
+                                          .lightImpact();
                                     },
                                     onPanUpdate: (details) {
-                                      final dx = details.delta.dx / (maxSafeW / 2);
-                                      final dy = details.delta.dy / (maxSafeH / 2);
+                                      final dx =
+                                          details.delta.dx / (maxSafeW / 2);
+                                      final dy =
+                                          details.delta.dy / (maxSafeH / 2);
                                       setState(() {
                                         _alignment = Alignment(
                                           (_alignment.x + dx).clamp(-1.0, 1.0),
@@ -289,7 +315,12 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                                       child: FittedBox(
                                         fit: BoxFit.scaleDown,
                                         alignment: _alignment,
-                                        child: _buildOverlayCard(colors, useMiles, targetW, _overlayScale),
+                                        child: _buildOverlayCard(
+                                          colors,
+                                          useMiles,
+                                          targetW,
+                                          _overlayScale,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -307,18 +338,38 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
           ),
 
           // ── Bottom Editor Toolbar ────────────────────────────────────
-          _buildEditorToolbar(colors),
+          Flexible(
+            flex: 2,
+            child: SafeArea(
+              top: false,
+              child: SingleChildScrollView(child: _buildEditorToolbar(colors)),
+            ),
+          ),
         ],
       ),
     );
   }
 
   /// Composite widget containing route polyline, stats and Trailhead logo
-  Widget _buildOverlayCard(AppColors colors, bool useMiles, double cardWidth, double scale) {
-    final distanceStr = RunFormatUtils.formatDistance(widget.run.distanceM ?? 0, useMiles);
+  Widget _buildOverlayCard(
+    AppColors colors,
+    bool useMiles,
+    double cardWidth,
+    double scale,
+  ) {
+    final distanceStr = RunFormatUtils.formatDistance(
+      widget.run.distanceM ?? 0,
+      useMiles,
+    );
     final unitStr = RunFormatUtils.getUnitString(useMiles);
-    final durationStr = RunFormatUtils.formatDuration(widget.run.durationS ?? 0);
-    final paceStr = RunFormatUtils.formatPace(widget.run.distanceM ?? 0, widget.run.durationS ?? 0, useMiles);
+    final durationStr = RunFormatUtils.formatDuration(
+      widget.run.durationS ?? 0,
+    );
+    final paceStr = RunFormatUtils.formatPace(
+      widget.run.distanceM ?? 0,
+      widget.run.durationS ?? 0,
+      useMiles,
+    );
     final elevStr = '${(widget.run.elevationGainM ?? 0).toStringAsFixed(0)} m';
 
     final paddingVal = (12.0 * scale).clamp(8.0, 16.0);
@@ -348,30 +399,31 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header: Activity tag + Trailhead Branding
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Activity tag and Trailhead branding
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 6,
+            runSpacing: 6,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: _routeColor.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: _routeColor.withValues(alpha: 0.6), width: 1),
-                    ),
-                    child: Text(
-                      _formatActivityType(),
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: (10.0 * scale).clamp(8.0, 11.0),
-                        fontWeight: FontWeight.w800,
-                        color: _routeColor,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _routeColor.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: _routeColor.withValues(alpha: 0.6),
+                    width: 1,
                   ),
-                ],
+                ),
+                child: Text(
+                  _formatActivityType(),
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: (10.0 * scale).clamp(8.0, 11.0),
+                    fontWeight: FontWeight.w800,
+                    color: _routeColor,
+                    letterSpacing: 1.1,
+                  ),
+                ),
               ),
               Text(
                 'TRAILHEAD',
@@ -429,7 +481,13 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(child: _buildMiniStat('TIME', durationStr, scale)),
-              Flexible(child: _buildMiniStat('PACE', '$paceStr /${unitStr.toLowerCase()}', scale)),
+              Flexible(
+                child: _buildMiniStat(
+                  'PACE',
+                  '$paceStr /${unitStr.toLowerCase()}',
+                  scale,
+                ),
+              ),
               Flexible(child: _buildMiniStat('ELEVATION', elevStr, scale)),
             ],
           ),
@@ -470,7 +528,12 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
   /// Bottom Editor Controls
   Widget _buildEditorToolbar(AppColors colors) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 8),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        MediaQuery.of(context).padding.bottom + 8,
+      ),
       decoration: BoxDecoration(
         color: colors.surface,
         border: Border(
@@ -480,12 +543,15 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1: Photo, Aspect Ratio, Card Style, Route Toggle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Photo and share-card options
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 8,
             children: [
               // Photo options
-              Row(
+              Wrap(
                 children: [
                   IconButton(
                     icon: Icon(PhosphorIcons.camera, color: colors.textPrimary),
@@ -509,8 +575,14 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
               // Aspect Ratio Toggle
               SegmentedButton<ShareAspectRatio>(
                 segments: const [
-                  ButtonSegment(value: ShareAspectRatio.square, label: Text('1:1')),
-                  ButtonSegment(value: ShareAspectRatio.story, label: Text('9:16')),
+                  ButtonSegment(
+                    value: ShareAspectRatio.square,
+                    label: Text('1:1'),
+                  ),
+                  ButtonSegment(
+                    value: ShareAspectRatio.story,
+                    label: Text('9:16'),
+                  ),
                 ],
                 selected: {_aspectRatio},
                 style: SegmentedButton.styleFrom(
@@ -529,7 +601,9 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
               // Glass card toggle
               IconButton(
                 icon: Icon(
-                  _isGlassCard ? PhosphorIcons.squareHalf : PhosphorIcons.square,
+                  _isGlassCard
+                      ? PhosphorIcons.squareHalf
+                      : PhosphorIcons.square,
                   color: _isGlassCard ? colors.accent : colors.textSecondary,
                 ),
                 tooltip: _isGlassCard ? 'Card Overlay' : 'Minimal Overlay',
@@ -557,59 +631,74 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
           // Size Control: Quick S, M, L presets + fine adjustment slider
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
+            child: Column(
               children: [
-                Text(
-                  'SIZE',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                    color: colors.textSecondary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildSizePill('S', 0.70, colors),
-                const SizedBox(width: 6),
-                _buildSizePill('M', 0.85, colors),
-                const SizedBox(width: 6),
-                _buildSizePill('L', 1.00, colors),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: colors.accent,
-                      inactiveTrackColor: colors.surfaceRaised,
-                      thumbColor: colors.accent,
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'SIZE',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                        color: colors.textSecondary,
+                      ),
                     ),
-                    child: Slider(
-                      value: _overlayScale,
-                      min: 0.60,
-                      max: 1.00,
-                      onChanged: (val) {
-                        setState(() => _overlayScale = val);
-                      },
-                    ),
-                  ),
+                    const SizedBox(width: 12),
+                    _buildSizePill('S', 0.70, colors),
+                    const SizedBox(width: 6),
+                    _buildSizePill('M', 0.85, colors),
+                    const SizedBox(width: 6),
+                    _buildSizePill('L', 1.00, colors),
+                  ],
                 ),
-                Text(
-                  '${(_overlayScale * 100).round()}%',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: colors.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          activeTrackColor: colors.accent,
+                          inactiveTrackColor: colors.surfaceRaised,
+                          thumbColor: colors.accent,
+                          trackHeight: 3,
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
+                          overlayShape: const RoundSliderOverlayShape(
+                            overlayRadius: 14,
+                          ),
+                        ),
+                        child: Slider(
+                          value: _overlayScale,
+                          min: 0.60,
+                          max: 1.00,
+                          onChanged: (val) {
+                            setState(() => _overlayScale = val);
+                          },
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${(_overlayScale * 100).round()}%',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // Row 2: Snap-to-Grid 3x3 Selector + Route Colors
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          // Snap-to-grid and route colors
+          AdaptiveColumns(
+            maxColumns: 2,
+            minColumnWidth: 128,
             children: [
               // 3x3 Interactive Grid Snapper
               Column(
@@ -629,59 +718,58 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
                 ],
               ),
 
-              const SizedBox(width: 24),
-
               // Route Accent Color Palette
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ROUTE ACCENT',
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.0,
-                        color: colors.textSecondary,
-                      ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ROUTE ACCENT',
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                      color: colors.textSecondary,
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: _palette.map((color) {
-                        final isSelected = _routeColor == color;
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() => _routeColor = color);
-                            context.read<AudioCubit>().playToggleSwitch();
-                            context.read<HapticsCubit>().lightImpact();
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected ? colors.textPrimary : Colors.transparent,
-                                width: 2.5,
-                              ),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: color.withValues(alpha: 0.5),
-                                        blurRadius: 8,
-                                      ),
-                                    ]
-                                  : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _palette.map((color) {
+                      final isSelected = _routeColor == color;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => _routeColor = color);
+                          context.read<AudioCubit>().playToggleSwitch();
+                          context.read<HapticsCubit>().lightImpact();
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? colors.textPrimary
+                                  : Colors.transparent,
+                              width: 2.5,
                             ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                    ),
+                                  ]
+                                : null,
                           ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -711,7 +799,8 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
         itemCount: _gridAlignments.length,
         itemBuilder: (context, index) {
           final gridAlign = _gridAlignments[index];
-          final isSelected = (_alignment.x - gridAlign.x).abs() < 0.35 &&
+          final isSelected =
+              (_alignment.x - gridAlign.x).abs() < 0.35 &&
               (_alignment.y - gridAlign.y).abs() < 0.35;
           return GestureDetector(
             onTap: () {
@@ -751,7 +840,9 @@ class _ShareActivityScreenState extends ConsumerState<ShareActivityScreen> {
           color: isSelected ? colors.accent : colors.surfaceRaised,
           borderRadius: BorderRadius.circular(100),
           border: Border.all(
-            color: isSelected ? colors.accent : colors.border.withValues(alpha: 0.5),
+            color: isSelected
+                ? colors.accent
+                : colors.border.withValues(alpha: 0.5),
             width: 1,
           ),
         ),
@@ -826,12 +917,24 @@ class _GridGuidelinesPainter extends CustomPainter {
     final double twoThirdsH = size.height * 2.0 / 3.0;
 
     // Vertical guides
-    canvas.drawLine(Offset(oneThirdW, 0), Offset(oneThirdW, size.height), paint);
-    canvas.drawLine(Offset(twoThirdsW, 0), Offset(twoThirdsW, size.height), paint);
+    canvas.drawLine(
+      Offset(oneThirdW, 0),
+      Offset(oneThirdW, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(twoThirdsW, 0),
+      Offset(twoThirdsW, size.height),
+      paint,
+    );
 
     // Horizontal guides
     canvas.drawLine(Offset(0, oneThirdH), Offset(size.width, oneThirdH), paint);
-    canvas.drawLine(Offset(0, twoThirdsH), Offset(size.width, twoThirdsH), paint);
+    canvas.drawLine(
+      Offset(0, twoThirdsH),
+      Offset(size.width, twoThirdsH),
+      paint,
+    );
   }
 
   @override
@@ -843,10 +946,7 @@ class _RoutePolylinePainter extends CustomPainter {
   final List<LatLng> points;
   final Color routeColor;
 
-  _RoutePolylinePainter({
-    required this.points,
-    required this.routeColor,
-  });
+  _RoutePolylinePainter({required this.points, required this.routeColor});
 
   @override
   void paint(Canvas canvas, Size size) {

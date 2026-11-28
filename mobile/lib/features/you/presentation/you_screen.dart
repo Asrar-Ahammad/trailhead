@@ -1,13 +1,15 @@
 import 'dart:ui';
+import '../state_management/you_bloc_activity_actions.dart';
+import '../../../shared/state_management/async_value.dart';
+import '../../../shared/state_management/global/history_cubit_activities.dart';
+import '../../../shared/state_management/global/stats_cubit_records.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:trailhead_mobile/shared/navigation/app_navigator.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:trailhead_mobile/shared/theme/app_colors.dart';
-import 'package:trailhead_mobile/features/history/data/run_history_repository.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_isar.dart';
-import 'package:trailhead_mobile/features/stats/application/pr_engine.dart';
+import 'package:trailhead_mobile/features/stats/domain/stats_repository_personal_records.dart';
 import 'package:trailhead_mobile/features/profile/presentation/settings_screen.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/progress_tab.dart';
 import 'package:trailhead_mobile/features/you/presentation/widgets/activity_card.dart';
@@ -15,30 +17,24 @@ import 'package:trailhead_mobile/features/you/presentation/widgets/records_tab.d
 import 'package:trailhead_mobile/shared/theme/app_text_styles.dart';
 import 'package:trailhead_mobile/shared/state_management/global/audio_cubit_ui_sounds.dart';
 import 'package:trailhead_mobile/shared/state_management/global/haptics_cubit_feedback.dart';
-import 'package:trailhead_mobile/features/stats/application/weekly_stats_provider.dart';
 
-final historyProvider = StreamProvider<List<RunIsar>>((ref) {
-  final repo = ref.read(runHistoryRepositoryProvider);
-  return repo.watchCompletedRuns();
-});
-
-final prsProvider = FutureProvider<RecordGroup>((ref) async {
-  final engine = ref.read(prEngineProvider);
-  return engine.getRecords();
-});
-
-final selectedActivitiesProvider = StateProvider<Set<int>>((ref) => {});
-final isDeletingProvider = StateProvider<bool>((ref) => false);
-final recordsModeProvider = StateProvider<String>((ref) => 'best_effort');
-
-class YouScreen extends ConsumerStatefulWidget {
+class YouScreen extends StatelessWidget {
   const YouScreen({super.key});
 
   @override
-  ConsumerState<YouScreen> createState() => _YouScreenState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => context.read<CreateYouBloc>()(),
+    child: const _YouContent(),
+  );
 }
 
-class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProviderStateMixin {
+class _YouContent extends StatefulWidget {
+  const _YouContent();
+  @override
+  State<_YouContent> createState() => _YouScreenState();
+}
+
+class _YouScreenState extends State<_YouContent> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   int _lastSoundIndex = 0;
 
@@ -89,12 +85,24 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
     
     final retroColors = Theme.of(context).extension<AppColors>()!;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final historyAsync = ref.watch(historyProvider);
-    final prsAsync = ref.watch(prsProvider);
+    final historyAsync = context.watch<HistoryActivitiesCubit>().state;
+    final prsAsync = context.watch<StatsRecordsCubit>().state;
 
-    final selectedIds = ref.watch(selectedActivitiesProvider);
-    final isDeleting = ref.watch(isDeletingProvider);
+    final selectedIds = context.watch<YouBloc>().state.selected;
+    final isDeleting = context.watch<YouBloc>().state.deleting;
 
+    return BlocListener<YouBloc, YouState>(
+      listener: (context, state) {
+        if (state.error case final error?) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+        }
+      },
+      child: _buildScreen(context, retroColors, isDarkMode, historyAsync, prsAsync, selectedIds, isDeleting),
+    );
+  }
+
+  Widget _buildScreen(BuildContext context, AppColors retroColors, bool isDarkMode,
+      AsyncValue<List<RunIsar>> historyAsync, AsyncValue<RecordGroup> prsAsync, Set<int> selectedIds, bool isDeleting) {
     return Scaffold(
         backgroundColor: retroColors.background,
         extendBodyBehindAppBar: true,
@@ -114,7 +122,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                 leading: IconButton(
                   icon: Icon(PhosphorIcons.x, color: retroColors.textPrimary),
                   onPressed: isDeleting ? null : () {
-                    ref.read(selectedActivitiesProvider.notifier).state = {};
+                    context.read<YouBloc>().add(const ClearActivitySelection());
                   },
                 ),
                 actions: [
@@ -133,9 +141,9 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                     IconButton(
                       icon: Icon(PhosphorIcons.trash, color: retroColors.error),
                       onPressed: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
+                        final confirmed = await AppNavigator.dialog<bool>(
+                          context,
+                          (ctx) => AlertDialog(
                             backgroundColor: retroColors.surface,
                             title: Text('Delete Activities?', style: AppTextStyles.headline(color: retroColors.textPrimary)),
                             content: Text('Are you sure you want to delete ${selectedIds.length} activities?', style: AppTextStyles.bodyMedium(color: retroColors.textSecondary)),
@@ -152,27 +160,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
                           ),
                         );
 
-                        if (confirmed == true) {
-                          ref.read(isDeletingProvider.notifier).state = true;
-                          final idsToDelete = List<int>.from(selectedIds);
-                          try {
-                            final repo = ref.read(runHistoryRepositoryProvider);
-                            for (final id in idsToDelete) {
-                              await repo.deleteRun(id);
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Failed to delete: $e')),
-                              );
-                            }
-                          } finally {
-                            ref.read(isDeletingProvider.notifier).state = false;
-                            ref.read(selectedActivitiesProvider.notifier).state = {};
-                            ref.invalidate(historyProvider);
-                            ref.invalidate(prsProvider);
-                            ref.invalidate(weeklySummaryProvider);
-                          }
+                        if (confirmed == true && context.mounted) {
+                          context.read<YouBloc>().add(const DeleteSelectedActivities());
                         }
                       },
                     ),
@@ -240,11 +229,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
             color: retroColors.accent,
             backgroundColor: retroColors.surface,
             edgeOffset: topInset,
-            onRefresh: () async {
-              ref.invalidate(historyProvider);
-              ref.invalidate(prsProvider);
-              ref.invalidate(weeklySummaryProvider);
-            },
+            onRefresh: context.read<HistoryActivitiesCubit>().refresh,
             child: historyAsync.isLoading && !historyAsync.hasValue
                 ? Center(child: CircularProgressIndicator(color: retroColors.accent))
                 : _buildEmptyState(retroColors),
@@ -253,7 +238,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
           return TabBarView(
             controller: _tabController,
             children: [
-              runs.isEmpty ? emptyRefreshable() : _buildActivitiesTab(context, retroColors, runs, prsAsync, ref),
+              runs.isEmpty ? emptyRefreshable() : _buildActivitiesTab(context, retroColors, runs, prsAsync),
               const RecordsTab(),
               ProgressTab(runs: runs),
             ],
@@ -295,7 +280,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
 
 
 
-  Widget _buildActivitiesTab(BuildContext context, AppColors retroColors, List<RunIsar> runs, AsyncValue<RecordGroup> prsAsync, WidgetRef ref) {
+  Widget _buildActivitiesTab(BuildContext context, AppColors retroColors, List<RunIsar> runs, AsyncValue<RecordGroup> prsAsync) {
     final List<dynamic> listItems = [];
     String? currentGroupDate;
     final now = DateTime.now();
@@ -332,11 +317,7 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
       color: retroColors.accent,
       backgroundColor: retroColors.surface,
       edgeOffset: topInset,
-      onRefresh: () async {
-        ref.invalidate(historyProvider);
-        ref.invalidate(prsProvider);
-        ref.invalidate(weeklySummaryProvider);
-      },
+      onRefresh: context.read<HistoryActivitiesCubit>().refresh,
       child: ListView.builder(
         padding: EdgeInsets.only(
           top: topInset + 2,
@@ -366,8 +347,8 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               orElse: () => 0,
             );
             
-            final isSelectionMode = ref.watch(selectedActivitiesProvider).isNotEmpty;
-            final isSelected = ref.watch(selectedActivitiesProvider).contains(item.id);
+            final isSelectionMode = context.watch<YouBloc>().state.selected.isNotEmpty;
+            final isSelected = context.watch<YouBloc>().state.selected.contains(item.id);
 
             return ActivityCard(
               key: ValueKey(item.id),
@@ -376,18 +357,12 @@ class _YouScreenState extends ConsumerState<YouScreen> with SingleTickerProvider
               isSelectionMode: isSelectionMode,
               isSelected: isSelected,
               onSelect: () {
-                final currentSelection = Set<int>.from(ref.read(selectedActivitiesProvider));
-                if (isSelected) {
-                  currentSelection.remove(item.id);
-                } else {
-                  currentSelection.add(item.id);
-                }
-                ref.read(selectedActivitiesProvider.notifier).state = currentSelection;
+                context.read<YouBloc>().add(ToggleActivitySelection(item.id));
                 context.read<AudioCubit>().playToggleSwitch(); // Audio feedback for toggle
               },
               onLongPress: () {
                 if (!isSelectionMode) {
-                  ref.read(selectedActivitiesProvider.notifier).state = {item.id};
+                  context.read<YouBloc>().add(ToggleActivitySelection(item.id));
                   context.read<AudioCubit>().playToggleSwitch(); // Audio feedback for toggle
                   context.read<HapticsCubit>().lightImpact();
                 }

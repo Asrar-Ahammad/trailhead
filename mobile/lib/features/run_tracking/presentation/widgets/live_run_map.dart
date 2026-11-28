@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import '../../application/route_provider.dart';
-import '../../application/run_tracker_controller.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_route_map.dart';
+import 'package:trailhead_mobile/shared/state_management/global/run_tracking_cubit_live_session.dart';
 import '../../../../shared/theme/app_colors.dart';
 import 'location_markers.dart';
 
@@ -13,16 +12,16 @@ import 'location_markers.dart';
 /// Two visual states:
 ///   * **Locating** – full-canvas radar sweep while GPS fix is pending.
 ///   * **Located**  – static two-ring dot on the user's exact position.
-class LiveRunMap extends ConsumerStatefulWidget {
+class LiveRunMap extends StatefulWidget {
   final LatLng? initialLocation;
 
   const LiveRunMap({super.key, this.initialLocation});
 
   @override
-  ConsumerState<LiveRunMap> createState() => _LiveRunMapState();
+  State<LiveRunMap> createState() => _LiveRunMapState();
 }
 
-class _LiveRunMapState extends ConsumerState<LiveRunMap> {
+class _LiveRunMapState extends State<LiveRunMap> {
   final MapController _mapController = MapController();
 
   static const LatLng _defaultCenter = LatLng(20.0, 0.0);
@@ -63,7 +62,7 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
 
   /// Returns the best available position: route points > tracker state > widget prop.
   LatLng? _currentPosition() {
-    final points = ref.read(routePointsProvider).valueOrNull ?? [];
+    final points = context.read<RunRouteMapCubit>().state.points;
     if (points.isNotEmpty) return points.last;
     final pos = context.read<RunTrackerCubit>().state.initialPosition;
     if (pos != null) return LatLng(pos.latitude, pos.longitude);
@@ -120,29 +119,30 @@ class _LiveRunMapState extends ConsumerState<LiveRunMap> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => BlocListener<RunRouteMapCubit, RunRouteMapState>(
+    listenWhen: (before, after) => before.recenterVersion != after.recenterVersion,
+    listener: (context, _) => _recenter(),
+    child: Builder(builder: _buildMap),
+  );
+
+  void _recenter() {
+    _lastCenteredAt = null;
+    final position = _currentPosition();
+    if (position == null) return;
+    try {
+      _mapController.move(position, _runningZoom);
+      _lastCenteredAt = position;
+    } catch (_) {
+      // The map may still be attaching during a tab change.
+    }
+  }
+
+  Widget _buildMap(BuildContext context) {
     final colors = Theme.of(context).extension<AppColors>()!;
     final brightness = Theme.of(context).brightness;
-    final routeAsync = ref.watch(routePointsProvider);
+    final points = context.select((RunRouteMapCubit cubit) => cubit.state.points);
     final trackerState = context.watch<RunTrackerCubit>().state;
 
-    final points = routeAsync.valueOrNull ?? [];
-
-    // ── Re-center signal from the location button ─────────────────────────
-    // When the user taps the GPS button, recenterSignalProvider increments.
-    // We listen here and immediately move the camera, bypassing the
-    // _lastCenteredAt guard that normally prevents redundant moves.
-    ref.listen<int>(recenterSignalProvider, (prev, next) {
-      if (!mounted) return;
-      _lastCenteredAt = null; // clear guard so the move is never skipped
-      final pos = _currentPosition();
-      if (pos != null) {
-        try {
-          _mapController.move(pos, _runningZoom);
-          _lastCenteredAt = pos;
-        } catch (_) {}
-      }
-    });
 
     // ── Derive the current user position ──────────────────────────────────
     // Priority: live GPS route > initialPosition from state > widget prop.

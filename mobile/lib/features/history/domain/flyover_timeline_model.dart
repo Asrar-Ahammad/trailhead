@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:latlong2/latlong.dart';
-import 'package:trailhead_mobile/features/run_tracking/application/tracking_calcs.dart';
+import 'package:trailhead_mobile/features/run_tracking/domain/run_tracking_use_case_calculations.dart';
 import 'package:trailhead_mobile/features/run_tracking/data/models/run_point_isar.dart';
 
 /// A single evaluated sample along the flyover playback timeline.
